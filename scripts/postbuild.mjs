@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const rootDir = process.cwd();
@@ -43,6 +43,7 @@ if (fs.existsSync(rootStandalone)) {
   }
 
   const rootStandaloneServer = path.resolve(rootStandalone, 'server.js');
+  const webStandaloneServer = path.resolve(rootStandalone, 'apps/web/server.js');
   const launcherCode = `/**
  * Hostinger Next.js Standalone Unified Bridge
  * MAD O MEDIA • Agency OS
@@ -50,19 +51,32 @@ if (fs.existsSync(rootStandalone)) {
 const path = require('node:path');
 const fs = require('node:fs');
 
-const primaryServer = path.resolve(__dirname, '../../server.js');
-const fallbackServer = path.resolve(process.cwd(), 'server.js');
+const candidates = [
+  path.resolve(__dirname, '../../server.js'),
+  path.resolve(__dirname, '../../../server.js'),
+  path.resolve(process.cwd(), 'server.js'),
+  path.resolve(process.cwd(), '../../server.js')
+];
 
-if (fs.existsSync(primaryServer)) {
-  require(primaryServer);
-} else if (fs.existsSync(fallbackServer)) {
-  require(fallbackServer);
-} else {
-  require('./apps/web/server.js');
+let launched = false;
+for (const cand of candidates) {
+  if (fs.existsSync(cand)) {
+    console.log('[Standalone Bridge] Launching unified server:', cand);
+    require(cand);
+    launched = true;
+    break;
+  }
+}
+
+if (!launched) {
+  console.error('[Standalone Bridge] Failed to locate server.js. process.cwd():', process.cwd());
 }
 `;
   fs.writeFileSync(rootStandaloneServer, launcherCode, 'utf8');
-  console.log('[Postbuild] Created .next/standalone/server.js unified bridge');
+  if (fs.existsSync(path.dirname(webStandaloneServer))) {
+    fs.writeFileSync(webStandaloneServer, launcherCode, 'utf8');
+  }
+  console.log('[Postbuild] Created unified standalone bridges in .next/standalone');
 }
 
 console.log('[Postbuild] Build output fully validated for Hostinger deployment.');
