@@ -50,6 +50,41 @@ server.set('trust proxy', Number(process.env.TRUST_PROXY || 1));
 let isReady = false;
 let appRouter = null;
 
+// Serve Next.js static chunks directly with strict MIME types and immutable caching
+const staticCandidates = [
+  path.resolve(__dirname, '.next/static'),
+  path.resolve(__dirname, 'apps/web/.next/static'),
+  path.resolve(process.cwd(), '.next/static'),
+  path.resolve(process.cwd(), 'apps/web/.next/static')
+];
+for (const s of staticCandidates) {
+  if (fs.existsSync(s)) {
+    server.use('/_next/static', express.static(s, {
+      maxAge: '365d',
+      immutable: true,
+      fallthrough: true
+    }));
+    break;
+  }
+}
+
+// Serve public directory assets
+const publicCandidates = [
+  path.resolve(__dirname, 'public'),
+  path.resolve(__dirname, 'apps/web/public'),
+  path.resolve(process.cwd(), 'public'),
+  path.resolve(process.cwd(), 'apps/web/public')
+];
+for (const p of publicCandidates) {
+  if (fs.existsSync(p)) {
+    server.use(express.static(p, {
+      maxAge: '7d',
+      fallthrough: true
+    }));
+    break;
+  }
+}
+
 // Temporary gate while NestJS + Next.js prepare in background
 server.use((req, res, next) => {
   if (isReady && appRouter) {
@@ -107,8 +142,18 @@ if (process.env.DATABASE_URL) {
   setTimeout(() => {
     try {
       console.log('[Agency OS] Background: verifying database schema...');
+      const prismaCandidates = [
+        path.resolve(__dirname, 'node_modules/prisma/build/index.js'),
+        path.resolve(process.cwd(), 'node_modules/prisma/build/index.js'),
+        path.resolve(__dirname, '../../node_modules/prisma/build/index.js')
+      ];
+      const prismaCli = prismaCandidates.find(p => fs.existsSync(p));
+      const migrateCmd = prismaCli
+        ? `"${process.execPath}" "${prismaCli}" migrate deploy`
+        : 'npx prisma migrate deploy';
+
       const { exec } = require('node:child_process');
-      exec('npx prisma migrate deploy', (err) => {
+      exec(migrateCmd, (err) => {
         if (err) {
           console.warn('[Agency OS] Notice: Database migration check:', err.message);
         } else {

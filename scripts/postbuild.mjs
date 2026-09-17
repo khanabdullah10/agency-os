@@ -29,17 +29,32 @@ const rootStandalone = path.resolve(rootNext, 'standalone');
 if (fs.existsSync(rootStandalone)) {
   console.log('[Postbuild] Standalone directory found at .next/standalone');
 
-  const standaloneStatic = path.resolve(rootStandalone, 'apps/web/.next/static');
+  // Sync Next.js static assets into BOTH root standalone and apps/web standalone
   const webStatic = path.resolve(webNext, 'static');
-  if (fs.existsSync(webStatic) && !fs.existsSync(standaloneStatic)) {
-    fs.cpSync(webStatic, standaloneStatic, { recursive: true });
-    console.log('[Postbuild] Synced .next/static into standalone');
+  const rootStandaloneStatic = path.resolve(rootStandalone, '.next/static');
+  const webStandaloneStatic = path.resolve(rootStandalone, 'apps/web/.next/static');
+  if (fs.existsSync(webStatic)) {
+    if (!fs.existsSync(rootStandaloneStatic)) {
+      fs.cpSync(webStatic, rootStandaloneStatic, { recursive: true });
+    }
+    if (!fs.existsSync(webStandaloneStatic)) {
+      fs.cpSync(webStatic, webStandaloneStatic, { recursive: true });
+    }
+    console.log('[Postbuild] Synced .next/static into all standalone targets');
   }
 
-  const standalonePublic = path.resolve(rootStandalone, 'apps/web/public');
-  if (fs.existsSync(webPublic) && !fs.existsSync(standalonePublic)) {
-    fs.cpSync(webPublic, standalonePublic, { recursive: true });
-    console.log('[Postbuild] Synced public assets into standalone');
+  // Sync public assets into BOTH root standalone and apps/web standalone
+  const rootStandalonePublic = path.resolve(rootStandalone, 'public');
+  const webStandalonePublic = path.resolve(rootStandalone, 'apps/web/public');
+  const srcPublic = fs.existsSync(webPublic) ? webPublic : (fs.existsSync(rootPublic) ? rootPublic : null);
+  if (srcPublic) {
+    if (!fs.existsSync(rootStandalonePublic)) {
+      fs.cpSync(srcPublic, rootStandalonePublic, { recursive: true });
+    }
+    if (!fs.existsSync(webStandalonePublic)) {
+      fs.cpSync(srcPublic, webStandalonePublic, { recursive: true });
+    }
+    console.log('[Postbuild] Synced public assets into all standalone targets');
   }
 
   const standaloneApp = path.resolve(rootStandalone, 'apps/web/app');
