@@ -31,16 +31,33 @@ async function bootstrap() {
   next();
  });
 
- const port = Number(process.env.PORT || 3000);
- const host = process.env.BIND_HOST || '0.0.0.0';
+  const rawPort = process.env.PORT || 3000;
+  const portNum = (/^\d+$/.test(String(rawPort))) ? Number(rawPort) : 3000;
+  const port = portNum;
+  const host = process.env.BIND_HOST || '0.0.0.0';
 
- const nest = await NestFactory.create(AppModule, new ExpressAdapter(api), { bodyParser: false, logger: ['error', 'warn', 'log'] });
- nest.useGlobalFilters(new Errors());
- nest.enableShutdownHooks();
- await nest.init();
+  const nest = await NestFactory.create(AppModule, new ExpressAdapter(api), { bodyParser: false, logger: ['error', 'warn', 'log'] });
+  nest.useGlobalFilters(new Errors());
+  nest.enableShutdownHooks();
+  await nest.init();
 
- const web = next({ dev: !production, turbopack: false, dir: path.resolve(process.cwd(), 'apps/web'), hostname: '0.0.0.0', port });
- await web.prepare();
+  const webCandidates = [
+    path.resolve(process.cwd(), 'apps/web'),
+    path.resolve(__dirname, '../../web'),
+    path.resolve(__dirname, '../../../apps/web'),
+    path.resolve(__dirname, '../web'),
+    process.cwd(),
+  ];
+  const webDir = webCandidates.find((d) => {
+    try {
+      return require('node:fs').existsSync(path.resolve(d, '.next'));
+    } catch {
+      return false;
+    }
+  }) || path.resolve(process.cwd(), 'apps/web');
+
+  const web = next({ dev: !production, turbopack: false, dir: webDir, hostname: '0.0.0.0', port: portNum });
+  await web.prepare();
 
  const appRouter = express.Router();
  appRouter.use('/api', api);

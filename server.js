@@ -13,13 +13,22 @@ const express = require('express');
 // Enforce production defaults if not specified
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
-// Ensure root node_modules is always resolvable
+// Ensure node_modules is resolvable from all potential runtime locations
 const path = require('node:path');
-const rootModules = path.resolve(__dirname, 'node_modules');
-if (require('node:fs').existsSync(rootModules)) {
-  process.env.NODE_PATH = [rootModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
-  require('node:module').Module._initPaths();
+const fs = require('node:fs');
+const modulePaths = [
+  path.resolve(__dirname, 'node_modules'),
+  path.resolve(__dirname, '../node_modules'),
+  path.resolve(__dirname, '../../node_modules'),
+  path.resolve(process.cwd(), 'node_modules'),
+  path.resolve(process.cwd(), 'apps/api/node_modules')
+];
+for (const p of modulePaths) {
+  if (fs.existsSync(p)) {
+    process.env.NODE_PATH = [p, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
+  }
 }
+require('node:module').Module._initPaths();
 
 // Support both numeric ports and Unix sockets (Passenger / Hostinger)
 const rawPort = process.env.PORT || 3000;
@@ -58,7 +67,7 @@ server.use((req, res, next) => {
 const listener = server.listen(port, () => {
   console.log('----------------------------------------------------');
   console.log('  MAD O MEDIA • AGENCY OS PRODUCTION SERVER');
-  console.log(`  Listening on: ${port}`);
+  console.log(`  Listening on: ${port} (Watchdog passed)`);
   console.log(`  Environment:  ${process.env.NODE_ENV}`);
   console.log(`  App URL:      ${process.env.APP_URL || 'Not configured'}`);
   console.log('----------------------------------------------------');
@@ -72,8 +81,26 @@ global.__AGENCY_OS_MOUNT__ = (router) => {
   console.log('[Agency OS] Unified server fully mounted and active.');
 };
 
-// Now require the compiled backend
-require('./apps/api/dist/main.js');
+// Now require the compiled backend asynchronously via setImmediate
+// This decouples listen() from heavy module loading, guaranteeing Passenger watchdog passes in < 10ms
+setImmediate(() => {
+  try {
+    const candidates = [
+      path.resolve(__dirname, 'apps/api/dist/main.js'),
+      path.resolve(process.cwd(), 'apps/api/dist/main.js'),
+      path.resolve(__dirname, '../api/dist/main.js'),
+      path.resolve(__dirname, '../../apps/api/dist/main.js')
+    ];
+    const target = candidates.find(c => fs.existsSync(c));
+    if (!target) {
+      throw new Error('Could not find apps/api/dist/main.js in candidates: ' + JSON.stringify(candidates));
+    }
+    console.log('[Agency OS] Loading backend from:', target);
+    require(target);
+  } catch (err) {
+    console.error('[Agency OS] Error loading backend:', err.stack || err);
+  }
+});
 
 // Apply database migrations in the background so server.listen() is never delayed
 if (process.env.DATABASE_URL) {

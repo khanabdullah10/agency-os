@@ -42,6 +42,13 @@ if (fs.existsSync(rootStandalone)) {
     console.log('[Postbuild] Synced public assets into standalone');
   }
 
+  const standaloneApp = path.resolve(rootStandalone, 'apps/web/app');
+  const webApp = path.resolve(rootDir, 'apps/web/app');
+  if (fs.existsSync(webApp) && !fs.existsSync(standaloneApp)) {
+    fs.cpSync(webApp, standaloneApp, { recursive: true });
+    console.log('[Postbuild] Synced app directory into standalone');
+  }
+
   const standaloneApi = path.resolve(rootStandalone, 'apps/api/dist');
   const srcApi = path.resolve(rootDir, 'apps/api/dist');
   if (fs.existsSync(srcApi)) {
@@ -56,47 +63,68 @@ if (fs.existsSync(rootStandalone)) {
     console.log('[Postbuild] Synced prisma schema into standalone');
   }
 
+  // 1. Copy the unified production server.js directly into standalone root and web
   const rootStandaloneServer = path.resolve(rootStandalone, 'server.js');
   const webStandaloneServer = path.resolve(rootStandalone, 'apps/web/server.js');
-  const launcherCode = `/**
- * Hostinger Next.js Standalone Unified Bridge
- * MAD O MEDIA • Agency OS
- */
-const path = require('node:path');
-const fs = require('node:fs');
+  const srcServer = path.resolve(rootDir, 'server.js');
+  if (fs.existsSync(srcServer)) {
+    fs.cpSync(srcServer, rootStandaloneServer);
+    if (fs.existsSync(path.dirname(webStandaloneServer))) {
+      fs.cpSync(srcServer, webStandaloneServer);
+    }
+    console.log('[Postbuild] Synced unified production server.js into standalone targets');
+  }
 
-const candidates = [
-  path.resolve(__dirname, '../../server.js'),
-  path.resolve(__dirname, '../../../server.js'),
-  path.resolve(process.cwd(), 'server.js'),
-  path.resolve(process.cwd(), '../../server.js')
-];
+  // 2. Sync all backend & runtime dependencies into standalone/node_modules
+  const srcModules = path.resolve(rootDir, 'node_modules');
+  const destModules = path.resolve(rootStandalone, 'node_modules');
+  if (fs.existsSync(srcModules)) {
+    console.log('[Postbuild] Syncing dependencies into standalone/node_modules...');
+    const items = fs.readdirSync(srcModules);
+    for (const item of items) {
+      if (item === '.bin' || item === '.cache') continue;
+      const srcItem = path.resolve(srcModules, item);
+      const destItem = path.resolve(destModules, item);
+      if (item.startsWith('@')) {
+        if (!fs.existsSync(destItem)) {
+          fs.mkdirSync(destItem, { recursive: true });
+        }
+        const subItems = fs.readdirSync(srcItem);
+        for (const subItem of subItems) {
+          const subSrc = path.resolve(srcItem, subItem);
+          const subDest = path.resolve(destItem, subItem);
+          if (!fs.existsSync(subDest)) {
+            try {
+              fs.cpSync(subSrc, subDest, { recursive: true, dereference: true });
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      } else {
+        if (!fs.existsSync(destItem) || item === '.prisma') {
+          try {
+            fs.cpSync(srcItem, destItem, { recursive: true, dereference: true });
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    }
+    console.log('[Postbuild] Dependencies successfully synced to standalone.');
+  }
 
-let launched = false;
-for (const cand of candidates) {
-  if (fs.existsSync(cand)) {
-    console.log('[Standalone Bridge] Launching unified server:', cand);
+  // 3. Sync apps/api/node_modules if present
+  const apiSrcModules = path.resolve(rootDir, 'apps/api/node_modules');
+  const apiDestModules = path.resolve(rootStandalone, 'apps/api/node_modules');
+  if (fs.existsSync(apiSrcModules) && !fs.existsSync(apiDestModules)) {
     try {
-      require(cand);
-      launched = true;
-      break;
-    } catch (err) {
-      console.error('[Standalone Bridge] Error executing ' + cand + ':', err.stack || err);
-      process.exit(1);
+      fs.cpSync(apiSrcModules, apiDestModules, { recursive: true, dereference: true });
+      console.log('[Postbuild] Synced apps/api/node_modules into standalone.');
+    } catch (e) {
+      // ignore
     }
   }
-}
-
-if (!launched) {
-  console.error('[Standalone Bridge] Failed to locate server.js. process.cwd():', process.cwd());
-  process.exit(1);
-}
-`;
-  fs.writeFileSync(rootStandaloneServer, launcherCode, 'utf8');
-  if (fs.existsSync(path.dirname(webStandaloneServer))) {
-    fs.writeFileSync(webStandaloneServer, launcherCode, 'utf8');
-  }
-  console.log('[Postbuild] Created unified standalone bridges in .next/standalone');
 }
 
 console.log('[Postbuild] Build output fully validated for Hostinger deployment.');
