@@ -7,8 +7,8 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "dev": "ts-node --project apps/api/tsconfig.json --transpile-only apps/api/src/main.ts",
-    "build": "prisma generate && npm run build -w @agency-os/web && npm run build -w @agency-os/api",
-    "start": "node apps/api/dist/main.js",
+    "build": "prisma generate && npm run build -w @agency-os/web && npm run build -w @agency-os/api && node scripts/postbuild.mjs",
+    "start": "node server.js",
     "typecheck": "tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "node --import tsx tests/integration.ts",
