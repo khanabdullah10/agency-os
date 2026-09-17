@@ -30,16 +30,24 @@ console.log(`  Port:        ${process.env.PORT}`);
 console.log(`  App URL:     ${process.env.APP_URL || 'Not configured'}`);
 console.log('----------------------------------------------------');
 
-// Apply database migrations automatically if DATABASE_URL is available
-if (process.env.DATABASE_URL) {
-  try {
-    console.log('[Agency OS] Checking and applying database migrations...');
-    require('node:child_process').execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-    console.log('[Agency OS] Database schema is verified.');
-  } catch (err) {
-    console.warn('[Agency OS] Notice: Database migration check:', err.message);
-  }
-}
-
-// Launch the compiled NestJS + Next.js server
+// Launch the compiled NestJS + Next.js server immediately
 require('./apps/api/dist/main.js');
+
+// Apply database migrations in the background so server.listen() is never delayed
+if (process.env.DATABASE_URL) {
+  setTimeout(() => {
+    try {
+      console.log('[Agency OS] Background: verifying database schema...');
+      const { exec } = require('node:child_process');
+      exec('npx prisma migrate deploy', (err) => {
+        if (err) {
+          console.warn('[Agency OS] Notice: Database migration check:', err.message);
+        } else {
+          console.log('[Agency OS] Database schema verified and up-to-date.');
+        }
+      });
+    } catch (err) {
+      console.warn('[Agency OS] Notice: Database migration check:', err.message);
+    }
+  }, 2000);
+}
