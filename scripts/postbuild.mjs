@@ -102,7 +102,7 @@ if (fs.existsSync(rootStandalone)) {
           }
         }
       } else {
-        if (!fs.existsSync(destItem) || item === '.prisma') {
+        if (!fs.existsSync(destItem) || item === '.prisma' || item === 'next') {
           try {
             fs.cpSync(srcItem, destItem, { recursive: true, dereference: true });
           } catch (e) {
@@ -112,6 +112,28 @@ if (fs.existsSync(rootStandalone)) {
       }
     }
     console.log('[Postbuild] Dependencies successfully synced to standalone.');
+  }
+
+  // Explicitly ensure all Next.js compiled tools (including webpack-lib) are present
+  const srcNextCompiled = path.resolve(rootDir, 'node_modules/next/dist/compiled');
+  const destNextCompiled = path.resolve(rootStandalone, 'node_modules/next/dist/compiled');
+  if (fs.existsSync(srcNextCompiled)) {
+    if (!fs.existsSync(destNextCompiled)) {
+      fs.mkdirSync(destNextCompiled, { recursive: true });
+    }
+    const compiledItems = fs.readdirSync(srcNextCompiled);
+    for (const cItem of compiledItems) {
+      const cSrc = path.resolve(srcNextCompiled, cItem);
+      const cDest = path.resolve(destNextCompiled, cItem);
+      if (!fs.existsSync(cDest)) {
+        try {
+          fs.cpSync(cSrc, cDest, { recursive: true, dereference: true });
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    console.log('[Postbuild] Synced Next.js compiled tools (webpack, etc.) into standalone.');
   }
 
   // 3. Sync apps/api/node_modules if present
