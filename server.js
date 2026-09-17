@@ -10,7 +10,7 @@ require('dotenv').config();
 
 // Enforce production defaults if not specified
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
-process.env.PORT = process.env.PORT || '3100';
+process.env.PORT = process.env.PORT || '3000';
 process.env.BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 
 // Global error shields to prevent unhandled errors from terminating the server under high traffic

@@ -37,10 +37,10 @@ async function bootstrap() {
  nest.enableShutdownHooks();
  await nest.init();
  server.use('/api',api);
- const web=next({dev:!production,turbopack:false,dir:path.resolve(process.cwd(),'apps/web'),hostname:'localhost',port:Number(process.env.PORT||3100)});
+ const web=next({dev:!production,turbopack:false,dir:path.resolve(process.cwd(),'apps/web'),hostname:'0.0.0.0',port:Number(process.env.PORT||3000)});
  await web.prepare();
  server.use((req: any, res: any)=>web.getRequestHandler()(req,res));
- const listener=server.listen(Number(process.env.PORT||3100),process.env.BIND_HOST||'0.0.0.0',()=>console.log('Agency OS ready at '+process.env.APP_URL));
+ const listener=server.listen(Number(process.env.PORT||3000),process.env.BIND_HOST||'0.0.0.0',()=>console.log('Agency OS ready at '+process.env.APP_URL));
  const shutdown=async()=>{listener.close();await nest.close();await web.close();process.exit(0);};
  process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
 }
