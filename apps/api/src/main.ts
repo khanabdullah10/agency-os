@@ -23,10 +23,10 @@ async function bootstrap() {
  api.use(cookieParser());
  api.use(express.json({limit:'10mb'}));
  api.use(express.urlencoded({extended:false,limit:'10mb'}));
- api.use((_req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
+ api.use((_req: any, res: any, next: any)=>{res.setHeader('Cache-Control','no-store');next();});
  api.use(rateLimit({windowMs:60000,limit:Number(process.env.RATE_LIMIT_MAX||360),standardHeaders:'draft-8',legacyHeaders:false}));
  api.use('/auth/login',rateLimit({windowMs:15*60000,limit:10,standardHeaders:'draft-8',legacyHeaders:false,message:{message:'Too many sign-in attempts. Try again in 15 minutes.'}}));
- api.use((req,res,next)=>{
+ api.use((req: any, res: any, next: any)=>{
   if(!['GET','HEAD','OPTIONS'].includes(req.method)&&req.path!=='/jobs/run') {
    if(req.headers['x-agency-request']!=='1'||(req.headers.origin&&req.headers.origin!==origin)||req.headers['sec-fetch-site']==='cross-site'){res.status(403).json({message:'Request origin could not be verified.'});return;}
   }
@@ -39,7 +39,7 @@ async function bootstrap() {
  server.use('/api',api);
  const web=next({dev:!production,turbopack:false,dir:path.resolve(process.cwd(),'apps/web'),hostname:'localhost',port:Number(process.env.PORT||3100)});
  await web.prepare();
- server.use((req,res)=>web.getRequestHandler()(req,res));
+ server.use((req: any, res: any)=>web.getRequestHandler()(req,res));
  const listener=server.listen(Number(process.env.PORT||3100),process.env.BIND_HOST||'127.0.0.1',()=>console.log('Agency OS ready at '+process.env.APP_URL));
  const shutdown=async()=>{listener.close();await nest.close();await web.close();process.exit(0);};
  process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);

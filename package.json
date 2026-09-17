@@ -25,6 +25,10 @@
   "dependencies": {
     "@prisma/client": "^6.19.0",
     "@tailwindcss/postcss": "^4.1.17",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.19.0",
     "dotenv": "^16.6.1",
     "next": "^16.0.0",
     "prisma": "^6.19.0",
@@ -32,7 +36,6 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/node": "^22.19.0",
     "tsx": "^4.20.6",
     "ts-node": "^10.9.2",
     "vitest": "^5.0.1"
