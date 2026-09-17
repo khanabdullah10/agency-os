@@ -12,11 +12,18 @@ const express = require('express');
 
 // Enforce production defaults if not specified
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
-process.env.PORT = process.env.PORT || '3000';
-process.env.BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 
-const port = Number(process.env.PORT);
-const host = process.env.BIND_HOST;
+// Ensure root node_modules is always resolvable
+const path = require('node:path');
+const rootModules = path.resolve(__dirname, 'node_modules');
+if (require('node:fs').existsSync(rootModules)) {
+  process.env.NODE_PATH = [rootModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
+  require('node:module').Module._initPaths();
+}
+
+// Support both numeric ports and Unix sockets (Passenger / Hostinger)
+const rawPort = process.env.PORT || 3000;
+const port = (/^\d+$/.test(rawPort)) ? Number(rawPort) : rawPort;
 
 // Global error shields
 process.on('unhandledRejection', (reason, promise) => {
@@ -47,10 +54,11 @@ server.use((req, res, next) => {
 });
 
 // LISTEN IMMEDIATELY (< 5ms) TO SATISFY HOSTINGER 3-SECOND WATCHDOG
-const listener = server.listen(port, host, () => {
+// Must listen on port without explicit host so Passenger intercepts correctly
+const listener = server.listen(port, () => {
   console.log('----------------------------------------------------');
   console.log('  MAD O MEDIA • AGENCY OS PRODUCTION SERVER');
-  console.log(`  Listening on: http://${host}:${port}`);
+  console.log(`  Listening on: ${port}`);
   console.log(`  Environment:  ${process.env.NODE_ENV}`);
   console.log(`  App URL:      ${process.env.APP_URL || 'Not configured'}`);
   console.log('----------------------------------------------------');

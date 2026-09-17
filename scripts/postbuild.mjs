@@ -42,6 +42,20 @@ if (fs.existsSync(rootStandalone)) {
     console.log('[Postbuild] Synced public assets into standalone');
   }
 
+  const standaloneApi = path.resolve(rootStandalone, 'apps/api/dist');
+  const srcApi = path.resolve(rootDir, 'apps/api/dist');
+  if (fs.existsSync(srcApi)) {
+    fs.cpSync(srcApi, standaloneApi, { recursive: true });
+    console.log('[Postbuild] Synced apps/api/dist into standalone');
+  }
+
+  const standalonePrisma = path.resolve(rootStandalone, 'prisma');
+  const srcPrisma = path.resolve(rootDir, 'prisma');
+  if (fs.existsSync(srcPrisma) && !fs.existsSync(standalonePrisma)) {
+    fs.cpSync(srcPrisma, standalonePrisma, { recursive: true });
+    console.log('[Postbuild] Synced prisma schema into standalone');
+  }
+
   const rootStandaloneServer = path.resolve(rootStandalone, 'server.js');
   const webStandaloneServer = path.resolve(rootStandalone, 'apps/web/server.js');
   const launcherCode = `/**
@@ -62,14 +76,20 @@ let launched = false;
 for (const cand of candidates) {
   if (fs.existsSync(cand)) {
     console.log('[Standalone Bridge] Launching unified server:', cand);
-    require(cand);
-    launched = true;
-    break;
+    try {
+      require(cand);
+      launched = true;
+      break;
+    } catch (err) {
+      console.error('[Standalone Bridge] Error executing ' + cand + ':', err.stack || err);
+      process.exit(1);
+    }
   }
 }
 
 if (!launched) {
   console.error('[Standalone Bridge] Failed to locate server.js. process.cwd():', process.cwd());
+  process.exit(1);
 }
 `;
   fs.writeFileSync(rootStandaloneServer, launcherCode, 'utf8');
