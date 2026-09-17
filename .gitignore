@@ -1,0 +1,27 @@
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+**/dist/
+coverage/
+**/.turbo/
+.runtime/
+**/.runtime/
+*.log
+*.tsbuildinfo
+test-results/
+playwright-report/
+
+# Environment files
+.env
+.env.*
+.env.local
+.env.*.local
+!.env.example
+!.env.production.example
+
+# OS files
+.DS_Store
+Thumbs.db
+

@@ -1,0 +1,199 @@
+import 'dotenv/config';
+import { PrismaClient } from '@prisma/client';
+import { randomBytes, scrypt } from 'node:crypto';
+import { promisify } from 'node:util';
+import { spawnSync } from 'node:child_process';
+
+const derive = promisify(scrypt);
+
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const key = await derive(password, salt, 64);
+  return 'scrypt$' + salt + '$' + key.toString('hex');
+}
+
+const permissions = {
+  'client.view': 'View accessible client workspaces',
+  'client.view_all': 'View all agency clients',
+  'client.create': 'Onboard clients',
+  'client.edit': 'Edit client profiles and teams',
+  'client.archive': 'Archive clients',
+  'content.view': 'View content calendar and items',
+  'content.create': 'Plan content',
+  'content.edit': 'Edit content plans',
+  'content.edit_all': 'Manage any assigned content role',
+  'content.approve': 'Review content as assigned SMM',
+  'content.approve_client': 'Approve as client',
+  'script.write': 'Write and submit scripts',
+  'shoot.manage': 'Plan and complete shoots',
+  'edit.submit': 'Add and submit design or edit versions',
+  'task.view': 'View tasks',
+  'task.view_team': 'View team tasks',
+  'task.create': 'Create manual tasks',
+  'task.assign': 'Assign permitted internal users',
+  'task.complete': 'Update task progress',
+  'chat.view': 'View joined conversations',
+  'chat.internal': 'Access internal chat',
+  'chat.client': 'Access client-facing chat',
+  'chat.create': 'Create conversations',
+  'chat.moderate': 'Moderate messages',
+  'drive.view': 'View authorized Drive links',
+  'drive.manage': 'Attach Drive links',
+  'employee.view': 'View team directory',
+  'employee.manage': 'Manage users and roles',
+  'report.view': 'View reports',
+  'report.manage': 'Record analytics and reports',
+  'publish.view': 'View publishing queue',
+  'publish.manage': 'Manage manual publishing',
+  'activity.view': 'View authorized activity',
+  'approval.admin': 'Review configured admin approvals',
+  'settings.manage': 'Manage agency settings'
+};
+
+async function main() {
+  console.log('====================================================');
+  console.log('  MAD O MEDIA • AGENCY OS PRODUCTION BOOTSTRAP');
+  console.log('====================================================\n');
+
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is required in your environment variables.');
+  }
+
+  if (process.env.SEED_DEMO === 'true') {
+    throw new Error(
+      'CRITICAL: SEED_DEMO is set to "true". Production bootstrap requires SEED_DEMO=false to prevent mock data injection.'
+    );
+  }
+
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL || '').trim().toLowerCase();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || '';
+  const adminName = (process.env.SEED_ADMIN_NAME || 'Aditya Khan').trim();
+
+  if (!adminEmail || !adminEmail.includes('@')) {
+    throw new Error('SEED_ADMIN_EMAIL must be a valid email address.');
+  }
+
+  if (!adminPassword || adminPassword.length < 12) {
+    throw new Error('SEED_ADMIN_PASSWORD must contain at least 12 characters.');
+  }
+
+  console.log('Step 1: Deploying database migrations to Hostinger MySQL...');
+  const mig = spawnSync('npx', ['prisma', 'migrate', 'deploy'], { stdio: 'inherit', shell: true });
+  if (mig.status !== 0) {
+    throw new Error('Database migration failed. Please check Hostinger MySQL credentials and privileges.');
+  }
+
+  console.log('\nStep 2: Generating Prisma client...');
+  const gen = spawnSync('npx', ['prisma', 'generate'], { stdio: 'inherit', shell: true });
+  if (gen.status !== 0) {
+    throw new Error('Prisma client generation failed.');
+  }
+
+  const db = new PrismaClient();
+
+  try {
+    console.log('\nStep 3: Initializing core agency entity...');
+    const agency = await db.agency.upsert({
+      where: { id: 'mad-o-media' },
+      create: {
+        id: 'mad-o-media',
+        name: 'Mad O Media',
+        settings: { overdueEscalation: true }
+      },
+      update: {
+        name: 'Mad O Media'
+      }
+    });
+
+    console.log('Step 4: Registering 16 security permissions...');
+    for (const [key, description] of Object.entries(permissions)) {
+      await db.permission.upsert({
+        where: { key },
+        create: { key, description },
+        update: { description }
+      });
+    }
+
+    console.log('Step 5: Provisioning 9 standard agency roles...');
+    const employee = [
+      'client.view', 'content.view', 'task.view', 'task.create', 'task.assign',
+      'task.complete', 'chat.view', 'chat.internal', 'chat.create', 'drive.view',
+      'drive.manage', 'employee.view', 'activity.view'
+    ];
+    const smm = [
+      ...employee, 'client.edit', 'content.create', 'content.edit', 'content.approve',
+      'task.view_team', 'script.write', 'shoot.manage', 'edit.submit', 'chat.client',
+      'report.view', 'report.manage', 'publish.view', 'publish.manage'
+    ];
+
+    const defs = [
+      { key: 'SUPER_ADMIN', name: 'Super Admin', permissions: Object.keys(permissions), isSuperAdmin: true },
+      { key: 'ADMIN', name: 'Admin', permissions: Object.keys(permissions).filter(k => !['content.approve_client', 'settings.manage'].includes(k)) },
+      { key: 'SMM', name: 'Social Media Manager', permissions: smm },
+      { key: 'WRITER', name: 'Script Writer', permissions: [...employee, 'script.write'] },
+      { key: 'DESIGNER', name: 'Graphic Designer', permissions: [...employee, 'edit.submit'] },
+      { key: 'EDITOR', name: 'Video Editor', permissions: [...employee, 'edit.submit'] },
+      { key: 'VIDEOGRAPHER', name: 'Videographer', permissions: [...employee, 'shoot.manage'] },
+      { key: 'EMPLOYEE', name: 'Employee', permissions: employee },
+      { key: 'CLIENT', name: 'Client', permissions: ['client.view', 'content.view', 'content.approve_client', 'drive.view', 'report.view', 'activity.view'], isClient: true }
+    ];
+
+    const roles = {};
+    for (const def of defs) {
+      const r = await db.role.upsert({
+        where: { agencyId_systemKey: { agencyId: agency.id, systemKey: def.key } },
+        create: {
+          agencyId: agency.id,
+          name: def.name,
+          systemKey: def.key,
+          isSuperAdmin: !!def.isSuperAdmin,
+          isClient: !!def.isClient,
+          permissions: {
+            create: [...new Set(def.permissions)].map(permissionKey => ({ permissionKey }))
+          }
+        },
+        update: {}
+      });
+      roles[def.key] = r.id;
+    }
+
+    console.log('Step 6: Creating fresh Super Admin owner account...');
+    const passwordHash = await hashPassword(adminPassword);
+    const owner = await db.user.upsert({
+      where: { email: adminEmail },
+      create: {
+        agencyId: agency.id,
+        name: adminName,
+        email: adminEmail,
+        passwordHash,
+        roleId: roles.SUPER_ADMIN,
+        mustChangePassword: true,
+        avatarColor: '#0284c7'
+      },
+      update: {
+        name: adminName,
+        roleId: roles.SUPER_ADMIN,
+        active: true,
+        deletedAt: null
+      }
+    });
+
+    console.log('\n====================================================');
+    console.log('  PRODUCTION BOOTSTRAP COMPLETE (ZERO DEMO DATA)');
+    console.log('====================================================');
+    console.log(`  Agency:           Mad O Media`);
+    console.log(`  Super Admin:      ${owner.name} <${owner.email}>`);
+    console.log(`  Password Status:  Must change on first login`);
+    console.log(`  Mock Clients:     0 (Factory fresh)`);
+    console.log(`  Mock Content:     0 (Clean calendar)`);
+    console.log(`  Mock Messages:    0 (Pristine chat)`);
+    console.log('====================================================\n');
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+main().catch(err => {
+  console.error('\nProduction bootstrap failed:', err.message);
+  process.exit(1);
+});

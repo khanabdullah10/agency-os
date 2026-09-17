@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Agency OS — Standard Operating Procedure & Clickable Action Manual</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    @page {
+      size: A4;
+      margin: 12mm 14mm 14mm 14mm;
+      @bottom-right {
+        content: "Page " counter(page);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 8pt;
+        color: #94a3b8;
+      }
+      @bottom-left {
+        content: "Agency OS • Master Operating Manual & Clickable SOP";
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 8pt;
+        color: #94a3b8;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 9pt;
+      line-height: 1.55;
+      color: #1e293b;
+      background-color: #ffffff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* Cover Page */
+    .cover-page {
+      min-height: 94vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 30px;
+      page-break-after: always;
+      background: linear-gradient(135deg, #090d16 0%, #0f172a 100%);
+      color: #ffffff;
+      border-radius: 12px;
+    }
+
+    .cover-top {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      padding-bottom: 20px;
+    }
+
+    .cover-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #38bdf8;
+    }
+
+    .cover-title-wrap {
+      margin-top: 40px;
+    }
+
+    .cover-tagline {
+      font-size: 10.5pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #38bdf8;
+      margin-bottom: 12px;
+    }
+
+    .cover-title {
+      font-size: 28pt;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      margin-bottom: 18px;
+    }
+
+    .cover-subtitle {
+      font-size: 12pt;
+      line-height: 1.5;
+      color: #cbd5e1;
+      max-width: 650px;
+      font-weight: 400;
+    }
+
+    .cover-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 36px;
+    }
+
+    .cover-meta-item strong {
+      display: block;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      margin-bottom: 3px;
+    }
+
+    .cover-meta-item span {
+      font-size: 10.5pt;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .cover-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 8pt;
+      color: #94a3b8;
+    }
+
+    /* Content Styling */
+    .page {
+      page-break-after: always;
+      padding-top: 6px;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    h1 {
+      font-size: 15pt;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    h1 span.badge {
+      font-size: 8pt;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 5px;
+      background: #e0f2fe;
+      color: #0369a1;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    h2 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-left: 3px solid #2563eb;
+      padding-left: 8px;
+    }
+
+    h3 {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #334155;
+      margin-top: 10px;
+      margin-bottom: 4px;
+    }
+
+    p {
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    strong {
+      color: #0f172a;
+    }
+
+    /* Callouts */
+    .callout {
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin: 10px 0;
+      font-size: 8.5pt;
+      line-height: 1.45;
+      display: flex;
+      gap: 8px;
+      break-inside: avoid;
+    }
+
+    .callout.tip {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    .callout.warning {
+      background: #fffbeb;
+      border: 1px solid #fef3c7;
+      color: #92400e;
+    }
+
+    .callout.info {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #1e293b;
+    }
+
+    .callout.action {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+
+    .callout-icon {
+      font-weight: bold;
+      font-size: 11pt;
+    }
+
+    /* Action Steps Table */
+    table.action-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 12px 0;
+      font-size: 8pt;
+      break-inside: avoid;
+    }
+
+    table.action-table th {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 600;
+      text-align: left;
+      padding: 6px 8px;
+      border: 1px solid #0f172a;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    table.action-table td {
+      padding: 6px 8px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+      line-height: 1.4;
+    }
+
+    table.action-table tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    /* Badges */
+    .pill {
+      display: inline-block;
+      font-size: 7pt;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .pill-blue { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .pill-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .pill-amber { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .pill-purple { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+    .pill-pink { background: #fce7f3; color: #9d174d; border: 1px solid #fbcfe8; }
+    .pill-slate { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+    .pill-red { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .btn-ui {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7.5pt;
+      font-weight: 600;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+    }
+
+    .btn-ui.blue {
+      background: #2563eb;
+      border-color: #1d4ed8;
+      color: #ffffff;
+    }
+
+    .btn-ui.white {
+      background: #ffffff;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+
+    .btn-ui.amber {
+      background: #d97706;
+      border-color: #b45309;
+      color: #ffffff;
+    }
+
+    /* Workflow Diagram Box */
+    .flow-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px;
+      margin: 10px 0;
+      break-inside: avoid;
+    }
+
+    .flow-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: center;
+      font-size: 7.5pt;
+      font-weight: 600;
+    }
+
+    .flow-step {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      padding: 3px 7px;
+      border-radius: 4px;
+      color: #1e293b;
+    }
+
+    .flow-arrow {
+      color: #94a3b8;
+      font-size: 9pt;
+    }
+
+    .flow-step.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #1d4ed8;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 1px 4px;
+      border-radius: 3px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .step-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      break-inside: avoid;
+    }
+
+    .step-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .step-card-header strong {
+      font-size: 9.5pt;
+      color: #0f172a;
+    }
+
+    .click-target {
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    .output-box {
+      background: #f0fdf4;
+      border-left: 3px solid #16a34a;
+      padding: 5px 8px;
+      margin-top: 6px;
+      font-size: 8pt;
+      color: #166534;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== COVER PAGE ==================== -->
+  <div class="cover-page">
+    <div class="cover-top">
+      <div class="cover-brand">
+        <span>⚡ MAD O MEDIA • AGENCY OS</span>
+      </div>
+    </div>
+
+    <div class="cover-title-wrap">
+      <div class="cover-tagline">Standard Operating Procedure & Execution Manual</div>
+      <h1 class="cover-title">Complete Role-by-Role<br>Clickable Action Manual</h1>
+      <p class="cover-subtitle">
+        The definitive, step-by-step visual guide to every feature, clickable button, form field, workflow state machine transition, and expected output in Agency OS.
+      </p>
+
+      <div class="cover-meta-grid">
+        <div class="cover-meta-item">
+          <strong>Platform</strong>
+          <span>Agency OS Production 2.0</span>
+        </div>
+        <div class="cover-meta-item">
+          <strong>Audience</strong>
+          <span>All Agency Staff & Clients</span>
+        </div>
+        <div class="cover-meta-item">
+          <strong>Coverage</strong>
+          <span>100% Actions, Steps & Outputs</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <span>Confidential & Proprietary • Mad O Media</span>
+      <span>Updated September 2026</span>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 1: ARCHITECTURE & ROLES ==================== -->
+  <div class="page">
+    <h1>1. System Overview & Access Matrix <span class="badge">Architecture</span></h1>
+    <p>
+      <strong>Agency OS</strong> is an automated creative operations platform designed to eliminate dropped balls, unapproved edits, and chaotic communication. The entire system operates on a <strong>deterministic State Machine</strong>: content moves forward only when the required role executes their explicit clickable action.
+    </p>
+
+    <h2>1.1 System Roles, Responsibilities & Default Logins</h2>
+    <p>All core staff accounts are pre-configured with the master credential key: <code>MLjxodYKYAHY86fT!aA9</code>.</p>
+
+    <table class="action-table">
+      <thead>
+        <tr>
+          <th>Role</th>
+          <th>Account Email</th>
+          <th>Primary Screen Responsibility</th>
+          <th>Access Group</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Super Admin</strong></td>
+          <td><code>owner@agency.local</code></td>
+          <td>Agency control, onboarding clients, full approvals override, settings, custom roles.</td>
+          <td><span class="pill pill-red">Super Admin</span></td>
+        </tr>
+        <tr>
+          <td><strong>Admin</strong></td>
+          <td><code>admin@agency.local</code></td>
+          <td>Client management, team workloads, secondary approvals, dispute resolution.</td>
+          <td><span class="pill pill-blue">Executive</span></td>
+        </tr>
+        <tr>
+          <td><strong>Social Media Manager (SMM)</strong></td>
+          <td><code>smm@agency.local</code></td>
+          <td>Content planning, internal reviews, client coordination, publishing, live metrics.</td>
+          <td><span class="pill pill-green">Operations</span></td>
+        </tr>
+        <tr>
+          <td><strong>Script Writer</strong></td>
+          <td><code>writer@agency.local</code></td>
+          <td>Writing Hooks, story beats, CTAs, captions, hashtags, and submitting for review.</td>
+          <td><span class="pill pill-amber">Creative</span></td>
+        </tr>
+        <tr>
+          <td><strong>Video Editor</strong></td>
+          <td><code>editor@agency.local</code></td>
+          <td>Reviewing raw footage, uploading cuts (V1, V2), attaching Drive URLs, resolving revisions.</td>
+          <td><span class="pill pill-purple">Production</span></td>
+        </tr>
+        <tr>
+          <td><strong>Graphic Designer</strong></td>
+          <td><code>designer@agency.local</code></td>
+          <td>Creating statics/carousels, uploading creative versions, submitting for review.</td>
+          <td><span class="pill pill-pink">Creative</span></td>
+        </tr>
+        <tr>
+          <td><strong>Videographer</strong></td>
+          <td><code>shooter@agency.local</code></td>
+          <td>Shoot logistics, location scouting, confirming schedules, uploading raw footage.</td>
+          <td><span class="pill pill-blue">Field</span></td>
+        </tr>
+        <tr>
+          <td><strong>Client Portal User</strong></td>
+          <td><code>client@mellohealth.local</code></td>
+          <td>Reviewing & approving scripts, inspecting video cuts in Drive, viewing monthly reports.</td>
+          <td><span class="pill pill-slate">Client</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>1.2 The Master Content State Machine</h2>
+    <div class="flow-box">
+      <div class="flow-steps">
+        <span class="flow-step">PLANNING</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">SCRIPT_WRITING</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">INTERNAL_SCRIPT_REVIEW</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">CLIENT_SCRIPT_REVIEW</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">READY_FOR_SHOOT / EDITING</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">INTERNAL_EDIT_REVIEW</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">CLIENT_REVIEW</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">FINAL_CLIENT_APPROVED</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">READY_TO_PUBLISH</span> <span class="flow-arrow">→</span>
+        <span class="flow-step">PUBLISHED</span> <span class="flow-arrow">→</span>
+        <span class="flow-step active">REPORTING</span>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div>
+        <strong>The Zero-Confusion Rule:</strong> If a button is not visible on your screen, it means either: (1) it is not your turn in the workflow, (2) the required predecessor file (like a Drive link or Script) has not been saved yet, or (3) your role lacks permission for that stage.
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 2: SUPER ADMIN MANUAL ==================== -->
+  <div class="page">
+    <h1>2. Super Admin Manual <span class="badge">owner@agency.local</span></h1>
+    <p>The Super Admin holds supreme operational authority across clients, permissions, team assignments, and final publishing.</p>
+
+    <h2>Action 2.1: Onboarding a New Client</h2>
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Path: Left Sidebar → Clients (<span class="click-target">/clients</span>) → Click Button <span class="btn-ui">+ Add client</span></strong>
+        <span class="pill pill-blue">Modal Action</span>
+      </div>
+      <p>Opens the <strong>"Onboard a new client"</strong> modal. Complete the following fields:</p>
+      <ul style="margin-left: 18px; margin-bottom: 8px; font-size: 8pt;">
+        <li><strong>Client / Brand name</strong>: e.g. <code>Mello Health</code> (Required).</li>
+        <li><strong>Industry</strong>: e.g. <code>Health & Wellness</code> (Required).</li>
+        <li><strong>Brand accent color</strong>: Pick or enter hex code (e.g. <code>#0ea5e9</code>). Used for tags and charts.</li>
+        <li><strong>Monthly deliverables</strong>: Short, Reels, Carousels quota (e.g. <code>12 Reels, 4 Carousels</code>).</li>
+        <li><strong>Google Drive folder URL</strong>: Master root Drive folder where client assets live.</li>
+        <li><strong>Approval Rules Toggles</strong>:
+          <br>• <code>Social Media Manager sign-off required</code> (Checked)
+          <br>• <code>Admin review required</code> (Optional)
+          <br>• <code>Super Admin sign-off required</code> (Optional)
+          <br>• <code>Client final approval required</code> (Checked for client sign-off)
+        </li>
+        <li><strong>Primary client contact</strong>: Contact Name & Login Email (e.g. <code>client@mellohealth.local</code>).</li>
+      </ul>
+      <p><strong>Click Action:</strong> Click the black button <span class="btn-ui">Add client</span>.</p>
+      <div class="output-box">
+        <strong>Expected Output:</strong> The client is created, brand mark badge appears across workspace, root Google Drive folder is attached, and the client user portal account is activated with default password.
+      </div>
+    </div>
+
+    <h2>Action 2.2: Creating a Content Campaign Item</h2>
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Path: Left Sidebar → Content (<span class="click-target">/content</span>) → Click Button <span class="btn-ui">+ New content</span></strong>
+        <span class="pill pill-green">Creation Modal</span>
+      </div>
+      <table class="action-table">
+        <thead>
+          <tr>
+            <th>Section</th>
+            <th>Field Name</th>
+            <th>Required Value / Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Basic Info</strong></td>
+            <td>Client, Title, Pillar</td>
+            <td>Select Client, enter title (e.g. <code>3 Myths About Daily Hydration</code>), Pillar (e.g. <code>Education</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>Channel</strong></td>
+            <td>Platform & Format</td>
+            <td>Platform (Instagram, YouTube, LinkedIn, TikTok), Format (Reel, Carousel, Short).</td>
+          </tr>
+          <tr>
+            <td><strong>Production</strong></td>
+            <td><code>Shoot required</code></td>
+            <td><strong>Checked:</strong> Routes through Videographer & Shoot plan.<br><strong>Unchecked:</strong> Routes straight from script to Video Editor / Graphic Designer.</td>
+          </tr>
+          <tr>
+            <td><strong>Deadlines</strong></td>
+            <td>Script, Shoot, Edit, Reviews</td>
+            <td>Target deadlines for Script, Shoot, Internal Review, Client Review, and Final Ready date.</td>
+          </tr>
+          <tr>
+            <td><strong>Team</strong></td>
+            <td>Assignees Dropdowns</td>
+            <td>Select: SMM (Aanya), Writer (Rohan), Editor (Arjun), Designer (Meera), Videographer (Dev).</td>
+          </tr>
+        </tbody>
+      </table>
+      <p><strong>Click Action:</strong> Click <span class="btn-ui">Create content plan</span>.</p>
+      <div class="output-box">
+        <strong>Expected Output:</strong> Item receives unique system code (e.g. <code>CNT-0035</code>), initial status is set to <code>PLANNING</code>, and initial task is auto-assigned to Writer.
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 3: SCRIPT WRITER MANUAL ==================== -->
+  <div class="page">
+    <h1>3. Script Writer Manual <span class="badge">writer@agency.local</span></h1>
+    <p>The Script Writer creates the narrative backbone. No video editing or shoot can occur until the script is written, reviewed, and approved.</p>
+
+    <h2>Step-by-Step Writing & Submission Guide</h2>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 3.1: Locate Assigned Content</strong>
+        <span class="pill pill-slate">Navigation</span>
+      </div>
+      <p>1. Sign in as <code>writer@agency.local</code>.</p>
+      <p>2. In the left sidebar, click <span class="click-target">Tasks</span> to see <code>SCRIPT · [Content Title]</code> (Status: <code>TO_DO</code>), OR go to <span class="click-target">Content</span> and click into the item card.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 3.2: Compose Script & Save Draft</strong>
+        <span class="pill pill-amber">Drafting Form</span>
+      </div>
+      <p>Click on the horizontal tab: <strong>Script</strong> (between <em>Overview</em> and <em>Tasks</em>).</p>
+      <table class="action-table">
+        <thead>
+          <tr>
+            <th>Field Label</th>
+            <th>What to Type</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>The hook</strong></td>
+            <td><em>"Stop drinking 8 glasses of water all at once. Here's why."</em></td>
+            <td>First 3 seconds scroll-stopping line.</td>
+          </tr>
+          <tr>
+            <td><strong>Main script</strong></td>
+            <td>Full narration beat-by-beat, visual cues, speaker dialogue.</td>
+            <td>The core video or copy content.</td>
+          </tr>
+          <tr>
+            <td><strong>Call to action</strong></td>
+            <td><em>"Save this post and share with your workout buddy."</em></td>
+            <td>Ending conversion prompt.</td>
+          </tr>
+          <tr>
+            <td><strong>Caption</strong></td>
+            <td>Instagram caption copy formatted with line breaks.</td>
+            <td>The final social post text.</td>
+          </tr>
+          <tr>
+            <td><strong>Hashtags</strong></td>
+            <td><code>#MelloHealth #HydrationTips #Wellness</code></td>
+            <td>Platform discovery tags.</td>
+          </tr>
+          <tr>
+            <td><strong>Reference URLs</strong></td>
+            <td>Research links or competitor video URLs (1 per line).</td>
+            <td>Creative references.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p><strong>Click Action:</strong> Click the black button <span class="btn-ui">Save draft</span>.</p>
+      <div class="output-box">
+        <strong>Output:</strong> Draft is safely persisted in the database. Status remains <code>SCRIPT_WRITING</code>. Team can review in-progress work without triggering false alerts.
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 3.3: Submit Script for Review</strong>
+        <span class="pill pill-blue">Clickable Action</span>
+      </div>
+      <p>1. Look at the <strong>very top-right header</strong> of the content detail page (next to the title).</p>
+      <p>2. Click the blue button: <span class="btn-ui blue">Submit script for review ↗</span>.</p>
+      <p>3. In the popup modal, optionally type a handover comment (e.g. <em>"Script ready for SMM review!"</em>).</p>
+      <p>4. Click <span class="btn-ui">Submit script for review</span>.</p>
+      <div class="output-box">
+        <strong>Expected Output:</strong>
+        <br>• Status transitions: <code>SCRIPT_WRITING</code> → <strong><code>INTERNAL_SCRIPT_REVIEW</code></strong>.
+        <br>• Writer's task moves to <strong><code>FOR_REVIEW</code></strong>.
+        <br>• SMM Review task is auto-generated for Aanya Sharma.
+        <br>• Approvals menu on SMM sidebar immediately lights up with pulsing badge: <strong>• 1</strong>!
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 4: VIDEOGRAPHER MANUAL ==================== -->
+  <div class="page">
+    <h1>4. Videographer Manual <span class="badge">shooter@agency.local</span></h1>
+    <p>The Videographer manages on-set production when a content item has <code>requiresShoot: true</code>. This bridges the script and editing teams.</p>
+
+    <h2>Step-by-Step Production Shoot Workflow</h2>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 4.1: Access & Edit Shoot Plan</strong>
+        <span class="pill pill-slate">Shoot Tab</span>
+      </div>
+      <p>When the script is approved, status changes to <code>READY_FOR_SHOOT</code>.</p>
+      <p>1. Sign in as <code>shooter@agency.local</code> and open the content item.</p>
+      <p>2. Click on the <strong>Shoot</strong> tab. Fill out the on-set logistics form:</p>
+      <ul style="margin-left: 18px; font-size: 8pt;">
+        <li><strong>Date & time</strong>: Call time for camera and lighting.</li>
+        <li><strong>Location</strong>: Studio, gym, client office, or outdoor set address.</li>
+        <li><strong>Orientation</strong>: Portrait (9:16 for Reels/Shorts), Landscape (16:9), or Square (1:1).</li>
+        <li><strong>Estimated duration</strong>: Production window in minutes (e.g. <code>120</code>).</li>
+        <li><strong>Shot list</strong>: Detailed checklist of angles, close-ups, and b-roll.</li>
+        <li><strong>Props & People</strong>: Talent, models, product bottles, microphones needed.</li>
+      </ul>
+      <p><strong>Click Action:</strong> Click <span class="btn-ui">Save shoot plan</span>.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 4.2: Confirm Shoot Schedule</strong>
+        <span class="pill pill-blue">Top Header Action</span>
+      </div>
+      <p>1. In the top-right header, click: <span class="btn-ui blue">Confirm shoot schedule ↗</span>.</p>
+      <p>2. Confirm the modal submission.</p>
+      <div class="output-box">
+        <strong>Output:</strong> Status transitions to <strong><code>SHOOT_SCHEDULED</code></strong>. Notifications are broadcast to SMM and client team.
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 4.3: Complete Shoot & Upload Raw Footage</strong>
+        <span class="pill pill-green">Deliverable Hand-off</span>
+      </div>
+      <p>After wrapping production on set:</p>
+      <p>1. Upload raw camera clips and audio files to the client's Google Drive folder.</p>
+      <p>2. In the top-right header of the content page, click: <span class="btn-ui blue">Complete shoot ↗</span>.</p>
+      <p>3. In the modal popup, enter:
+        <br>• <strong>Raw footage Drive URL</strong>: <code>https://drive.google.com/drive/folders/...</code> (Mandatory)
+        <br>• <strong>Notes</strong>: e.g. <em>"A-roll on Cam 1, high frame-rate b-roll on Cam 2."</em>
+      </p>
+      <p>4. Click <span class="btn-ui">Complete shoot</span>.</p>
+      <div class="output-box">
+        <strong>Expected Output:</strong>
+        <br>• Status transitions: <code>SHOOT_SCHEDULED</code> → <code>SHOOT_COMPLETED</code> → <strong><code>EDITING</code></strong>.
+        <br>• Shoot task is marked <strong><code>COMPLETED</code></strong>.
+        <br>• Raw footage link is auto-saved under the <strong>Drive links</strong> tab under category <em>Raw Footage</em>.
+        <br>• Task <code>EDIT · [Title]</code> is auto-generated and assigned to the Video Editor (Arjun Patel)!
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 5: VIDEO EDITOR MANUAL ==================== -->
+  <div class="page">
+    <h1>5. Video Editor Manual <span class="badge">editor@agency.local</span></h1>
+    <p>The Video Editor assembles the cut, audio, transitions, and on-screen text. In Agency OS, deliverables are managed through strict <strong>immutable versioning</strong>.</p>
+
+    <h2>The Golden Rule of Version Submission</h2>
+    <div class="callout warning">
+      <span class="callout-icon">⚠️</span>
+      <div>
+        <strong>Mandatory 2-Step Hand-Off:</strong> You CANNOT click "Submit edit" without first uploading a version link. If you attempt to submit without a version, the system will block you with: <em>"Add a Google Drive version before submitting."</em>
+      </div>
+    </div>
+
+    <h2>Step-by-Step Editing & Version Cut Guide</h2>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 5.1: Accept Editing Task</strong>
+        <span class="pill pill-slate">Tasks Screen</span>
+      </div>
+      <p>1. Sign in as <code>editor@agency.local</code>.</p>
+      <p>2. Open <span class="click-target">Tasks</span> in the sidebar. Click on <code>EDIT · [Content Title]</code>.</p>
+      <p>3. Click <strong>Accept task</strong> (moves status to <code>IN_PROGRESS</code>).</p>
+      <p>4. Review the <strong>Script</strong> tab for captions/audio, and the <strong>Drive links</strong> tab for raw footage.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 5.2: Part A — Attach Version Cut (V1)</strong>
+        <span class="pill pill-purple">Versions Tab Action</span>
+      </div>
+      <p>1. On the content detail page, click the horizontal tab: <strong>Versions</strong>.</p>
+      <p>2. In the top-right corner of the Versions panel, click the button: <span class="btn-ui">+ Add version</span>.</p>
+      <p>3. In the modal popup titled <em>"Add the next version"</em>, fill in:</p>
+      <ul style="margin-left: 18px; font-size: 8pt;">
+        <li><strong>Google Drive URL</strong>: Direct link to the exported video file (e.g. <code>https://drive.google.com/file/d/...</code>).</li>
+        <li><strong>What changed?</strong>: Editor notes (e.g. <em>"Cut 1: High-energy pacing, animated captions, color graded."</em>).</li>
+      </ul>
+      <p>4. Click the modal button: <span class="btn-ui">Add version</span>.</p>
+      <div class="output-box">
+        <strong>Output:</strong> Version record <strong>V1</strong> is created with an <code>Internal</code> badge and an <code>Open version ↗</code> link.
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Step 5.3: Part B — Hand Off to SMM Review</strong>
+        <span class="pill pill-blue">Top Header Action</span>
+      </div>
+      <p>1. Look at the <strong>top-right header bar</strong> of the content page (next to the main title).</p>
+      <p>2. You will now see the blue button: <span class="btn-ui blue">Submit edit for review ↗</span>.</p>
+      <p>3. Click it, enter an optional note for your SMM, and click <span class="btn-ui">Submit edit for review</span>.</p>
+      <div class="output-box">
+        <strong>Expected Output:</strong>
+        <br>• Status transitions: <code>EDITING</code> → <strong><code>INTERNAL_EDIT_REVIEW</code></strong>.
+        <br>• Review stage is set to <strong><code>SMM review</code></strong>.
+        <br>• Editor's task updates to <strong><code>FOR_REVIEW</code></strong>.
+        <br>• SMM Approvals radar lights up with <strong>• 1</strong>!
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 6: SMM MANUAL ==================== -->
+  <div class="page">
+    <h1>6. Social Media Manager (SMM) Manual <span class="badge">smm@agency.local</span></h1>
+    <p>The SMM is the operational command center. SMM conducts internal reviews, approves creative cuts, schedules posts, copies captions, marks posts published, and tracks metrics.</p>
+
+    <h2>6.1 The Approvals Radar & Review Actions</h2>
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Screen: Left Sidebar → Approvals (<span class="click-target">/approvals</span>)</strong>
+        <span class="pill pill-green">Review Hub</span>
+      </div>
+      <p>Whenever an approval requires your action, the Approvals link in the sidebar displays an animated glowing pulse dot: <span class="pill pill-green">• 1</span>.</p>
+      <p>1. Click <span class="click-target">Approvals</span>. Filter by: <em>All reviews</em>, <em>Internal review</em>, or <em>Client review</em>.</p>
+      <p>2. Click on the content card to open review mode.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Header Buttons: Making the Review Decision</strong>
+        <span class="pill pill-blue">Decision Actions</span>
+      </div>
+      <table class="action-table">
+        <thead>
+          <tr>
+            <th>Button</th>
+            <th>When to Click</th>
+            <th>System Output</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="btn-ui white">Request changes</span></td>
+            <td>If script needs rewrite or video cut has audio/graphic flaws. Type feedback & timestamp notes (e.g. <code>00:14 Fix logo</code>).</td>
+            <td>Creates an official <strong>Revision</strong> round. Status moves to <code>INTERNAL_CHANGES</code>. Assigned employee task resets to <code>CHANGES_REQUIRED</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="btn-ui">Approve</span></td>
+            <td>Work meets agency quality standards. Enter optional commendation note.</td>
+            <td>Moves script/edit to <strong>Client Review</strong> (or next internal tier). Version tag changes to <strong>Shared with client</strong>. Client is notified.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>6.2 The Publishing Hub & Metrics Form</h2>
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Screen: Left Sidebar → Publishing (<span class="click-target">/publishing</span>)</strong>
+        <span class="pill pill-pink">Publishing Hub</span>
+      </div>
+      <p>Once client approves, status becomes <code>FINAL_CLIENT_APPROVED</code>. Item appears under <strong>Ready & scheduled</strong>.</p>
+      
+      <p><strong>Step 1: Mark Ready to Publish:</strong>
+        <br>Open the content item. In the top-right header, click <span class="btn-ui blue">Mark ready to publish ↗</span>. Status becomes <strong><code>READY_TO_PUBLISH</code></strong>.
+      </p>
+
+      <p><strong>Step 2: Copy Caption & Assets:</strong>
+        <br>Click the <strong>Publishing</strong> tab. Click the button <span class="btn-ui white">📋 Copy caption & hashtags</span>. Pre-formatted copy is instantly copied to your clipboard. Click <code>Open in Drive ↗</code> to download the approved video cut.
+      </p>
+
+      <p><strong>Step 3: Publish to Platform & Record Live URL:</strong>
+        <br>Upload the post live to Instagram/YouTube/LinkedIn. Return to Agency OS and click <span class="btn-ui blue">Mark published ↗</span> in the top header.
+        <br>• <strong>Published post URL</strong>: Enter live post link (e.g. <code>https://www.instagram.com/reel/...</code>).
+        <br>• <strong>External post ID</strong>: Platform ID (optional).
+        <br>Click <span class="btn-ui">Mark published</span>. Status moves to <strong><code>PUBLISHED</code></strong>!
+      </p>
+
+      <p><strong>Step 4: Record Post Analytics ("How did it do?"):</strong>
+        <br>Under the <strong>Publishing</strong> tab, the <em>Metrics Form</em> unlocks. Enter:
+        <br><code>Views</code>, <code>Likes</code>, <code>Comments</code>, <code>Shares</code>, <code>Saves</code>, <code>Reach</code>, <code>Impressions</code>, <code>Follower growth</code>.
+        <br>Click <span class="btn-ui">Save metrics</span>. Data flows instantly into Reports and Client Portals!
+      </p>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 7: CLIENT PORTAL MANUAL ==================== -->
+  <div class="page">
+    <h1>7. Client Portal Manual <span class="badge">client@mellohealth.local</span></h1>
+    <p>Clients enjoy a distraction-free portal designed solely for reviewing scripts, previewing video cuts, providing feedback, and viewing monthly performance reports.</p>
+
+    <h2>Client Clickable Actions & Review Procedures</h2>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Action 7.1: Client Script Sign-Off</strong>
+        <span class="pill pill-amber">Script Approval</span>
+      </div>
+      <p>When SMM approves the internal script, the client receives notification: <em>"Your script is ready for review"</em>.</p>
+      <p>1. Sign in with client credentials (e.g. <code>client@mellohealth.local</code>).</p>
+      <p>2. Click <span class="click-target">Approvals</span> in the sidebar. The badge shows <span class="pill pill-green">• 1</span>.</p>
+      <p>3. Click into the content item. Read the script under the <strong>Script</strong> tab.</p>
+      <p>4. In the top-right header:
+        <br>• Click <span class="btn-ui">Approve</span>: Script is locked. Production begins immediately.
+        <br>• Click <span class="btn-ui white">Request changes</span>: Type feedback. Sends script back to Writer.
+      </p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Action 7.2: Client Video Version Cut Sign-Off</strong>
+        <span class="pill pill-purple">Final Video Approval</span>
+      </div>
+      <p>When the internal video review passes, status changes to <code>CLIENT_REVIEW</code>.</p>
+      <p>1. Under the <strong>Versions</strong> tab, the client sees <code>V1</code> with a link: <span class="click-target">Open version ↗</span>.</p>
+      <p>2. Clicking this opens the Google Drive video player for full-resolution preview.</p>
+      <p>3. In the top-right header, click the black checkmark button: <span class="btn-ui">Approve</span>.</p>
+      <div class="output-box">
+        <strong>Expected Output:</strong> Status moves to <strong><code>FINAL_CLIENT_APPROVED</code></strong>. Publishing record is locked with final video file and captions. SMM is alerted to schedule publishing.
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Action 7.3: Viewing Performance Reports</strong>
+        <span class="pill pill-blue">Reports Portal</span>
+      </div>
+      <p>1. In the sidebar, click <span class="click-target">Reports</span>.</p>
+      <p>2. The client can view agency-published performance summaries, key metrics, and download attached report PDFs or Google Drive presentations.</p>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 8: STUDIO TOOLS ==================== -->
+  <div class="page">
+    <h1>8. Studio Tools & Management <span class="badge">Global Features</span></h1>
+    <p>Agency OS provides cross-role utilities for calendar planning, asset storage, real-time messaging, and intelligence reporting.</p>
+
+    <h2>8.1 Content Calendar (<span class="click-target">/calendar</span>)</h2>
+    <table class="action-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Where to Click</th>
+          <th>What It Does</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Month / Week View</strong></td>
+          <td>Top-right view toggles</td>
+          <td>Switches between high-level monthly editorial grid and hourly weekly scheduling.</td>
+        </tr>
+        <tr>
+          <td><strong>Google Calendar Styling</strong></td>
+          <td>Light / Dark mode toggle in top bar</td>
+          <td>Renders clean matrix grid lines with high-contrast text and event chips.</td>
+        </tr>
+        <tr>
+          <td><strong>Content Quick-Open</strong></td>
+          <td>Click on any calendar pill</td>
+          <td>Opens the full content detail workspace for that post.</td>
+        </tr>
+        <tr>
+          <td><strong>Filters</strong></td>
+          <td>Client & Platform dropdowns</td>
+          <td>Isolates calendar view to a single client or platform (e.g. only Instagram).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>8.2 Drive Assets Hub (<span class="click-target">/drive</span>)</h2>
+    <p>Every file in Agency OS lives securely in Google Drive while context lives in the OS.</p>
+    <ul style="margin-left: 18px; font-size: 8pt;">
+      <li>Click <span class="btn-ui">+ Add Drive link</span> to link Brand Kits, Logos, Font files, or Reference folders.</li>
+      <li>Categorize as: <code>Brand Asset</code>, <code>Raw Footage</code>, <code>Final Output</code>, <code>Client Asset</code>, <code>Reference</code>.</li>
+      <li>Toggle <code>Client visible</code> to control external visibility.</li>
+    </ul>
+
+    <h2>8.3 Studio Messages / Chat (<span class="click-target">/chat</span>)</h2>
+    <ul style="margin-left: 18px; font-size: 8pt;">
+      <li><strong>Internal Threads:</strong> For agency staff only (e.g. video editor & videographer alignment).</li>
+      <li><strong>Client Threads:</strong> For direct conversation with client stakeholders without sharing internal banter.</li>
+      <li>Link any chat conversation directly to a specific <code>CNT-XXXX</code> content item.</li>
+    </ul>
+
+    <h2>8.4 Analytics, CSV Export & Client Reports (<span class="click-target">/reports</span>)</h2>
+    <div class="step-card">
+      <div class="step-card-header">
+        <strong>Exporting Data & Generating Client Deliverables</strong>
+        <span class="pill pill-green">Reports Engine</span>
+      </div>
+      <p>1. <strong>Export CSV</strong>: Click <span class="btn-ui white">Export CSV</span> to download raw reach, views, likes, comments, and shares across all client posts.</p>
+      <p>2. <strong>Create Client Report</strong>: Click <span class="btn-ui">+ Create report</span>. Fill out client name, date range, performance summary narrative, and attach a Google Drive slide link. Check <code>Share this report with the client</code> to push it directly into the client portal!</p>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 9: MASTER CHEAT SHEET ==================== -->
+  <div class="page">
+    <h1>9. Master Action-to-Output Cheat Sheet <span class="badge">Reference</span></h1>
+    <p>A quick-reference lookup for every clickable action across Agency OS.</p>
+
+    <table class="action-table">
+      <thead>
+        <tr>
+          <th>Action Name</th>
+          <th>Button Text</th>
+          <th>Who Can Click</th>
+          <th>Pre-requisite</th>
+          <th>Resulting Status & Output</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Start Script</strong></td>
+          <td><span class="btn-ui blue">Start script ↗</span></td>
+          <td>Writer / SMM / Admin</td>
+          <td>Item in <code>PLANNING</code></td>
+          <td>Status → <code>SCRIPT_WRITING</code>. Writer task starts.</td>
+        </tr>
+        <tr>
+          <td><strong>Submit Script</strong></td>
+          <td><span class="btn-ui blue">Submit script for review ↗</span></td>
+          <td>Script Writer</td>
+          <td>Hook & Body filled</td>
+          <td>Status → <code>INTERNAL_SCRIPT_REVIEW</code>. SMM gets • 1.</td>
+        </tr>
+        <tr>
+          <td><strong>Approve Script (Int)</strong></td>
+          <td><span class="btn-ui">Approve</span></td>
+          <td>SMM / Super Admin</td>
+          <td>Script in internal review</td>
+          <td>Status → <code>CLIENT_SCRIPT_REVIEW</code>. Client gets • 1.</td>
+        </tr>
+        <tr>
+          <td><strong>Approve Script (Client)</strong></td>
+          <td><span class="btn-ui">Approve</span></td>
+          <td>Client User</td>
+          <td>Script in client review</td>
+          <td>Status → <code>READY_FOR_SHOOT</code> or <code>EDITING</code>. Production starts.</td>
+        </tr>
+        <tr>
+          <td><strong>Confirm Shoot</strong></td>
+          <td><span class="btn-ui blue">Confirm shoot schedule ↗</span></td>
+          <td>Videographer / SMM</td>
+          <td>Shoot plan saved</td>
+          <td>Status → <code>SHOOT_SCHEDULED</code>. Call sheet locked.</td>
+        </tr>
+        <tr>
+          <td><strong>Complete Shoot</strong></td>
+          <td><span class="btn-ui blue">Complete shoot ↗</span></td>
+          <td>Videographer / SMM</td>
+          <td>Raw footage Drive URL</td>
+          <td>Status → <code>EDITING</code>. Raw link saved. Editor assigned.</td>
+        </tr>
+        <tr>
+          <td><strong>Add Version</strong></td>
+          <td><span class="btn-ui">+ Add version</span></td>
+          <td>Video Editor / Designer</td>
+          <td>Status is <code>EDITING</code></td>
+          <td>Creates <code>V1</code>, <code>V2</code> record. Tagged <code>Internal</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Submit Edit</strong></td>
+          <td><span class="btn-ui blue">Submit edit for review ↗</span></td>
+          <td>Video Editor / Designer</td>
+          <td>At least 1 version exists</td>
+          <td>Status → <code>INTERNAL_EDIT_REVIEW</code>. SMM gets • 1.</td>
+        </tr>
+        <tr>
+          <td><strong>Approve Edit (Int)</strong></td>
+          <td><span class="btn-ui">Approve</span></td>
+          <td>SMM / Super Admin</td>
+          <td>Cut in internal review</td>
+          <td>Status → <code>CLIENT_REVIEW</code>. Version tagged <code>Shared with client</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Approve Edit (Client)</strong></td>
+          <td><span class="btn-ui">Approve</span></td>
+          <td>Client User</td>
+          <td>Cut in client review</td>
+          <td>Status → <code>FINAL_CLIENT_APPROVED</code>. Publishing record created.</td>
+        </tr>
+        <tr>
+          <td><strong>Mark Ready to Publish</strong></td>
+          <td><span class="btn-ui blue">Mark ready to publish ↗</span></td>
+          <td>SMM / Super Admin</td>
+          <td>Client approved</td>
+          <td>Status → <code>READY_TO_PUBLISH</code>. Item appears in Publishing hub.</td>
+        </tr>
+        <tr>
+          <td><strong>Copy Caption</strong></td>
+          <td><span class="btn-ui white">📋 Copy caption & hashtags</span></td>
+          <td>Any staff member</td>
+          <td>Publishing tab</td>
+          <td>Copies formatted caption + hashtags to OS clipboard.</td>
+        </tr>
+        <tr>
+          <td><strong>Mark Published</strong></td>
+          <td><span class="btn-ui blue">Mark published ↗</span></td>
+          <td>SMM / Super Admin</td>
+          <td>Live post URL entered</td>
+          <td>Status → <code>PUBLISHED</code>. Post moves to Published tab. Metrics unlock.</td>
+        </tr>
+        <tr>
+          <td><strong>Record Metrics</strong></td>
+          <td><span class="btn-ui">Save metrics</span></td>
+          <td>SMM / Super Admin</td>
+          <td>Status is <code>PUBLISHED</code></td>
+          <td>Metrics saved. Reports dashboard & charts update instantly.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <span class="callout-icon">⭐</span>
+      <div>
+        <strong>Operational Standard:</strong> Following these exact clickable steps guarantees 100% on-time, error-free, client-approved execution across all agency campaigns.
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

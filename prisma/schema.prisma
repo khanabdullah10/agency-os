@@ -1,0 +1,544 @@
+generator client {
+  provider = "prisma-client-js"
+}
+model JobLease {
+  key String @id
+  lockedUntil DateTime
+}
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+model Agency {
+  id          String   @id @default(cuid())
+  name        String
+  timezone    String   @default("Asia/Kolkata")
+  settings    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+  roles       Role[]
+  clients     Client[]
+  packages    Package[]
+  threads     ChatThread[]
+  activities  ActivityLog[]
+}
+model Role {
+  id          String @id @default(cuid())
+  agencyId    String
+  agency      Agency @relation(fields: [agencyId], references: [id])
+  name        String
+  systemKey   String?
+  isSuperAdmin Boolean @default(false)
+  isClient    Boolean @default(false)
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([agencyId, name])
+  @@unique([agencyId, systemKey])
+}
+model Permission {
+  key         String @id
+  description String
+  roles       RolePermission[]
+  users       UserPermission[]
+}
+model RolePermission {
+  roleId        String
+  permissionKey String
+  role          Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission    Permission @relation(fields: [permissionKey], references: [key])
+  @@id([roleId, permissionKey])
+}
+model UserPermission {
+  userId        String
+  permissionKey String
+  allowed       Boolean
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission    Permission @relation(fields: [permissionKey], references: [key])
+  @@id([userId, permissionKey])
+}
+model User {
+  id           String @id @default(cuid())
+  agencyId     String
+  agency       Agency @relation(fields: [agencyId], references: [id])
+  roleId       String
+  role         Role @relation(fields: [roleId], references: [id])
+  name         String
+  email        String @unique
+  passwordHash String
+  phone        String?
+  whatsapp     String?
+  whatsappOptIn Boolean @default(false)
+  active       Boolean @default(true)
+  mustChangePassword Boolean @default(true)
+  avatarColor  String @default("#ea6b36")
+  avatarUrl    String? @db.LongText
+  deletedAt    DateTime?
+  lastSeenAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  permissions  UserPermission[]
+  sessions     Session[]
+  teams        ClientTeamMember[]
+  clientUsers  ClientUser[]
+  createdTasks Task[] @relation("taskCreator")
+  assignedTasks Task[] @relation("taskAssignee")
+  versions     ContentVersion[]
+  approvals    Approval[]
+  requestedRevisions Revision[] @relation("revisionRequester")
+  assignedRevisions Revision[] @relation("revisionAssignee")
+  driveLinks   DriveLink[]
+  messages     ChatMessage[]
+  memberships  ChatMember[]
+  notifications Notification[]
+  preferences  NotificationPreference[]
+  activities   ActivityLog[]
+  comments     ContentComment[]
+  @@index([agencyId, active])
+}
+model Session {
+  id        String @id
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  csrfHash  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([userId, expiresAt])
+}
+model Package {
+  id           String @id @default(cuid())
+  agencyId     String
+  agency       Agency @relation(fields: [agencyId], references: [id])
+  name         String
+  deliverables Json
+  clients      Client[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+model Client {
+  id              String @id @default(cuid())
+  agencyId        String
+  agency          Agency @relation(fields: [agencyId], references: [id])
+  name            String
+  industry        String
+  website         String?
+  contactName     String
+  email           String
+  phone           String?
+  whatsapp        String?
+  address         String?
+  packageId       String?
+  package         Package? @relation(fields: [packageId], references: [id])
+  packageName     String @default("Custom")
+  deliverables    Json
+  platforms       Json
+  brand           Json
+  notes           String? @db.Text
+  approvalRules   Json
+  deadlineOffsets Json
+  color           String @default("#ea6b36")
+  avatarUrl       String? @db.LongText
+  active          Boolean @default(true)
+  archivedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  users           ClientUser[]
+  team            ClientTeamMember[]
+  content         ContentItem[]
+  tasks           Task[]
+  driveLinks      DriveLink[]
+  threads         ChatThread[]
+  accounts        SocialAccount[]
+  reports         Report[]
+  activities      ActivityLog[]
+  @@index([agencyId, active])
+}
+model ClientUser {
+  clientId String
+  userId   String
+  client   Client @relation(fields: [clientId], references: [id])
+  user     User @relation(fields: [userId], references: [id])
+  @@id([clientId, userId])
+}
+model ClientTeamMember {
+  clientId String
+  userId   String
+  responsibility String
+  client   Client @relation(fields: [clientId], references: [id])
+  user     User @relation(fields: [userId], references: [id])
+  @@id([clientId, userId, responsibility])
+  @@index([userId])
+}
+model SocialAccount {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+  platform String
+  handle   String
+  url      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model ContentItem {
+  id           Int @id @default(autoincrement())
+  clientId     String
+  client       Client @relation(fields: [clientId], references: [id])
+  title        String
+  platform     String
+  type         String
+  pillar       String?
+  publishAt    DateTime
+  requiresShoot Boolean @default(false)
+  status       String @default("PLANNING")
+  revision     Int @default(0)
+  assignees    Json
+  deadlines    Json
+  notes        String? @db.Text
+  sharedScript Json?
+  sharedCaption String? @db.Text
+  sharedHashtags String? @db.Text
+  reviewStage  String?
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  script       Script?
+  shoot        Shoot?
+  versions     ContentVersion[]
+  tasks        Task[]
+  history      ContentStatusHistory[]
+  comments     ContentComment[]
+  approvals    Approval[]
+  revisions    Revision[]
+  driveLinks   DriveLink[]
+  threads      ChatThread[]
+  publishing   PublishingRecord?
+  metrics      AnalyticsEntry[]
+  activities   ActivityLog[]
+  @@index([clientId, publishAt])
+  @@index([status, publishAt])
+}
+model ContentStatusHistory {
+  id        String @id @default(cuid())
+  contentId Int
+  content   ContentItem @relation(fields: [contentId], references: [id])
+  actorId   String
+  previous  String
+  next      String
+  event     String
+  createdAt DateTime @default(now())
+  @@index([contentId, createdAt])
+}
+model Script {
+  id         String @id @default(cuid())
+  contentId  Int @unique
+  content    ContentItem @relation(fields: [contentId], references: [id])
+  hook       String @db.Text
+  body       String @db.LongText
+  cta        String @db.Text
+  caption    String @db.Text
+  hashtags   String @db.Text
+  references Json
+  notes      String? @db.Text
+  updatedBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+model Shoot {
+  id        String @id @default(cuid())
+  contentId Int @unique
+  content   ContentItem @relation(fields: [contentId], references: [id])
+  scheduledAt DateTime
+  location  String
+  shotList  String @db.Text
+  props     String? @db.Text
+  people    String?
+  orientation String @default("Portrait")
+  durationMinutes Int @default(60)
+  referenceUrl String?
+  notes     String? @db.Text
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model ContentVersion {
+  id        String @id @default(cuid())
+  contentId Int
+  content   ContentItem @relation(fields: [contentId], references: [id])
+  number    Int
+  driveUrl  String
+  addedById String
+  addedBy   User @relation(fields: [addedById], references: [id])
+  notes     String? @db.Text
+  clientVisible Boolean @default(false)
+  createdAt DateTime @default(now())
+  revisions Revision[]
+  approvals Approval[]
+  @@unique([contentId, number])
+}
+model Task {
+  id         String @id @default(cuid())
+  clientId   String
+  client     Client @relation(fields: [clientId], references: [id])
+  contentId  Int?
+  content    ContentItem? @relation(fields: [contentId], references: [id])
+  title      String
+  description String? @db.Text
+  createdById String?
+  createdBy  User? @relation("taskCreator", fields: [createdById], references: [id])
+  assigneeId String
+  assignee   User @relation("taskAssignee", fields: [assigneeId], references: [id])
+  kind       String @default("MANUAL")
+  priority   String @default("MEDIUM")
+  status     String @default("TO_DO")
+  previousStatus String?
+  startsAt   DateTime?
+  dueAt      DateTime
+  completedAt DateTime?
+  systemKey  String? @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  history    TaskStatusHistory[]
+  comments   ContentComment[]
+  driveLinks DriveLink[]
+  threads    ChatThread[]
+  @@index([assigneeId, status, dueAt])
+  @@index([clientId, contentId])
+}
+model TaskStatusHistory {
+  id        String @id @default(cuid())
+  taskId    String
+  task      Task @relation(fields: [taskId], references: [id])
+  actorId   String
+  previous  String
+  next      String
+  createdAt DateTime @default(now())
+  @@index([taskId, createdAt])
+}
+model ContentComment {
+  id        String @id @default(cuid())
+  contentId Int?
+  content   ContentItem? @relation(fields: [contentId], references: [id])
+  taskId    String?
+  task      Task? @relation(fields: [taskId], references: [id])
+  authorId  String
+  author    User @relation(fields: [authorId], references: [id])
+  body      String @db.Text
+  timestamp String?
+  referenceUrl String?
+  clientVisible Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([contentId, clientVisible])
+  @@index([taskId])
+}
+model Approval {
+  id        String @id @default(cuid())
+  contentId Int
+  content   ContentItem @relation(fields: [contentId], references: [id])
+  versionId String?
+  version   ContentVersion? @relation(fields: [versionId], references: [id])
+  stage     String
+  decision  String
+  reviewerId String
+  reviewer  User @relation(fields: [reviewerId], references: [id])
+  comment   String? @db.Text
+  cycle     Int
+  createdAt DateTime @default(now())
+  @@index([contentId, stage, cycle])
+}
+model Revision {
+  id        String @id @default(cuid())
+  contentId Int
+  content   ContentItem @relation(fields: [contentId], references: [id])
+  number    Int
+  requestedById String
+  requestedBy User @relation("revisionRequester", fields: [requestedById], references: [id])
+  assigneeId String
+  assignee   User @relation("revisionAssignee", fields: [assigneeId], references: [id])
+  source     String
+  comments   String @db.Text
+  timestampComments Json
+  referenceUrls Json
+  status     String @default("OPEN")
+  resolution String? @db.Text
+  versionId  String?
+  version    ContentVersion? @relation(fields: [versionId], references: [id])
+  completedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  driveLinks DriveLink[]
+  @@unique([contentId, number])
+}
+model DriveLink {
+  id         String @id @default(cuid())
+  clientId   String
+  client     Client @relation(fields: [clientId], references: [id])
+  contentId  Int?
+  content    ContentItem? @relation(fields: [contentId], references: [id])
+  taskId     String?
+  task       Task? @relation(fields: [taskId], references: [id])
+  revisionId String?
+  revision   Revision? @relation(fields: [revisionId], references: [id])
+  title      String
+  url        String
+  category   String
+  addedById  String
+  addedBy    User @relation(fields: [addedById], references: [id])
+  clientVisible Boolean @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([clientId, clientVisible])
+  @@index([contentId])
+}
+model ChatThread {
+  id         String @id @default(cuid())
+  agencyId   String
+  agency     Agency @relation(fields: [agencyId], references: [id])
+  clientId   String?
+  client     Client? @relation(fields: [clientId], references: [id])
+  contentId  Int?
+  content    ContentItem? @relation(fields: [contentId], references: [id])
+  taskId     String?
+  task       Task? @relation(fields: [taskId], references: [id])
+  title      String
+  kind       String
+  clientVisible Boolean @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  members    ChatMember[]
+  messages   ChatMessage[]
+  @@index([agencyId, clientId, clientVisible])
+}
+model ChatMember {
+  threadId String
+  thread   ChatThread @relation(fields: [threadId], references: [id])
+  userId   String
+  user     User @relation(fields: [userId], references: [id])
+  lastReadAt DateTime?
+  @@id([threadId, userId])
+}
+model ChatMessage {
+  id       String @id @default(cuid())
+  threadId String
+  thread   ChatThread @relation(fields: [threadId], references: [id])
+  authorId String
+  author   User @relation(fields: [authorId], references: [id])
+  body     String @db.Text
+  replyToId String?
+  replyTo  ChatMessage? @relation("replies", fields: [replyToId], references: [id])
+  replies  ChatMessage[] @relation("replies")
+  mentions Json?
+  editedAt DateTime?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([threadId, createdAt])
+}
+model Notification {
+  id        String @id @default(cuid())
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  event     String
+  title     String
+  body      String
+  href      String
+  dedupeKey String @unique
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  deliveries NotificationDelivery[]
+  @@index([userId, readAt, createdAt])
+}
+model NotificationPreference {
+  userId   String
+  user     User @relation(fields: [userId], references: [id])
+  category String
+  email    Boolean @default(true)
+  whatsapp Boolean @default(false)
+  inApp    Boolean @default(true)
+  @@id([userId, category])
+}
+model NotificationDelivery {
+  id        String @id @default(cuid())
+  notificationId String
+  notification Notification @relation(fields: [notificationId], references: [id])
+  channel   String
+  status    String @default("PENDING")
+  attempts  Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  lockedUntil DateTime?
+  lastError String? @db.Text
+  providerId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([notificationId, channel])
+  @@index([status, nextAttemptAt, lockedUntil])
+}
+model PublishingRecord {
+  id        String @id @default(cuid())
+  contentId Int @unique
+  content   ContentItem @relation(fields: [contentId], references: [id])
+  finalDriveUrl String
+  caption   String @db.Text
+  hashtags  String @db.Text
+  status    String @default("READY")
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  publishedUrl String?
+  externalPostId String?
+  publishedById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Report {
+  id        String @id @default(cuid())
+  clientId  String
+  client    Client @relation(fields: [clientId], references: [id])
+  title     String
+  periodStart DateTime
+  periodEnd DateTime
+  summary   String @db.Text
+  driveUrl  String?
+  clientVisible Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([clientId, periodStart])
+}
+model AnalyticsEntry {
+  id        String @id @default(cuid())
+  contentId Int
+  content   ContentItem @relation(fields: [contentId], references: [id])
+  date      DateTime
+  reach     Int @default(0)
+  impressions Int @default(0)
+  views     Int @default(0)
+  likes     Int @default(0)
+  comments  Int @default(0)
+  shares    Int @default(0)
+  saves     Int @default(0)
+  followerGrowth Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([contentId, date])
+}
+model ActivityLog {
+  id        String @id @default(cuid())
+  agencyId  String
+  agency    Agency @relation(fields: [agencyId], references: [id])
+  actorId   String?
+  actor     User? @relation(fields: [actorId], references: [id])
+  clientId  String?
+  client    Client? @relation(fields: [clientId], references: [id])
+  contentId Int?
+  content   ContentItem? @relation(fields: [contentId], references: [id])
+  entityType String
+  entityId  String
+  action    String
+  previous  Json?
+  next      Json?
+  clientVisible Boolean @default(false)
+  ipAddress String?
+  createdAt DateTime @default(now())
+  @@index([agencyId, createdAt])
+  @@index([clientId, clientVisible, createdAt])
+}
