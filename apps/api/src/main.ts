@@ -15,10 +15,8 @@ async function bootstrap() {
  if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error('JWT_SECRET must contain at least 32 characters.');
  if(!process.env.APP_URL)throw new Error('APP_URL is required.');
  if(production&&!process.env.APP_URL.startsWith('https://'))throw new Error('Production APP_URL must use HTTPS.');
- const origin=new URL(process.env.APP_URL).origin,server=express(),api=express();
- server.disable('x-powered-by');
- server.set('trust proxy',Number(process.env.TRUST_PROXY||0));
- server.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'","'unsafe-inline'",...(!production?["'unsafe-eval'"]:[])],styleSrc:["'self'","'unsafe-inline'"],imgSrc:["'self'","data:","https://drive.google.com"],fontSrc:["'self'","data:"],connectSrc:["'self'","https://*.pusher.com","wss://*.pusher.com",...(!production?["ws://localhost:*"]:[])],frameSrc:["https://drive.google.com","https://docs.google.com"],objectSrc:["'none'"],baseUri:["'self'"],frameAncestors:["'none'"],upgradeInsecureRequests:production?[]:null}},strictTransportSecurity:production?{maxAge:31536000,includeSubDomains:true}:false}));
+ const origin=new URL(process.env.APP_URL).origin;
+ const api=express();
  api.set('trust proxy',Number(process.env.TRUST_PROXY||0));
  api.use(cookieParser());
  api.use(express.json({limit:'10mb'}));
@@ -32,19 +30,9 @@ async function bootstrap() {
   }
   next();
  });
+
  const port = Number(process.env.PORT || 3000);
  const host = process.env.BIND_HOST || '0.0.0.0';
-
- let webHandler: any = null;
- server.use('/api', api);
- server.use((req: any, res: any, next: any) => {
-  if (webHandler) return webHandler(req, res);
-  if (req.path === '/health') return res.status(200).json({ status: 'initializing' });
-  res.setHeader('Content-Type', 'text/html');
-  res.status(200).send('<!DOCTYPE html><html><head><meta http-equiv="refresh" content="2"></head><body style="font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#09090b;color:#e4e4e7;margin:0;"><div style="text-align:center;"><div style="display:inline-block;width:32px;height:32px;border:3px solid #3f3f46;border-top-color:#e11d48;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:16px;"></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style><p style="margin:0;font-size:16px;font-weight:600;">Opening Agency OS...</p></div></body></html>');
- });
-
- const listener = server.listen(port, host, () => console.log(`Agency OS listening on ${host}:${port}`));
 
  const nest = await NestFactory.create(AppModule, new ExpressAdapter(api), { bodyParser: false, logger: ['error', 'warn', 'log'] });
  nest.useGlobalFilters(new Errors());
@@ -53,11 +41,23 @@ async function bootstrap() {
 
  const web = next({ dev: !production, turbopack: false, dir: path.resolve(process.cwd(), 'apps/web'), hostname: '0.0.0.0', port });
  await web.prepare();
- webHandler = web.getRequestHandler();
- console.log('Agency OS fully ready at ' + process.env.APP_URL);
 
- const shutdown = async () => { listener.close(); await nest.close(); await web.close(); process.exit(0); };
- process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
+ const appRouter = express.Router();
+ appRouter.use('/api', api);
+ appRouter.use((req: any, res: any) => web.getRequestHandler()(req, res));
+
+ if ((global as any).__AGENCY_OS_MOUNT__) {
+  (global as any).__AGENCY_OS_MOUNT__(appRouter);
+ } else {
+  const standaloneServer = express();
+  standaloneServer.disable('x-powered-by');
+  standaloneServer.set('trust proxy', Number(process.env.TRUST_PROXY || 0));
+  standaloneServer.use(appRouter);
+  const listener = standaloneServer.listen(port, host, () => console.log(`Agency OS listening on ${host}:${port}`));
+  const shutdown = async () => { listener.close(); await nest.close(); await web.close(); process.exit(0); };
+  process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
+ }
+ console.log('Agency OS fully ready at ' + process.env.APP_URL);
 }
 bootstrap().catch(e=>{console.error(e.message);process.exit(1);});
 
