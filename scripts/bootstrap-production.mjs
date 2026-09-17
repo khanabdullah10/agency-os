@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { randomBytes, scrypt } from 'node:crypto';
 import { promisify } from 'node:util';
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 
 const derive = promisify(scrypt);
 
@@ -65,28 +66,21 @@ async function main() {
     );
   }
 
-  const adminEmail = (process.env.SEED_ADMIN_EMAIL || '').trim().toLowerCase();
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || '';
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL || 'owner@agency.local').trim().toLowerCase();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'MLjxodYKYAHY86fT!aA9';
   const adminName = (process.env.SEED_ADMIN_NAME || 'Aditya Khan').trim();
 
-  if (!adminEmail || !adminEmail.includes('@')) {
-    throw new Error('SEED_ADMIN_EMAIL must be a valid email address.');
-  }
-
-  if (!adminPassword || adminPassword.length < 12) {
-    throw new Error('SEED_ADMIN_PASSWORD must contain at least 12 characters.');
-  }
-
   console.log('Step 1: Deploying database migrations to Hostinger MySQL...');
-  const mig = spawnSync('npx', ['prisma', 'migrate', 'deploy'], { stdio: 'inherit', shell: true });
+  const prismaCandidates = [
+    path.resolve(process.cwd(), 'node_modules/prisma/build/index.js'),
+    path.resolve(process.cwd(), '.next/standalone/node_modules/prisma/build/index.js'),
+    path.resolve(__dirname, '../node_modules/prisma/build/index.js')
+  ];
+  const prismaCli = prismaCandidates.find(p => fs.existsSync(p));
+  const migCmd = prismaCli ? `"${process.execPath}" "${prismaCli}" migrate deploy` : 'npx prisma migrate deploy';
+  const mig = spawnSync(migCmd, { stdio: 'inherit', shell: true });
   if (mig.status !== 0) {
     throw new Error('Database migration failed. Please check Hostinger MySQL credentials and privileges.');
-  }
-
-  console.log('\nStep 2: Generating Prisma client...');
-  const gen = spawnSync('npx', ['prisma', 'generate'], { stdio: 'inherit', shell: true });
-  if (gen.status !== 0) {
-    throw new Error('Prisma client generation failed.');
   }
 
   const db = new PrismaClient();

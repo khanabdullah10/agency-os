@@ -78,6 +78,13 @@ if (fs.existsSync(rootStandalone)) {
     console.log('[Postbuild] Synced prisma schema into standalone');
   }
 
+  const standaloneScripts = path.resolve(rootStandalone, 'scripts');
+  const srcScripts = path.resolve(rootDir, 'scripts');
+  if (fs.existsSync(srcScripts) && !fs.existsSync(standaloneScripts)) {
+    fs.cpSync(srcScripts, standaloneScripts, { recursive: true });
+    console.log('[Postbuild] Synced scripts directory into standalone');
+  }
+
   // 1. Copy the unified production server.js directly into standalone root and web
   const rootStandaloneServer = path.resolve(rootStandalone, 'server.js');
   const webStandaloneServer = path.resolve(rootStandalone, 'apps/web/server.js');

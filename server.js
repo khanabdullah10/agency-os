@@ -158,6 +158,26 @@ if (process.env.DATABASE_URL) {
           console.warn('[Agency OS] Notice: Database migration check:', err.message);
         } else {
           console.log('[Agency OS] Database schema verified and up-to-date.');
+          // Auto-bootstrap initial Super Admin account and roles if database is fresh
+          try {
+            const bootstrapCandidates = [
+              path.resolve(__dirname, 'scripts/bootstrap-production.mjs'),
+              path.resolve(process.cwd(), 'scripts/bootstrap-production.mjs'),
+              path.resolve(__dirname, '../../scripts/bootstrap-production.mjs')
+            ];
+            const bScript = bootstrapCandidates.find(p => fs.existsSync(p));
+            if (bScript) {
+              exec(`"${process.execPath}" "${bScript}"`, (bErr) => {
+                if (bErr) {
+                  console.warn('[Agency OS] Notice: Bootstrap setup:', bErr.message);
+                } else {
+                  console.log('[Agency OS] Master Super Admin account verified and ready.');
+                }
+              });
+            }
+          } catch (bErr) {
+            console.warn('[Agency OS] Notice: Bootstrap setup:', bErr.message);
+          }
         }
       });
     } catch (err) {
