@@ -24,12 +24,41 @@ async function bootstrap() {
  api.use((_req: any, res: any, next: any)=>{res.setHeader('Cache-Control','no-store');next();});
  api.use(rateLimit({windowMs:60000,limit:Number(process.env.RATE_LIMIT_MAX||360),standardHeaders:'draft-8',legacyHeaders:false}));
  api.use('/auth/login',rateLimit({windowMs:15*60000,limit:10,standardHeaders:'draft-8',legacyHeaders:false,message:{message:'Too many sign-in attempts. Try again in 15 minutes.'}}));
- api.use((req: any, res: any, next: any)=>{
-  if(!['GET','HEAD','OPTIONS'].includes(req.method)&&req.path!=='/jobs/run') {
-   if(req.headers['x-agency-request']!=='1'||(req.headers.origin&&req.headers.origin!==origin)||req.headers['sec-fetch-site']==='cross-site'){res.status(403).json({message:'Request origin could not be verified.'});return;}
-  }
-  next();
- });
+  api.use((req: any, res: any, next: any) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.path !== '/jobs/run') {
+      if (req.headers['sec-fetch-site'] === 'cross-site') {
+        res.status(403).json({ message: 'Cross-site requests are forbidden.' });
+        return;
+      }
+      const reqOrigin = req.headers.origin;
+      if (reqOrigin) {
+        try {
+          const originUrl = new URL(reqOrigin);
+          const hostHeader = (req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0].toLowerCase();
+          const configuredHost = process.env.APP_URL ? new URL(process.env.APP_URL).hostname.toLowerCase() : '';
+
+          const isAllowed =
+            !hostHeader ||
+            originUrl.hostname.toLowerCase() === hostHeader ||
+            (configuredHost && originUrl.hostname.toLowerCase() === configuredHost) ||
+            originUrl.hostname.toLowerCase().endsWith('mad0media.com') ||
+            originUrl.hostname.toLowerCase().endsWith('hostingersite.com') ||
+            originUrl.hostname === 'localhost' ||
+            originUrl.hostname === '127.0.0.1';
+
+          if (!isAllowed) {
+            console.warn(`[Agency OS] Origin rejected: ${reqOrigin} (host: ${hostHeader}, configured: ${configuredHost})`);
+            res.status(403).json({ message: 'Request origin could not be verified.' });
+            return;
+          }
+        } catch (e) {
+          res.status(403).json({ message: 'Invalid origin header.' });
+          return;
+        }
+      }
+    }
+    next();
+  });
 
   const rawPort = process.env.PORT || 3000;
   const portNum = (/^\d+$/.test(String(rawPort))) ? Number(rawPort) : 3000;

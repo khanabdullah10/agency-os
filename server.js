@@ -148,14 +148,22 @@ if (process.env.DATABASE_URL) {
         path.resolve(__dirname, '../../node_modules/prisma/build/index.js')
       ];
       const prismaCli = prismaCandidates.find(p => fs.existsSync(p));
+      const schemaCandidates = [
+        path.resolve(__dirname, 'prisma/schema.prisma'),
+        path.resolve(process.cwd(), 'prisma/schema.prisma'),
+        path.resolve(__dirname, '../../prisma/schema.prisma')
+      ];
+      const schemaPath = schemaCandidates.find(p => fs.existsSync(p));
+      const schemaArg = schemaPath ? ` --schema="${schemaPath}"` : '';
+
       const migrateCmd = prismaCli
-        ? `"${process.execPath}" "${prismaCli}" migrate deploy`
-        : 'npx prisma migrate deploy';
+        ? `"${process.execPath}" "${prismaCli}" migrate deploy${schemaArg}`
+        : `npx prisma migrate deploy${schemaArg}`;
 
       const { exec } = require('node:child_process');
-      exec(migrateCmd, (err) => {
+      exec(migrateCmd, (err, stdout, stderr) => {
         if (err) {
-          console.warn('[Agency OS] Notice: Database migration check:', err.message);
+          console.warn('[Agency OS] Notice: Database migration check:', (stderr || stdout || err.message).trim());
         } else {
           console.log('[Agency OS] Database schema verified and up-to-date.');
           // Auto-bootstrap initial Super Admin account and roles if database is fresh
