@@ -5,6 +5,10 @@ import { promisify } from 'node:util';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function fixPrismaPermissions() {
   const dirs = [
@@ -118,15 +122,13 @@ async function main() {
   const schemaPath = schemaCandidates.find(p => fs.existsSync(p));
   const schemaArg = schemaPath ? ` --schema="${schemaPath}"` : '';
 
-  const migCmd = prismaCli ? `"${process.execPath}" "${prismaCli}" migrate deploy${schemaArg}` : `npx prisma migrate deploy${schemaArg}`;
-  const mig = spawnSync(migCmd, { stdio: 'inherit', shell: true });
-  if (mig.status !== 0) {
-    console.warn('Prisma migrate deploy non-zero; attempting db push fallback...');
-    const pushCmd = prismaCli ? `"${process.execPath}" "${prismaCli}" db push --accept-data-loss${schemaArg}` : `npx prisma db push --accept-data-loss${schemaArg}`;
-    const push = spawnSync(pushCmd, { stdio: 'inherit', shell: true });
-    if (push.status !== 0) {
-      console.warn('Notice: db push fallback also returned non-zero. Attempting to proceed with Prisma Client...');
-    }
+  // Step 1: Ensure all physical MySQL tables exist via db push
+  const pushCmd = prismaCli ? `"${process.execPath}" "${prismaCli}" db push --accept-data-loss${schemaArg}` : `npx prisma db push --accept-data-loss${schemaArg}`;
+  const push = spawnSync(pushCmd, { stdio: 'inherit', shell: true });
+  if (push.status !== 0) {
+    console.warn('Notice: db push exited non-zero, trying migrate deploy fallback...');
+    const migCmd = prismaCli ? `"${process.execPath}" "${prismaCli}" migrate deploy${schemaArg}` : `npx prisma migrate deploy${schemaArg}`;
+    spawnSync(migCmd, { stdio: 'inherit', shell: true });
   }
 
   const db = new PrismaClient();

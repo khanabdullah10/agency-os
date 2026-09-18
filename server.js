@@ -202,10 +202,6 @@ if (process.env.DATABASE_URL) {
       const schemaPath = schemaCandidates.find(p => fs.existsSync(p));
       const schemaArg = schemaPath ? ` --schema="${schemaPath}"` : '';
 
-      const migrateCmd = prismaCli
-        ? `"${process.execPath}" "${prismaCli}" migrate deploy${schemaArg}`
-        : `npx prisma migrate deploy${schemaArg}`;
-
       const { exec } = require('node:child_process');
 
       const runBootstrap = () => {
@@ -222,6 +218,7 @@ if (process.env.DATABASE_URL) {
                 console.warn('[Agency OS] Notice: Bootstrap setup:', (bStderr || bStdout || bErr.message).trim());
               } else {
                 console.log('[Agency OS] Master Super Admin account verified and ready.');
+                if (bStdout) console.log(bStdout.trim());
               }
             });
           }
@@ -230,28 +227,30 @@ if (process.env.DATABASE_URL) {
         }
       };
 
-      exec(migrateCmd, (err, stdout, stderr) => {
-        if (err) {
-          console.warn('[Agency OS] Notice: Database migration deploy issue:', (stderr || stdout || err.message).trim());
-          console.log('[Agency OS] Attempting database synchronization via db push fallback...');
-          const pushCmd = prismaCli
-            ? `"${process.execPath}" "${prismaCli}" db push --accept-data-loss${schemaArg}`
-            : `npx prisma db push --accept-data-loss${schemaArg}`;
-          exec(pushCmd, (pErr, pStdout, pStderr) => {
-            if (pErr) {
-              console.warn('[Agency OS] Notice: db push fallback failed:', (pStderr || pStdout || pErr.message).trim());
-            } else {
-              console.log('[Agency OS] Database schema synchronized via db push.');
-              runBootstrap();
-            }
-          });
+      // Always guarantee physical MySQL tables exist via db push
+      const pushCmd = prismaCli
+        ? `"${process.execPath}" "${prismaCli}" db push --accept-data-loss${schemaArg}`
+        : `npx prisma db push --accept-data-loss${schemaArg}`;
+
+      exec(pushCmd, (pErr, pStdout, pStderr) => {
+        if (pErr) {
+          console.warn('[Agency OS] Notice: db push output:', (pStderr || pStdout || pErr.message).trim());
         } else {
-          console.log('[Agency OS] Database schema verified and up-to-date.');
-          runBootstrap();
+          console.log('[Agency OS] Database schema synchronized and verified via db push.');
+          if (pStdout) console.log(pStdout.trim());
         }
+
+        // Also run migrate deploy if applicable to track migration history
+        const migrateCmd = prismaCli
+          ? `"${process.execPath}" "${prismaCli}" migrate deploy${schemaArg}`
+          : `npx prisma migrate deploy${schemaArg}`;
+        exec(migrateCmd, (mErr, mStdout) => {
+          if (!mErr && mStdout) console.log('[Agency OS] Migrations status:', mStdout.trim());
+          runBootstrap();
+        });
       });
     } catch (err) {
       console.warn('[Agency OS] Notice: Database migration check:', err.message);
     }
-  }, 1500);
+  }, 1000);
 }
