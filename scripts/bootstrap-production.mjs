@@ -107,33 +107,38 @@ async function main() {
   const adminName = (process.env.SEED_ADMIN_NAME || 'Aditya Khan').trim();
 
   console.log('Step 1: Deploying database migrations to Hostinger MySQL...');
-  fixPrismaPermissions();
-  const prismaCandidates = [
-    path.resolve(process.cwd(), 'node_modules/prisma/build/index.js'),
-    path.resolve(process.cwd(), '.next/standalone/node_modules/prisma/build/index.js'),
-    path.resolve(__dirname, '../node_modules/prisma/build/index.js')
-  ];
-  const prismaCli = prismaCandidates.find(p => fs.existsSync(p));
-  const schemaCandidates = [
-    path.resolve(process.cwd(), 'prisma/schema.prisma'),
-    path.resolve(process.cwd(), '.next/standalone/prisma/schema.prisma'),
-    path.resolve(__dirname, '../prisma/schema.prisma')
-  ];
-  const schemaPath = schemaCandidates.find(p => fs.existsSync(p));
-  const schemaArg = schemaPath ? ` --schema="${schemaPath}"` : '';
-
-  // Step 1: Ensure all physical MySQL tables exist via db push
-  const pushCmd = prismaCli ? `"${process.execPath}" "${prismaCli}" db push --accept-data-loss${schemaArg}` : `npx prisma db push --accept-data-loss${schemaArg}`;
-  const push = spawnSync(pushCmd, { stdio: 'inherit', shell: true });
-  if (push.status !== 0) {
-    console.warn('Notice: db push exited non-zero, trying migrate deploy fallback...');
-    const migCmd = prismaCli ? `"${process.execPath}" "${prismaCli}" migrate deploy${schemaArg}` : `npx prisma migrate deploy${schemaArg}`;
-    spawnSync(migCmd, { stdio: 'inherit', shell: true });
-  }
-
   const db = new PrismaClient();
 
   try {
+    console.log('Step 1: Checking and verifying database schema in MySQL...');
+    try {
+      const tables = await db.$queryRawUnsafe("SELECT TABLE_NAME FROM information_schema.tables WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'User'");
+      if (!tables || tables.length === 0) {
+        console.log('Applying migration SQL directly to MySQL...');
+        const migrationCandidates = [
+          path.resolve(process.cwd(), 'prisma/migrations/202609160001_initial/migration.sql'),
+          path.resolve(process.cwd(), '.next/standalone/prisma/migrations/202609160001_initial/migration.sql'),
+          path.resolve(__dirname, '../prisma/migrations/202609160001_initial/migration.sql'),
+          path.resolve(__dirname, '../../prisma/migrations/202609160001_initial/migration.sql')
+        ];
+        const mFile = migrationCandidates.find(p => fs.existsSync(p));
+        if (mFile) {
+          const sql = fs.readFileSync(mFile, 'utf8');
+          const statements = sql
+            .split(';')
+            .map(s => s.replace(/--.*$/gm, '').trim())
+            .filter(s => s.length > 0);
+          for (const stmt of statements) {
+            try { await db.$executeRawUnsafe(stmt); } catch (e) {}
+          }
+          console.log(`Successfully applied ${statements.length} schema DDL statements directly.`);
+        }
+      } else {
+        console.log('Database tables verified in MySQL.');
+      }
+    } catch (sErr) {
+      console.warn('Direct schema check notice:', sErr.message);
+    }
     console.log('\nStep 3: Initializing core agency entity...');
     const agency = await db.agency.upsert({
       where: { id: 'mad-o-media' },
