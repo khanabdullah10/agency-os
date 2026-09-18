@@ -59,10 +59,140 @@ function DriveForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  return <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);const d:any={clientId:client,title:f.get('title'),url:f.get('url'),category:f.get('category'),clientVisible:f.get('clientVisible')==='on'};if(cid)d.contentId=Number(cid);if(f.get('taskId'))d.taskId=f.get('taskId');if(f.get('revisionId'))d.revisionId=f.get('revisionId');try{await mutate('/drive',d,'POST','Drive link connected');onDone();}catch{}}}><Field label="Link title"><input name="title" required placeholder="Brand assets, first cut, or shoot references…"/></Field><Field label="Google Drive URL"><input type="url" name="url" required placeholder="https://drive.google.com/…"/></Field><div className="form-grid"><Field label="Client"><select required value={client} onChange={e=>{setClient(e.target.value);setCid('');}}><option value="">Choose a client</option>{clients?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field><Field label="Content"><select value={cid} onChange={e=>setCid(e.target.value)}><option value="">Client-level link</option>{content?.filter(c=>c.clientId===client).map(c=><option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select></Field><Field label="Category"><select name="category">{['Brand Asset','Reference','Script','Raw Footage','Final Video','Graphic','Document','Report','Other'].map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Task (optional)"><select name="taskId"><option value="">No task</option>{tasks?.filter(t=>t.clientId===client&&(!cid||t.contentId===Number(cid))).map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select></Field></div><Field label="Revision ID (optional)"><input name="revisionId" placeholder="Connect to a specific revision"/></Field><label className="checkbox-label"><input type="checkbox" name="clientVisible"/> Make this link visible to the client</label><div className="info-note">Your media stays in Google Drive. Agency OS stores the link and its context.</div><FormFooter pending={pending} onCancel={onDone} submit="Add Drive link"/></form>;
 }
 function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
- const {actor}=useApp(),{mutate,pending}=useMutation(),{data:roles}=useResource<any[]>('/roles'),{data:clients}=useResource<any[]>('/clients');
+ const {actor}=useApp(),{mutate,pending}=useMutation(),{data:roles}=useResource<any[]>('/roles'),{data:clients}=useResource<any[]>('/clients'),{data:permissions}=useResource<any[]>(actor.isSuperAdmin?'/roles/permissions':null);
  const [role,setRole]=useState(initial?.roleId||'');
  const [avatarUrl,setAvatarUrl]=useState<string|null>(initial?.avatarUrl||null);
- return <form onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);const d:any={name:f.get('name'),email:f.get('email'),roleId:role,avatarUrl,phone:f.get('phone')||'',whatsapp:f.get('whatsapp')||'',whatsappOptIn:f.get('whatsappOptIn')==='on'};if(initial?.id)d.active=f.get('active')==='on';else{d.password=f.get('password');if(f.get('clientId'))d.clientId=f.get('clientId');}try{await mutate(initial?.id?'/users/'+initial.id:'/users',d,initial?.id?'PATCH':'POST',initial?.id?'Team member updated':'Account created');onDone();}catch{}}}><ImageUploadField label="Profile photo" value={avatarUrl} onChange={setAvatarUrl} name={initial?.name||'Team member'} hint="Displayed on tasks, comments, conversations, and header"/><div className="form-grid"><Field label="Full name"><input name="name" required minLength={2} defaultValue={initial?.name}/></Field><Field label="Email"><input name="email" type="email" required defaultValue={initial?.email}/></Field><Field label="Role"><select required value={role} onChange={e=>setRole(e.target.value)}><option value="">Choose a role</option>{roles?.filter(r=>!r.isSuperAdmin||actor.isSuperAdmin).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></Field>{!initial?.id&&<Field label="Temporary password"><input name="password" type="password" minLength={12} required autoComplete="new-password"/></Field>}<Field label="Phone"><input name="phone" type="tel" defaultValue={initial?.phone}/></Field><Field label="WhatsApp number"><input name="whatsapp" type="tel" defaultValue={initial?.whatsapp}/></Field></div>{!initial?.id&&roles?.find(r=>r.id===role)?.isClient&&<Field label="Client workspace"><select name="clientId" required><option value="">Choose a client</option>{clients?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}<label className="checkbox-label"><input type="checkbox" name="whatsappOptIn" defaultChecked={initial?.whatsappOptIn}/> This person has opted in to WhatsApp notifications</label>{initial?.id&&<label className="checkbox-label"><input type="checkbox" name="active" defaultChecked={initial.active}/> Account active</label>}<p className="muted">New users must change their temporary password when they first sign in. Share access details securely.</p><FormFooter pending={pending} onCancel={onDone} submit={initial?.id?'Save team member':'Create account'}/></form>;
+ const [customEnabled,setCustomEnabled]=useState(Boolean(initial?.permissions?.length));
+ const [customPerms,setCustomPerms]=useState<Record<string,boolean>>(()=>{
+  const map:Record<string,boolean>={};
+  if(initial?.permissions){
+   for(const p of initial.permissions){
+    map[p.permissionKey]=p.allowed;
+   }
+  }
+  return map;
+ });
+
+ const selectedRoleObj=roles?.find(r=>r.id===role);
+ const defaultRolePermKeys=new Set(selectedRoleObj?.permissions?.map((p:any)=>p.permissionKey)||[]);
+
+ const isPermAllowed=(key:string)=>{
+  if(customPerms[key]!==undefined) return customPerms[key];
+  return defaultRolePermKeys.has(key);
+ };
+
+ const togglePerm=(key:string)=>{
+  const current=isPermAllowed(key);
+  setCustomPerms(prev=>({...prev,[key]:!current}));
+ };
+
+ return <form onSubmit={async e=>{
+  e.preventDefault();
+  const f=new FormData(e.currentTarget);
+  const d:any={
+   name:f.get('name'),
+   email:f.get('email'),
+   roleId:role,
+   avatarUrl,
+   phone:f.get('phone')||'',
+   whatsapp:f.get('whatsapp')||'',
+   whatsappOptIn:f.get('whatsappOptIn')==='on'
+  };
+  if(initial?.id) d.active=f.get('active')==='on';
+  else{
+   d.password=f.get('password');
+   if(f.get('clientId')) d.clientId=f.get('clientId');
+  }
+  if(actor.isSuperAdmin&&!selectedRoleObj?.isSuperAdmin){
+   if(customEnabled){
+    const permsPayload=(permissions||[])
+     .filter(p=>isPermAllowed(p.key)!==defaultRolePermKeys.has(p.key))
+     .map(p=>({key:p.key,allowed:isPermAllowed(p.key)}));
+    d.permissions=permsPayload;
+   }else if(initial?.id&&initial?.permissions?.length){
+    d.permissions=[];
+   }
+  }
+  try{
+   await mutate(initial?.id?'/users/'+initial.id:'/users',d,initial?.id?'PATCH':'POST',initial?.id?'Team member updated':'Account created');
+   onDone();
+  }catch{}
+ }}>
+  <ImageUploadField label="Profile photo" value={avatarUrl} onChange={setAvatarUrl} name={initial?.name||'Team member'} hint="Displayed on tasks, comments, conversations, and header"/>
+  <div className="form-grid">
+   <Field label="Full name"><input name="name" required minLength={2} defaultValue={initial?.name}/></Field>
+   <Field label="Email"><input name="email" type="email" required defaultValue={initial?.email}/></Field>
+   <Field label="Role">
+    <select required value={role} onChange={e=>{
+     setRole(e.target.value);
+     if(!initial?.id) setCustomPerms({});
+    }}>
+     <option value="">Choose a role</option>
+     {roles?.filter(r=>!r.isSuperAdmin||actor.isSuperAdmin).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
+    </select>
+   </Field>
+   {!initial?.id&&<Field label="Temporary password"><input name="password" type="password" minLength={12} required autoComplete="new-password"/></Field>}
+   <Field label="Phone"><input name="phone" type="tel" defaultValue={initial?.phone}/></Field>
+   <Field label="WhatsApp number"><input name="whatsapp" type="tel" defaultValue={initial?.whatsapp}/></Field>
+  </div>
+  {!initial?.id&&selectedRoleObj?.isClient&&<Field label="Client workspace"><select name="clientId" required><option value="">Choose a client</option>{clients?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
+  <label className="checkbox-label"><input type="checkbox" name="whatsappOptIn" defaultChecked={initial?.whatsappOptIn}/> This person has opted in to WhatsApp notifications</label>
+  {initial?.id&&<label className="checkbox-label"><input type="checkbox" name="active" defaultChecked={initial.active}/> Account active</label>}
+
+  {actor.isSuperAdmin&&role&&!selectedRoleObj?.isSuperAdmin&&(
+   <div style={{marginTop:'16px',borderTop:'1px solid var(--border-color)',paddingTop:'16px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+     <div>
+      <strong style={{fontSize:'13px',display:'block'}}>Custom Granular Permissions</strong>
+      <small className="muted" style={{fontSize:'11px'}}>Super Admin override: grant or revoke individual permissions beyond the base role defaults.</small>
+     </div>
+     <label className="checkbox-label" style={{margin:0,padding:0,border:0,cursor:'pointer',display:'flex',alignItems:'center',gap:'8px'}}>
+      <input type="checkbox" checked={customEnabled} onChange={e=>{
+       setCustomEnabled(e.target.checked);
+       if(e.target.checked&&Object.keys(customPerms).length===0){
+        const initMap:Record<string,boolean>={};
+        (permissions||[]).forEach(p=>{initMap[p.key]=defaultRolePermKeys.has(p.key);});
+        setCustomPerms(initMap);
+       }
+      }}/>
+      <span style={{fontSize:'12px',fontWeight:600}}>Customize permissions</span>
+     </label>
+    </div>
+    {customEnabled&&(
+     <div style={{background:'var(--background)',borderRadius:'12px',padding:'12px 16px',border:'1px solid var(--border-color)',marginTop:'8px'}}>
+      <div style={{display:'flex',gap:'8px',justifyContent:'flex-end',alignItems:'center',marginBottom:'10px'}}>
+       <button type="button" className="text-button" style={{fontSize:'11px',color:'var(--accent)',cursor:'pointer'}} onClick={()=>{const m:Record<string,boolean>={};(permissions||[]).forEach(p=>m[p.key]=defaultRolePermKeys.has(p.key));setCustomPerms(m);}}>Reset to role defaults</button>
+       <span className="muted" style={{fontSize:'11px'}}>·</span>
+       <button type="button" className="text-button" style={{fontSize:'11px',color:'var(--accent)',cursor:'pointer'}} onClick={()=>{const m:Record<string,boolean>={};(permissions||[]).forEach(p=>m[p.key]=true);setCustomPerms(m);}}>Grant all</button>
+       <span className="muted" style={{fontSize:'11px'}}>·</span>
+       <button type="button" className="text-button" style={{fontSize:'11px',color:'var(--accent)',cursor:'pointer'}} onClick={()=>{const m:Record<string,boolean>={};(permissions||[]).forEach(p=>m[p.key]=false);setCustomPerms(m);}}>Revoke all</button>
+      </div>
+      <div className="permissions-grid" style={{maxHeight:'280px',overflowY:'auto',paddingRight:'4px'}}>
+       {permissions?.map(p=>{
+        const allowed=isPermAllowed(p.key);
+        const isOverridden=customPerms[p.key]!==undefined&&customPerms[p.key]!==defaultRolePermKeys.has(p.key);
+        return (
+         <label className="checkbox-label" key={p.key} style={{background:isOverridden?'rgba(234, 107, 54, 0.05)':undefined,borderRadius:'6px',padding:'6px 8px'}}>
+          <input type="checkbox" checked={allowed} onChange={()=>togglePerm(p.key)}/>
+          <span>
+           <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+            <strong>{p.key}</strong>
+            {isOverridden&&<span style={{fontSize:'9px',padding:'1px 5px',borderRadius:'4px',background:allowed?'#10b98120':'#ef444420',color:allowed?'#10b981':'#ef4444',fontWeight:600}}>{allowed?'GRANTED':'REVOKED'}</span>}
+           </div>
+           <small>{p.description}</small>
+          </span>
+         </label>
+        );
+       })}
+      </div>
+     </div>
+    )}
+   </div>
+  )}
+
+  <p className="muted" style={{marginTop:'12px'}}>New users must change their temporary password when they first sign in. Share access details securely.</p>
+  <FormFooter pending={pending} onCancel={onDone} submit={initial?.id?'Save team member':'Create account'}/>
+ </form>;
 }
 function ProfileForm({onDone}:{onDone:()=>void}){
  const {actor,refresh}=useApp(),{mutate,pending}=useMutation();

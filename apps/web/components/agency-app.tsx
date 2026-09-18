@@ -184,7 +184,7 @@ export function AgencyApp() {
             ? 'Update your profile photo and display name.'
             : undefined
         }
-        wide={form?.kind === 'client' || form?.kind === 'content'}
+        wide={form?.kind === 'client' || form?.kind === 'content' || form?.kind === 'user'}
       >
         {form && <CreateForm kind={form.kind} initial={form.initial} onDone={() => setForm(null)} />}
       </Modal>

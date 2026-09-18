@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Global, Injectable, Module, Param, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Global, Injectable, Module, Param, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import Pusher from 'pusher';
 import { Database } from '../core/database';
@@ -74,6 +74,28 @@ class NotificationsController {
  @Get() list(@CurrentActor()a:Actor){return this.db.notification.findMany({where:{userId:a.id},orderBy:{createdAt:'desc'},take:100});}
  @Patch(':id/read') async read(@CurrentActor()a:Actor,@Param('id')id:string){await this.db.notification.updateMany({where:{id,userId:a.id},data:{readAt:new Date()}});return {ok:true};}
  @Post('read-all') async all(@CurrentActor()a:Actor){await this.db.notification.updateMany({where:{userId:a.id,readAt:null},data:{readAt:new Date()}});return {ok:true};}
+ @Delete() async clearAll(@CurrentActor()a:Actor){
+  return this.db.atomic(async tx=>{
+   const notes=await tx.notification.findMany({where:{userId:a.id},select:{id:true}});
+   const ids=notes.map(n=>n.id);
+   if(ids.length){
+    await tx.notificationDelivery.deleteMany({where:{notificationId:{in:ids}}});
+    await tx.notification.deleteMany({where:{id:{in:ids}}});
+   }
+   return {ok:true,count:ids.length};
+  });
+ }
+ @Post('clear-all') async clearAllAlias(@CurrentActor()a:Actor){return this.clearAll(a);}
+ @Delete(':id') async deleteOne(@CurrentActor()a:Actor,@Param('id')id:string){
+  return this.db.atomic(async tx=>{
+   const note=await tx.notification.findFirst({where:{id,userId:a.id}});
+   if(note){
+    await tx.notificationDelivery.deleteMany({where:{notificationId:id}});
+    await tx.notification.deleteMany({where:{id,userId:a.id}});
+   }
+   return {ok:true};
+  });
+ }
  @Get('preferences') preferences(@CurrentActor()a:Actor){return this.db.notificationPreference.findMany({where:{userId:a.id}});}
  @Post('preferences') preference(@CurrentActor()a:Actor,@Body()raw:unknown){const d=preferenceDto.parse(raw);return this.db.notificationPreference.upsert({where:{userId_category:{userId:a.id,category:d.category}},create:{userId:a.id,...d},update:d});}
 }

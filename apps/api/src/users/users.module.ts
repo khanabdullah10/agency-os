@@ -15,6 +15,7 @@ class UsersController {
   return this.db.user.findMany({
    where:{agencyId:a.agencyId,deletedAt:null},
    select:{...safeUser,email:true,active:true,phone:true,whatsapp:true,whatsappOptIn:true,roleId:true,
+    permissions:{select:{permissionKey:true,allowed:true}},
     role:{select:{name:true,isSuperAdmin:true,isClient:true}},
     teams:{select:{clientId:true,responsibility:true}},
     _count:{select:{assignedTasks:{where:{status:{notIn:['COMPLETED','CANCELLED']}}}}}
@@ -28,10 +29,15 @@ class UsersController {
   if(!a.isSuperAdmin) {const rp=await this.db.rolePermission.findMany({where:{roleId:role.id}});if(rp.some(p=>!has(a,p.permissionKey)))throw new ForbiddenException('You cannot grant permissions you do not have.');}
   if(role.isClient&&!d.clientId)throw new BadRequestException('Client accounts require a client workspace.');
   if(d.clientId)await this.access.client(a,d.clientId);
-  const {password,clientId,...data}=d;const passwordHash=await hashPassword(password);
+  if(d.permissions&&!a.isSuperAdmin)throw new ForbiddenException('Only a Super Admin can grant individual permission overrides.');
+  const {password,clientId,permissions,...data}=d;const passwordHash=await hashPassword(password);
   return this.db.atomic(async tx=>{
    const u=await tx.user.create({data:{...data,email:data.email.toLowerCase(),agencyId:a.agencyId,passwordHash,...(role.isClient?{clientUsers:{create:{clientId:clientId!}}}:{})},select:{...safeUser,email:true}});
-   await audit(tx,a,'user.created','user',u.id,{next:{name:u.name,roleId:role.id}});return u;
+   if(permissions?.length){
+    const uniquePerms=[...new Map(permissions.map(p=>[p.key,p.allowed])).entries()].map(([key,allowed])=>({userId:u.id,permissionKey:key,allowed}));
+    await tx.userPermission.createMany({data:uniquePerms});
+   }
+   await audit(tx,a,'user.created','user',u.id,{next:{name:u.name,roleId:role.id,hasCustomPermissions:!!permissions?.length}});return u;
   });
  }
  @Patch(':id') @Require('employee.manage')
@@ -51,7 +57,11 @@ class UsersController {
   }
   const {permissions,...data}=d;
   return this.db.atomic(async tx=>{
-   if(permissions){await tx.userPermission.deleteMany({where:{userId:id}});await tx.userPermission.createMany({data:permissions.map(p=>({userId:id,permissionKey:p.key,allowed:p.allowed}))});}
+   if(permissions){
+    await tx.userPermission.deleteMany({where:{userId:id}});
+    const uniquePerms=[...new Map(permissions.map(p=>[p.key,p.allowed])).entries()].map(([key,allowed])=>({userId:id,permissionKey:key,allowed}));
+    if(uniquePerms.length) await tx.userPermission.createMany({data:uniquePerms});
+   }
    const updated=await tx.user.update({where:{id},data,select:{...safeUser,email:true,active:true}});
    if(d.active===false||d.roleId||permissions)await tx.session.deleteMany({where:{userId:id}});
    await audit(tx,a,'user.updated','user',id,{next:{changedFields:Object.keys(d)}});return updated;
