@@ -54,7 +54,7 @@ export class ContentService {
    driveLinks:c.driveLinks.filter(v=>v.clientVisible).map(v=>({id:v.id,title:v.title,url:v.url,category:v.category,createdAt:v.createdAt})),
    comments:c.comments.filter(v=>v.clientVisible).map(v=>({id:v.id,body:v.body,timestamp:v.timestamp,referenceUrl:v.referenceUrl,author:{name:v.author.name},createdAt:v.createdAt})),
    publishing:c.publishing?{status:c.publishing.status,publishedUrl:c.publishing.publishedUrl,publishedAt:c.publishing.publishedAt,scheduledAt:c.publishing.scheduledAt,finalDriveUrl:c.publishing.finalDriveUrl,caption:c.publishing.caption,hashtags:c.publishing.hashtags}:null,
-   activities:c.activities.filter(v=>v.clientVisible).map(v=>({id:v.id,action:v.action,createdAt:v.createdAt,actor:{name:v.actor?.name||'Agency OS'}})),
+   activities:[],
    metrics:['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status)?c.metrics:[]
   };
  }

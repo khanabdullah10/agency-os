@@ -138,21 +138,21 @@ export function AgencyApp() {
           {path.startsWith('/content/') ? (
             <ContentDetail id={Number(path.split('/')[2])} />
           ) : path.startsWith('/clients/') ? (
-            <ClientDetail id={path.split('/')[2]} />
+            actor.isClient ? <Dashboard /> : <ClientDetail id={path.split('/')[2]} />
           ) : (
             ({
               '/dashboard': <Dashboard />,
               '/calendar': <CalendarView />,
               '/content': <ContentList />,
-              '/clients': <ClientsView />,
-              '/tasks': <TasksView />,
+              '/clients': actor.isClient ? <Dashboard /> : <ClientsView />,
+              '/tasks': actor.isClient ? <Dashboard /> : <TasksView />,
               '/approvals': <ApprovalsView />,
               '/chat': actor.isClient ? <Dashboard /> : <ChatView />,
-              '/team': <TeamView />,
+              '/team': actor.isClient ? <Dashboard /> : <TeamView />,
               '/drive': <DriveView />,
-              '/publishing': <PublishingView />,
+              '/publishing': actor.isClient ? <Dashboard /> : <PublishingView />,
               '/reports': <ReportsView />,
-              '/activity': <ActivityView />,
+              '/activity': actor.isClient ? <Dashboard /> : <ActivityView />,
               '/notifications': <NotificationsView />,
               '/settings': <SettingsView />,
             } as Record<string, React.ReactNode>)[path] || <Dashboard />
@@ -554,7 +554,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                   (n) =>
                     n.group === group &&
                     can(n.permission) &&
-                    (!actor.isClient || !['/team', '/tasks', '/publishing', '/activity', '/chat'].includes(n.href))
+                    (!actor.isClient || !['/clients', '/team', '/tasks', '/publishing', '/activity', '/chat'].includes(n.href))
                 )
                 .map((n) => {
                   const isActive = path.startsWith(n.href);

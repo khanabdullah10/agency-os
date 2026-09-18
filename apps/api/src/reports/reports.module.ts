@@ -26,7 +26,7 @@ class ReportingController {
   const published=monthly.filter(c=>['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status));
   const upcoming=content.filter(c=>c.publishAt>=new Date(now.getTime()-86400000)&&!['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status)).sort((a,b)=>a.publishAt.getTime()-b.publishAt.getTime()).slice(0,6);
   const workload=a.isClient?[]:Object.values(activeTasks.reduce((acc:any,t)=>{acc[t.assigneeId]??={user:t.assignee,total:0,overdue:0};acc[t.assigneeId].total++;if(t.dueAt<now)acc[t.assigneeId].overdue++;return acc;},{}));
-  return {clients,counts,contentThisMonth:monthly.length,publishedThisMonth:published.length,totalClients:clients.length,activeClients:clients.filter(c=>c.active).length,employeeCount:a.isClient?undefined:await this.db.user.count({where:{agencyId:a.agencyId,active:true,role:{isClient:false},...(has(a,'employee.manage')?{}:{id:{in:workload.map((w:any)=>w.user.id)}})}}),tasksPending:activeTasks.length,tasksOverdue:activeTasks.filter(t=>t.dueAt<now).length,tasks:activeTasks.sort((a,b)=>a.dueAt.getTime()-b.dueAt.getTime()).slice(0,6),workload,notifications,upcoming:upcoming.map(c=>a.isClient?{id:c.id,title:c.title,status:clientStatus(c.status),publishAt:c.publishAt,platform:c.platform,client:c.client}:c),activity:activity.map(v=>({id:v.id,action:v.action,createdAt:v.createdAt,actor:v.actor,client:v.client,contentId:v.contentId})),monthlyByClient:clients.map(c=>({name:c.name,color:c.color,planned:monthly.filter(x=>x.clientId===c.id).length,published:published.filter(x=>x.clientId===c.id).length}))};
+  return {clients,counts,contentThisMonth:monthly.length,publishedThisMonth:published.length,totalClients:clients.length,activeClients:clients.filter(c=>c.active).length,employeeCount:a.isClient?undefined:await this.db.user.count({where:{agencyId:a.agencyId,active:true,role:{isClient:false},...(has(a,'employee.manage')?{}:{id:{in:workload.map((w:any)=>w.user.id)}})}}),tasksPending:activeTasks.length,tasksOverdue:activeTasks.filter(t=>t.dueAt<now).length,tasks:activeTasks.sort((a,b)=>a.dueAt.getTime()-b.dueAt.getTime()).slice(0,6),workload,notifications,upcoming:upcoming.map(c=>a.isClient?{id:c.id,title:c.title,status:clientStatus(c.status),publishAt:c.publishAt,platform:c.platform,client:c.client}:c),   activity:a.isClient?[]:activity.map(v=>({id:v.id,action:v.action,createdAt:v.createdAt,actor:v.actor,client:v.client,contentId:v.contentId})),monthlyByClient:clients.map(c=>({name:c.name,color:c.color,planned:monthly.filter(x=>x.clientId===c.id).length,published:published.filter(x=>x.clientId===c.id).length}))};
  }
  @Get('reports') @Require('report.view')
  async reports(@CurrentActor()a:Actor,@Query('clientId')clientId?:string) {
@@ -50,13 +50,14 @@ class ReportingController {
  }
  @Get('activity') @Require('activity.view')
  async activity(@CurrentActor()a:Actor,@Query('before')before?:string) {
-  const logs=await this.db.activityLog.findMany({where:{agencyId:a.agencyId,...(a.isClient?{clientVisible:true,client:this.access.clientWhere(a)}:{OR:[{client:this.access.clientWhere(a)},...(has(a,'settings.manage')?[{clientId:null}]:[])]}),...(before?{createdAt:{lt:new Date(before)}}:{})},include:{actor:{select:safeUser},client:{select:{id:true,name:true,color:true}}},orderBy:{createdAt:'desc'},take:100});
-  return a.isClient?logs.map(v=>({id:v.id,action:v.action,createdAt:v.createdAt,contentId:v.contentId,client:v.client,actor:{name:v.actor?.name||'Agency OS'}})):logs;
+  this.access.internal(a);
+  const logs=await this.db.activityLog.findMany({where:{agencyId:a.agencyId,OR:[{client:this.access.clientWhere(a)},...(has(a,'settings.manage')?[{clientId:null}]:[])],...(before?{createdAt:{lt:new Date(before)}}:{})},include:{actor:{select:safeUser},client:{select:{id:true,name:true,color:true}}},orderBy:{createdAt:'desc'},take:100});
+  return logs;
  }
  @Get('search') @Require('content.view')
  async search(@CurrentActor()a:Actor,@Query('q')q='') {
   q=q.trim().slice(0,100);if(q.length<2)return [];
-  const clients=await this.db.client.findMany({where:{...this.access.clientWhere(a),name:{contains:q}},select:{id:true,name:true},take:5});
+  const clients=a.isClient?[]:await this.db.client.findMany({where:{...this.access.clientWhere(a),name:{contains:q}},select:{id:true,name:true},take:5});
   const content=await this.db.contentItem.findMany({where:{client:this.access.clientWhere(a),deletedAt:null,OR:[{title:{contains:q}},{id:Number(q.replace('CNT-',''))||-1}]},select:{id:true,title:true},take:8});
   const tasks=a.isClient||!has(a,'task.view')?[]:await this.db.task.findMany({where:{client:this.access.clientWhere(a),title:{contains:q},...(!has(a,'task.view_team')?{assigneeId:a.id}:{})},select:{id:true,title:true},take:5});
   const users=a.isClient||!has(a,'employee.view')?[]:await this.db.user.findMany({where:{agencyId:a.agencyId,deletedAt:null,role:{isClient:false},name:{contains:q}},select:{id:true,name:true},take:5});
