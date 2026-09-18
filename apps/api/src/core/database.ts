@@ -83,9 +83,9 @@ export class Database extends PrismaClient implements OnModuleInit, OnModuleDest
 
   private async ensureSuperAdmin() {
     try {
-      const adminEmail = (process.env.SEED_ADMIN_EMAIL || 'owner@agency.local').trim().toLowerCase();
+      const adminEmail = (process.env.SEED_ADMIN_EMAIL || 'rahil@mad0media.com').trim().toLowerCase();
       const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'MLjxodYKYAHY86fT!aA9';
-      const adminName = (process.env.SEED_ADMIN_NAME || 'Aditya Khan').trim();
+      const adminName = (process.env.SEED_ADMIN_NAME || 'Rahil Lakhdawala').trim();
 
       const agency = await (this as any).agency.upsert({
         where: { id: 'mad-o-media' },
@@ -104,6 +104,27 @@ export class Database extends PrismaClient implements OnModuleInit, OnModuleDest
         },
         update: {}
       });
+
+      // Automatically migrate legacy admin account if present
+      const legacyAdmin = await (this as any).user.findFirst({
+        where: {
+          OR: [
+            { email: 'owner@agency.local' },
+            { name: 'Aditya Khan' },
+            { name: 'Rahil Lakhdawal' }
+          ]
+        }
+      });
+      if (legacyAdmin) {
+        const targetAdmin = await (this as any).user.findFirst({ where: { email: adminEmail } });
+        if (!targetAdmin || targetAdmin.id === legacyAdmin.id) {
+          await (this as any).user.update({
+            where: { id: legacyAdmin.id },
+            data: { email: adminEmail, name: adminName }
+          });
+          console.log(`[Agency OS] Updated Super Admin: ${adminName} <${adminEmail}>`);
+        }
+      }
 
       const passwordHash = await hashPassword(adminPassword);
       await (this as any).user.upsert({

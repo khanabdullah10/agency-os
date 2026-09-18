@@ -88,8 +88,8 @@ JWT_SECRET=978f1e06ee6986a4210c17504b268da44f998c569ba45dfd1d54a65e12643f05
 CRON_SECRET=e1596b554326b13e930faadc187e68deecaef99ee0389ab43c0f0569877e3344
 
 # Initial Super Admin (The first master account created)
-SEED_ADMIN_EMAIL=owner@mad0media.com
-SEED_ADMIN_NAME=Aditya Khan
+SEED_ADMIN_EMAIL=rahil@mad0media.com
+SEED_ADMIN_NAME=Rahil Lakhdawala
 SEED_ADMIN_PASSWORD=A_Strong_Temporary_Password_12_Chars_Min
 
 # CRITICAL: Ensures zero demo or mock data is created

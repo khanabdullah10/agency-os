@@ -102,9 +102,9 @@ async function main() {
     );
   }
 
-  const adminEmail = (process.env.SEED_ADMIN_EMAIL || 'owner@agency.local').trim().toLowerCase();
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL || 'rahil@mad0media.com').trim().toLowerCase();
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'MLjxodYKYAHY86fT!aA9';
-  const adminName = (process.env.SEED_ADMIN_NAME || 'Aditya Khan').trim();
+  const adminName = (process.env.SEED_ADMIN_NAME || 'Rahil Lakhdawala').trim();
 
   console.log('Step 1: Deploying database migrations to Hostinger MySQL...');
   const db = new PrismaClient();
@@ -205,6 +205,27 @@ async function main() {
     }
 
     console.log('Step 6: Creating fresh Super Admin owner account...');
+    // Automatically migrate legacy admin account if present
+    const legacyAdmin = await db.user.findFirst({
+      where: {
+        OR: [
+          { email: 'owner@agency.local' },
+          { name: 'Aditya Khan' },
+          { name: 'Rahil Lakhdawal' }
+        ]
+      }
+    });
+    if (legacyAdmin) {
+      const targetAdmin = await db.user.findFirst({ where: { email: adminEmail } });
+      if (!targetAdmin || targetAdmin.id === legacyAdmin.id) {
+        await db.user.update({
+          where: { id: legacyAdmin.id },
+          data: { email: adminEmail, name: adminName }
+        });
+        console.log(`  Updated Super Admin: ${adminName} <${adminEmail}>`);
+      }
+    }
+
     const passwordHash = await hashPassword(adminPassword);
     const owner = await db.user.upsert({
       where: { email: adminEmail },

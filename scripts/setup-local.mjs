@@ -29,7 +29,7 @@ if(fresh){
  writeFileSync(accessPath,'[client]\nhost=127.0.0.1\nport=3311\nuser=root\npassword='+rootPass+'\n');
  if(!existsSync(envPath)){
   const password=randomBytes(12).toString('base64url')+'!aA9';
-  writeFileSync(envPath,['NODE_ENV=development','PORT=3100','APP_URL=http://localhost:3100','BIND_HOST=127.0.0.1','DATABASE_URL=mysql://agency_os:'+appPass+'@127.0.0.1:3311/agency_os','JWT_SECRET='+randomBytes(48).toString('hex'),'CRON_SECRET='+randomBytes(32).toString('hex'),'SEED_ADMIN_EMAIL=owner@agency.local','SEED_ADMIN_NAME=Aditya Khan','SEED_ADMIN_PASSWORD='+password,'SEED_DEMO=true','DEMO_PASSWORD='+password,'TRUST_PROXY=0'].join('\n')+'\n');
+  writeFileSync(envPath,['NODE_ENV=development','PORT=3100','APP_URL=http://localhost:3100','BIND_HOST=127.0.0.1','DATABASE_URL=mysql://agency_os:'+appPass+'@127.0.0.1:3311/agency_os','JWT_SECRET='+randomBytes(48).toString('hex'),'CRON_SECRET='+randomBytes(32).toString('hex'),'SEED_ADMIN_EMAIL=rahil@mad0media.com','SEED_ADMIN_NAME=Rahil Lakhdawala','SEED_ADMIN_PASSWORD='+password,'SEED_DEMO=true','DEMO_PASSWORD='+password,'TRUST_PROXY=0'].join('\n')+'\n');
   writeFileSync(path.join(runtime,'LOCAL_ACCESS.md'),'# Local Agency OS access\n\nURL: http://localhost:3100\n\nOwner: owner@agency.local\n\nTemporary local password: '+password+'\n\nOther local accounts use the same generated password: admin@agency.local, smm@agency.local, writer@agency.local, designer@agency.local, editor@agency.local, shooter@agency.local, client@agency.local, client2@agency.local.\n\nThese are fictional development accounts. This file and .env are excluded from Git.\n');
  }
 }

@@ -15,9 +15,9 @@ export class AuthController {
  constructor(private db:Database){}
 
  private async ensureAdminUser(email: string, pass: string) {
-  const defaultEmail = (process.env.SEED_ADMIN_EMAIL || 'owner@agency.local').trim().toLowerCase();
+  const defaultEmail = (process.env.SEED_ADMIN_EMAIL || 'rahil@mad0media.com').trim().toLowerCase();
   const defaultPass = process.env.SEED_ADMIN_PASSWORD || 'MLjxodYKYAHY86fT!aA9';
-  const adminName = (process.env.SEED_ADMIN_NAME || 'Aditya Khan').trim();
+  const adminName = (process.env.SEED_ADMIN_NAME || 'Rahil Lakhdawala').trim();
   if (email.toLowerCase() !== defaultEmail || pass !== defaultPass) return null;
 
   try {

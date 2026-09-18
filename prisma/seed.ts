@@ -38,7 +38,9 @@ async function main(){
   const r=await db.role.upsert({where:{agencyId_systemKey:{agencyId:agency.id,systemKey:def.key}},create:{agencyId:agency.id,name:def.name,systemKey:def.key,isSuperAdmin:!!def.isSuperAdmin,isClient:!!def.isClient,permissions:{create:[...new Set(def.permissions)].map(permissionKey=>({permissionKey}))}},update:{}});
   roles[def.key]=r.id;
  }
- const owner=await db.user.upsert({where:{email:process.env.SEED_ADMIN_EMAIL.toLowerCase()},create:{agencyId:agency.id,name:process.env.SEED_ADMIN_NAME||'Agency Owner',email:process.env.SEED_ADMIN_EMAIL.toLowerCase(),passwordHash:await hashPassword(process.env.SEED_ADMIN_PASSWORD),roleId:roles.SUPER_ADMIN,mustChangePassword:!demo},update:{}});
+ const adminEmail = (process.env.SEED_ADMIN_EMAIL || 'rahil@mad0media.com').toLowerCase();
+ const adminName = process.env.SEED_ADMIN_NAME || 'Rahil Lakhdawala';
+ const owner=await db.user.upsert({where:{email:adminEmail},create:{agencyId:agency.id,name:adminName,email:adminEmail,passwordHash:await hashPassword(process.env.SEED_ADMIN_PASSWORD || 'MLjxodYKYAHY86fT!aA9'),roleId:roles.SUPER_ADMIN,mustChangePassword:!demo},update:{name:adminName}});
  if(!demo){console.log('Agency, permissions, roles, and initial Super Admin are ready.');return;}
  if(!process.env.DEMO_PASSWORD||process.env.DEMO_PASSWORD.length<12)throw new Error('DEMO_PASSWORD must contain at least 12 characters.');
  if(await db.client.count({where:{agencyId:agency.id}})){console.log('Existing workspace preserved; demo seed skipped.');return;}
