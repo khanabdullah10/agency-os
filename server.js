@@ -108,6 +108,49 @@ const listener = server.listen(port, () => {
   console.log('----------------------------------------------------');
 });
 
+// Grant executable permissions to all Prisma engine binaries and CLI scripts
+function fixPrismaPermissions() {
+  const dirs = [
+    path.resolve(__dirname, 'node_modules/@prisma'),
+    path.resolve(__dirname, 'node_modules/.prisma'),
+    path.resolve(__dirname, 'node_modules/prisma'),
+    path.resolve(__dirname, 'node_modules/.bin'),
+    path.resolve(process.cwd(), 'node_modules/@prisma'),
+    path.resolve(process.cwd(), 'node_modules/.prisma'),
+    path.resolve(process.cwd(), 'node_modules/prisma'),
+    path.resolve(process.cwd(), 'node_modules/.bin')
+  ];
+
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) continue;
+    try {
+      const walk = (d) => {
+        const entries = fs.readdirSync(d, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(d, entry.name);
+          try {
+            if (entry.isDirectory()) {
+              try { fs.chmodSync(fullPath, 0o755); } catch {}
+              walk(fullPath);
+            } else {
+              fs.chmodSync(fullPath, 0o755);
+            }
+          } catch {}
+        }
+      };
+      walk(dir);
+    } catch {}
+  }
+
+  try {
+    const { execSync } = require('node:child_process');
+    execSync('chmod -R +x node_modules/@prisma node_modules/.prisma node_modules/prisma node_modules/.bin 2>/dev/null || true', { stdio: 'ignore' });
+  } catch {}
+}
+
+// Fix permissions early for engine binaries
+fixPrismaPermissions();
+
 // Export mount interface
 global.__AGENCY_OS_SERVER__ = server;
 global.__AGENCY_OS_MOUNT__ = (router) => {
@@ -120,6 +163,7 @@ global.__AGENCY_OS_MOUNT__ = (router) => {
 // This decouples listen() from heavy module loading, guaranteeing Passenger watchdog passes in < 10ms
 setImmediate(() => {
   try {
+    fixPrismaPermissions();
     const candidates = [
       path.resolve(__dirname, 'apps/api/dist/main.js'),
       path.resolve(process.cwd(), 'apps/api/dist/main.js'),
@@ -142,6 +186,8 @@ if (process.env.DATABASE_URL) {
   setTimeout(() => {
     try {
       console.log('[Agency OS] Background: verifying database schema...');
+      fixPrismaPermissions();
+
       const prismaCandidates = [
         path.resolve(__dirname, 'node_modules/prisma/build/index.js'),
         path.resolve(process.cwd(), 'node_modules/prisma/build/index.js'),
@@ -161,35 +207,51 @@ if (process.env.DATABASE_URL) {
         : `npx prisma migrate deploy${schemaArg}`;
 
       const { exec } = require('node:child_process');
+
+      const runBootstrap = () => {
+        try {
+          const bootstrapCandidates = [
+            path.resolve(__dirname, 'scripts/bootstrap-production.mjs'),
+            path.resolve(process.cwd(), 'scripts/bootstrap-production.mjs'),
+            path.resolve(__dirname, '../../scripts/bootstrap-production.mjs')
+          ];
+          const bScript = bootstrapCandidates.find(p => fs.existsSync(p));
+          if (bScript) {
+            exec(`"${process.execPath}" "${bScript}"`, (bErr, bStdout, bStderr) => {
+              if (bErr) {
+                console.warn('[Agency OS] Notice: Bootstrap setup:', (bStderr || bStdout || bErr.message).trim());
+              } else {
+                console.log('[Agency OS] Master Super Admin account verified and ready.');
+              }
+            });
+          }
+        } catch (bErr) {
+          console.warn('[Agency OS] Notice: Bootstrap setup:', bErr.message);
+        }
+      };
+
       exec(migrateCmd, (err, stdout, stderr) => {
         if (err) {
-          console.warn('[Agency OS] Notice: Database migration check:', (stderr || stdout || err.message).trim());
+          console.warn('[Agency OS] Notice: Database migration deploy issue:', (stderr || stdout || err.message).trim());
+          console.log('[Agency OS] Attempting database synchronization via db push fallback...');
+          const pushCmd = prismaCli
+            ? `"${process.execPath}" "${prismaCli}" db push --accept-data-loss${schemaArg}`
+            : `npx prisma db push --accept-data-loss${schemaArg}`;
+          exec(pushCmd, (pErr, pStdout, pStderr) => {
+            if (pErr) {
+              console.warn('[Agency OS] Notice: db push fallback failed:', (pStderr || pStdout || pErr.message).trim());
+            } else {
+              console.log('[Agency OS] Database schema synchronized via db push.');
+              runBootstrap();
+            }
+          });
         } else {
           console.log('[Agency OS] Database schema verified and up-to-date.');
-          // Auto-bootstrap initial Super Admin account and roles if database is fresh
-          try {
-            const bootstrapCandidates = [
-              path.resolve(__dirname, 'scripts/bootstrap-production.mjs'),
-              path.resolve(process.cwd(), 'scripts/bootstrap-production.mjs'),
-              path.resolve(__dirname, '../../scripts/bootstrap-production.mjs')
-            ];
-            const bScript = bootstrapCandidates.find(p => fs.existsSync(p));
-            if (bScript) {
-              exec(`"${process.execPath}" "${bScript}"`, (bErr) => {
-                if (bErr) {
-                  console.warn('[Agency OS] Notice: Bootstrap setup:', bErr.message);
-                } else {
-                  console.log('[Agency OS] Master Super Admin account verified and ready.');
-                }
-              });
-            }
-          } catch (bErr) {
-            console.warn('[Agency OS] Notice: Bootstrap setup:', bErr.message);
-          }
+          runBootstrap();
         }
       });
     } catch (err) {
       console.warn('[Agency OS] Notice: Database migration check:', err.message);
     }
-  }, 2000);
+  }, 1500);
 }

@@ -73,15 +73,15 @@ if (fs.existsSync(rootStandalone)) {
 
   const standalonePrisma = path.resolve(rootStandalone, 'prisma');
   const srcPrisma = path.resolve(rootDir, 'prisma');
-  if (fs.existsSync(srcPrisma) && !fs.existsSync(standalonePrisma)) {
-    fs.cpSync(srcPrisma, standalonePrisma, { recursive: true });
-    console.log('[Postbuild] Synced prisma schema into standalone');
+  if (fs.existsSync(srcPrisma)) {
+    fs.cpSync(srcPrisma, standalonePrisma, { recursive: true, force: true });
+    console.log('[Postbuild] Synced prisma schema and migrations into standalone');
   }
 
   const standaloneScripts = path.resolve(rootStandalone, 'scripts');
   const srcScripts = path.resolve(rootDir, 'scripts');
-  if (fs.existsSync(srcScripts) && !fs.existsSync(standaloneScripts)) {
-    fs.cpSync(srcScripts, standaloneScripts, { recursive: true });
+  if (fs.existsSync(srcScripts)) {
+    fs.cpSync(srcScripts, standaloneScripts, { recursive: true, force: true });
     console.log('[Postbuild] Synced scripts directory into standalone');
   }
 
@@ -90,9 +90,9 @@ if (fs.existsSync(rootStandalone)) {
   const webStandaloneServer = path.resolve(rootStandalone, 'apps/web/server.js');
   const srcServer = path.resolve(rootDir, 'server.js');
   if (fs.existsSync(srcServer)) {
-    fs.cpSync(srcServer, rootStandaloneServer);
+    fs.cpSync(srcServer, rootStandaloneServer, { force: true });
     if (fs.existsSync(path.dirname(webStandaloneServer))) {
-      fs.cpSync(srcServer, webStandaloneServer);
+      fs.cpSync(srcServer, webStandaloneServer, { force: true });
     }
     console.log('[Postbuild] Synced unified production server.js into standalone targets');
   }
@@ -115,18 +115,18 @@ if (fs.existsSync(rootStandalone)) {
         for (const subItem of subItems) {
           const subSrc = path.resolve(srcItem, subItem);
           const subDest = path.resolve(destItem, subItem);
-          if (!fs.existsSync(subDest)) {
+          if (!fs.existsSync(subDest) || item === '@prisma') {
             try {
-              fs.cpSync(subSrc, subDest, { recursive: true, dereference: true });
+              fs.cpSync(subSrc, subDest, { recursive: true, dereference: true, force: true });
             } catch (e) {
               // ignore
             }
           }
         }
       } else {
-        if (!fs.existsSync(destItem) || item === '.prisma' || item === 'next') {
+        if (!fs.existsSync(destItem) || item === '.prisma' || item === 'next' || item === 'prisma') {
           try {
-            fs.cpSync(srcItem, destItem, { recursive: true, dereference: true });
+            fs.cpSync(srcItem, destItem, { recursive: true, dereference: true, force: true });
           } catch (e) {
             // ignore
           }
@@ -168,6 +168,32 @@ if (fs.existsSync(rootStandalone)) {
     } catch (e) {
       // ignore
     }
+  }
+
+  // 4. Ensure executable permissions (0755) on all Prisma engines and binaries
+  const engineDirs = [
+    path.resolve(rootDir, 'node_modules/@prisma'),
+    path.resolve(rootDir, 'node_modules/.prisma'),
+    path.resolve(rootDir, 'node_modules/prisma'),
+    path.resolve(rootStandalone, 'node_modules/@prisma'),
+    path.resolve(rootStandalone, 'node_modules/.prisma'),
+    path.resolve(rootStandalone, 'node_modules/prisma')
+  ];
+  for (const ed of engineDirs) {
+    if (!fs.existsSync(ed)) continue;
+    const walk = (d) => {
+      try {
+        const entries = fs.readdirSync(d, { withFileTypes: true });
+        for (const entry of entries) {
+          const full = path.join(d, entry.name);
+          try {
+            fs.chmodSync(full, 0o755);
+            if (entry.isDirectory()) walk(full);
+          } catch {}
+        }
+      } catch {}
+    };
+    walk(ed);
   }
 }
 
