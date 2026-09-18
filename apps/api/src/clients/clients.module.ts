@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Injectable, Module, Param, Patch, Post, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Database } from '../core/database';
 import { Access, CurrentActor, Require } from '../core/security';
 import { Actor, safeUser } from '../core/types';
@@ -26,7 +26,7 @@ export class ClientsService {
  async create(a:Actor,raw:unknown) {
   this.access.internal(a); const d=clientDto.parse(raw);
   await this.checkTeam(a,d.team);
-  const {team,socialAccounts,login,...data}=d;
+  const {login,team,socialAccounts,...data}=d;
   const passwordHash=login?await hashPassword(login.password):undefined;
   return this.db.atomic(async tx=>{
    const c=await tx.client.create({data:{...data,agencyId:a.agencyId,team:{create:team},accounts:{create:socialAccounts}}});
@@ -57,6 +57,62 @@ export class ClientsService {
    return updated;
   });
  }
+ async delete(a:Actor,id:string) {
+  this.access.internal(a);
+  if (!a.isSuperAdmin) throw new ForbiddenException('Only Super Admins can permanently delete a client workspace.');
+  const old=await this.access.client(a,id);
+
+  return this.db.atomic(async tx=>{
+   const contentList=await tx.contentItem.findMany({where:{clientId:id},select:{id:true}});
+   const contentIds=contentList.map(c=>c.id);
+
+   const threadList=await tx.chatThread.findMany({where:{clientId:id},select:{id:true}});
+   const threadIds=threadList.map(t=>t.id);
+
+   if(contentIds.length>0) {
+    await tx.analyticsEntry.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.publishingRecord.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.revision.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.approval.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.contentComment.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.contentStatusHistory.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.contentVersion.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.shoot.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.script.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.task.deleteMany({where:{contentId:{in:contentIds}}});
+    await tx.contentItem.deleteMany({where:{id:{in:contentIds}}});
+   }
+
+   await tx.task.deleteMany({where:{clientId:id}});
+
+   if(threadIds.length>0) {
+    await tx.chatMessage.deleteMany({where:{threadId:{in:threadIds}}});
+    await tx.chatMember.deleteMany({where:{threadId:{in:threadIds}}});
+    await tx.chatThread.deleteMany({where:{id:{in:threadIds}}});
+   }
+
+   await tx.report.deleteMany({where:{clientId:id}});
+   await tx.driveLink.deleteMany({where:{clientId:id}});
+   await tx.socialAccount.deleteMany({where:{clientId:id}});
+   await tx.clientTeamMember.deleteMany({where:{clientId:id}});
+
+   const clientUsers=await tx.clientUser.findMany({where:{clientId:id}});
+   await tx.clientUser.deleteMany({where:{clientId:id}});
+   for(const cu of clientUsers) {
+    const remaining=await tx.clientUser.count({where:{userId:cu.userId}});
+    if(remaining===0) {
+     await tx.session.deleteMany({where:{userId:cu.userId}});
+     await tx.user.delete({where:{id:cu.userId}}).catch(()=>{});
+    }
+   }
+
+   await tx.activityLog.deleteMany({where:{clientId:id}});
+   await tx.client.delete({where:{id}});
+
+   await audit(tx,a,'client.deleted','client',id,{previous:{name:old.name}});
+   return {ok:true,id};
+  });
+ }
 }
 @Controller('clients')
 class ClientsController {
@@ -65,6 +121,6 @@ class ClientsController {
  @Get(':id') @Require('client.view') detail(@CurrentActor()a:Actor,@Param('id')id:string){return this.service.detail(a,id);}
  @Post() @Require('client.create') create(@CurrentActor()a:Actor,@Body()d:unknown){return this.service.create(a,d);}
  @Patch(':id') @Require('client.edit') update(@CurrentActor()a:Actor,@Param('id')id:string,@Body()d:unknown){return this.service.update(a,id,d);}
+ @Delete(':id') @Require('client.archive') remove(@CurrentActor()a:Actor,@Param('id')id:string){return this.service.delete(a,id);}
 }
 @Module({providers:[ClientsService],controllers:[ClientsController],exports:[ClientsService]}) export class ClientsModule {}
-
