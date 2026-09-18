@@ -57,62 +57,109 @@ export class ClientsService {
    return updated;
   });
  }
- async delete(a:Actor,id:string) {
-  this.access.internal(a);
-  if (!a.isSuperAdmin) throw new ForbiddenException('Only Super Admins can permanently delete a client workspace.');
-  const old=await this.access.client(a,id);
+  async delete(a:Actor,id:string) {
+   this.access.internal(a);
+   if (!a.isSuperAdmin) throw new ForbiddenException('Only Super Admins can permanently delete a client workspace.');
+   const old=await this.access.client(a,id);
 
-  return this.db.atomic(async tx=>{
-   const contentList=await tx.contentItem.findMany({where:{clientId:id},select:{id:true}});
-   const contentIds=contentList.map(c=>c.id);
+   return this.db.atomic(async tx=>{
+    const contentList=await tx.contentItem.findMany({where:{clientId:id},select:{id:true}});
+    const contentIds=contentList.map(c=>c.id);
 
-   const threadList=await tx.chatThread.findMany({where:{clientId:id},select:{id:true}});
-   const threadIds=threadList.map(t=>t.id);
+    const taskList=await tx.task.findMany({
+     where:{OR:[{clientId:id},...(contentIds.length?[{contentId:{in:contentIds}}]:[])]},
+     select:{id:true}
+    });
+    const taskIds=taskList.map(t=>t.id);
 
-   if(contentIds.length>0) {
-    await tx.analyticsEntry.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.publishingRecord.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.revision.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.approval.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.contentComment.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.contentStatusHistory.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.contentVersion.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.shoot.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.script.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.task.deleteMany({where:{contentId:{in:contentIds}}});
-    await tx.contentItem.deleteMany({where:{id:{in:contentIds}}});
-   }
+    const threadList=await tx.chatThread.findMany({
+     where:{OR:[{clientId:id},...(contentIds.length?[{contentId:{in:contentIds}}]:[]),...(taskIds.length?[{taskId:{in:taskIds}}]:[])]},
+     select:{id:true}
+    });
+    const threadIds=threadList.map(t=>t.id);
 
-   await tx.task.deleteMany({where:{clientId:id}});
+    const clientUsers=await tx.clientUser.findMany({where:{clientId:id}});
 
-   if(threadIds.length>0) {
-    await tx.chatMessage.deleteMany({where:{threadId:{in:threadIds}}});
-    await tx.chatMember.deleteMany({where:{threadId:{in:threadIds}}});
-    await tx.chatThread.deleteMany({where:{id:{in:threadIds}}});
-   }
+    // Temporarily bypass foreign key constraints for this atomic transaction
+    await tx.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0;');
 
-   await tx.report.deleteMany({where:{clientId:id}});
-   await tx.driveLink.deleteMany({where:{clientId:id}});
-   await tx.socialAccount.deleteMany({where:{clientId:id}});
-   await tx.clientTeamMember.deleteMany({where:{clientId:id}});
+    try {
+     // 1. Activity logs referencing this client or its content
+     await tx.activityLog.deleteMany({
+      where:{OR:[{clientId:id},...(contentIds.length?[{contentId:{in:contentIds}}]:[])]}
+     });
 
-   const clientUsers=await tx.clientUser.findMany({where:{clientId:id}});
-   await tx.clientUser.deleteMany({where:{clientId:id}});
-   for(const cu of clientUsers) {
-    const remaining=await tx.clientUser.count({where:{userId:cu.userId}});
-    if(remaining===0) {
-     await tx.session.deleteMany({where:{userId:cu.userId}});
-     await tx.user.delete({where:{id:cu.userId}}).catch(()=>{});
+     // 2. Drive links
+     await tx.driveLink.deleteMany({
+      where:{OR:[{clientId:id},...(contentIds.length?[{contentId:{in:contentIds}}]:[]),...(taskIds.length?[{taskId:{in:taskIds}}]:[])]}
+     });
+
+     // 3. Chat messages, members, and threads
+     if(threadIds.length>0) {
+      await tx.chatMessage.updateMany({where:{threadId:{in:threadIds}},data:{replyToId:null}});
+      await tx.chatMessage.deleteMany({where:{threadId:{in:threadIds}}});
+      await tx.chatMember.deleteMany({where:{threadId:{in:threadIds}}});
+      await tx.chatThread.deleteMany({where:{id:{in:threadIds}}});
+     }
+     await tx.chatThread.deleteMany({where:{clientId:id}});
+
+     // 4. Task comments, status history, and tasks
+     if(taskIds.length>0) {
+      await tx.contentComment.deleteMany({where:{taskId:{in:taskIds}}});
+      await tx.taskStatusHistory.deleteMany({where:{taskId:{in:taskIds}}});
+      await tx.task.deleteMany({where:{id:{in:taskIds}}});
+     }
+     await tx.task.deleteMany({where:{clientId:id}});
+
+     // 5. Content child entities and content items
+     if(contentIds.length>0) {
+      await tx.contentComment.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.analyticsEntry.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.publishingRecord.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.approval.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.revision.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.contentVersion.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.shoot.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.script.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.contentStatusHistory.deleteMany({where:{contentId:{in:contentIds}}});
+      await tx.contentItem.deleteMany({where:{id:{in:contentIds}}});
+     }
+     await tx.contentItem.deleteMany({where:{clientId:id}});
+
+     // 6. Client meta records
+     await tx.report.deleteMany({where:{clientId:id}});
+     await tx.socialAccount.deleteMany({where:{clientId:id}});
+     await tx.clientTeamMember.deleteMany({where:{clientId:id}});
+
+     // 7. Client users & orphaned client portal accounts
+     await tx.clientUser.deleteMany({where:{clientId:id}});
+     for(const cu of clientUsers) {
+      const remaining=await tx.clientUser.count({where:{userId:cu.userId}});
+      if(remaining===0) {
+       await tx.session.deleteMany({where:{userId:cu.userId}}).catch(()=>{});
+       await tx.userPermission.deleteMany({where:{userId:cu.userId}}).catch(()=>{});
+       await tx.notificationPreference.deleteMany({where:{userId:cu.userId}}).catch(()=>{});
+       const notifs=await tx.notification.findMany({where:{userId:cu.userId},select:{id:true}});
+       if(notifs.length>0) {
+        await tx.notificationDelivery.deleteMany({where:{notificationId:{in:notifs.map(n=>n.id)}}}).catch(()=>{});
+        await tx.notification.deleteMany({where:{userId:cu.userId}}).catch(()=>{});
+       }
+       await tx.chatMember.deleteMany({where:{userId:cu.userId}}).catch(()=>{});
+       await tx.activityLog.updateMany({where:{actorId:cu.userId},data:{actorId:null}}).catch(()=>{});
+       await tx.user.delete({where:{id:cu.userId}}).catch(()=>{});
+      }
+     }
+
+     // 8. Delete the client record
+     await tx.client.delete({where:{id}});
+    } finally {
+     await tx.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1;');
     }
-   }
 
-   await tx.activityLog.deleteMany({where:{clientId:id}});
-   await tx.client.delete({where:{id}});
-
-   await audit(tx,a,'client.deleted','client',id,{previous:{name:old.name}});
-   return {ok:true,id};
-  });
- }
+    await audit(tx,a,'client.deleted','client',id,{previous:{name:old.name}});
+    return {ok:true,id};
+   });
+  }
 }
 @Controller('clients')
 class ClientsController {
