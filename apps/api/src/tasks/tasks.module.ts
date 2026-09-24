@@ -34,7 +34,7 @@ export class TasksService {
    const t=await tx.task.create({data:{...data,createdById:a.id,dueAt:new Date(d.dueAt),startsAt:d.startsAt?new Date(d.startsAt):undefined}});
    if(driveUrl)await tx.driveLink.create({data:{clientId:d.clientId,contentId:d.contentId,taskId:t.id,title:'Task reference',url:driveUrl,category:'Reference',addedById:a.id}});
    await audit(tx,a,'task.created','task',t.id,{clientId:t.clientId,contentId:t.contentId||undefined,next:{title:t.title,assigneeId:t.assigneeId}});
-   await this.notifications.emit(tx,[t.assigneeId],{event:'task.assigned',title:'New task assigned',body:t.title+' · due '+t.dueAt.toISOString().slice(0,10),href:'/tasks?task='+t.id,key:'task:'+t.id});return t;
+   await this.notifications.emit(tx,[t.assigneeId],{event:'task.assigned',title:'New task assigned',body:t.title+' · due '+t.dueAt.toISOString().slice(0,10),href:'/tasks?task='+t.id,key:'task:'+t.id},a.agencyId,a.id);return t;
   });
  }
  async update(a:Actor,id:string,raw:unknown) {
@@ -54,7 +54,7 @@ export class TasksService {
    if(d.status)await tx.taskStatusHistory.create({data:{taskId:id,actorId:a.id,previous:old.status,next:d.status}});
    await audit(tx,a,'task.updated','task',id,{clientId:old.clientId,contentId:old.contentId||undefined,previous:{status:old.status,assigneeId:old.assigneeId},next:d});
    const team=await tx.clientTeamMember.findMany({where:{clientId:old.clientId,responsibility:'smm'}});
-   await this.notifications.emit(tx,[d.assigneeId||old.assigneeId,...team.map(t=>t.userId)],{event:d.status==='COMPLETED'?'task.completed':d.status==='FOR_REVIEW'?'task.review_requested':'task.assigned',title:'Task updated',body:old.title,href:'/tasks?task='+id,key:'task:'+id+':'+Date.now()});return {ok:true};
+   await this.notifications.emit(tx,[d.assigneeId||old.assigneeId,...team.map(t=>t.userId)],{event:d.status==='COMPLETED'?'task.completed':d.status==='FOR_REVIEW'?'task.review_requested':'task.assigned',title:'Task updated',body:old.title,href:'/tasks?task='+id,key:'task:'+id+':'+Date.now()},a.agencyId,a.id);return {ok:true};
   });
  }
  async system(tx:Prisma.TransactionClient,a:Actor,c:any,kind:string,assigneeId:string,deadline:string) {
@@ -65,7 +65,7 @@ export class TasksService {
   const previous=await tx.task.findUnique({where:{systemKey:key}});
   const t=await tx.task.upsert({where:{systemKey:key},create:{clientId:c.clientId,contentId:c.id,title:kind.replaceAll('_',' ')+' · '+c.title,kind,assigneeId,createdById:null,dueAt:new Date(deadline),systemKey:key},update:{assigneeId,status:previous?.status==='FOR_REVIEW'?'FOR_REVIEW':'TO_DO',completedAt:null,dueAt:new Date(deadline)}});
   if(previous)await tx.taskStatusHistory.create({data:{taskId:t.id,actorId:a.id,previous:previous.status,next:t.status}});
-  await this.notifications.emit(tx,[assigneeId],{event:kind==='SCRIPT'?'task.assigned':kind==='SHOOT'?'shoot.assigned':kind==='EDIT'?'edit.assigned':'task.assigned',title:kind.replaceAll('_',' ')+' task assigned',body:contentCode(c.id)+' · '+c.title+' · due '+t.dueAt.toISOString().slice(0,10),href:'/content/'+c.id,key:key+':'+c.revision});return t;
+  await this.notifications.emit(tx,[assigneeId],{event:kind==='SCRIPT'?'task.assigned':kind==='SHOOT'?'shoot.assigned':kind==='EDIT'?'edit.assigned':'task.assigned',title:kind.replaceAll('_',' ')+' task assigned',body:contentCode(c.id)+' · '+c.title+' · due '+t.dueAt.toISOString().slice(0,10),href:'/content/'+c.id,key:key+':'+c.revision},a.agencyId,a.id);return t;
  }
  async status(tx:Prisma.TransactionClient,a:Actor,contentId:number,kinds:string[],status:string) {
   const tasks=await tx.task.findMany({where:{contentId,kind:{in:kinds},status:{not:'CANCELLED'}}});

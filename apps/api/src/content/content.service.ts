@@ -6,9 +6,10 @@ import { contentDto, contentUpdateDto, scriptDto, shootDto, versionDto, commentD
 import { suggestDeadlines, clientStatus, assertAssignment } from '../core/workflow';
 import { audit } from '../core/audit';
 import { TasksService } from '../tasks/tasks.module';
+import { NotificationsService } from '../notifications/notifications.module';
 @Injectable()
 export class ContentService {
- constructor(private db:Database,private access:Access,private tasks:TasksService){}
+ constructor(private db:Database,private access:Access,private tasks:TasksService,private notices:NotificationsService){}
  async assignments(a:Actor,clientId:string,assignments:TeamAssignments) {
   for(const userId of [...new Set(Object.values(assignments).filter(Boolean))] as string[]) {
    const user=await this.access.internalUser(a,userId,clientId);
@@ -66,8 +67,23 @@ export class ContentService {
   return this.db.atomic(async tx=>{
    const c=await tx.contentItem.create({data:{...d,publishAt:new Date(d.publishAt),deadlines,status:d.assignees.writer?'SCRIPT_WRITING':'PLANNING'}});
    if(d.assignees.writer)await this.tasks.system(tx,a,c,'SCRIPT',d.assignees.writer,deadlines.script);
-   const ids=[...new Set([a.id,...Object.values(d.assignees)])].filter(Boolean) as string[];
-   await tx.chatThread.create({data:{agencyId:a.agencyId,clientId:c.clientId,contentId:c.id,title:contentCode(c.id)+' · '+c.title,kind:'CONTENT',members:{create:ids.map(userId=>({userId}))}}});
+   const superAdmins = await tx.user.findMany({ where: { agencyId: a.agencyId, active: true, role: { isSuperAdmin: true } }, select: { id: true } });
+   const superAdminIds = superAdmins.map(s => s.id);
+   let defaultThread = await tx.chatThread.findFirst({ where: { agencyId: a.agencyId, clientId: c.clientId, kind: 'CLIENT_INTERNAL' } });
+   if (!defaultThread) {
+    defaultThread = await tx.chatThread.findFirst({ where: { agencyId: a.agencyId, clientId: c.clientId } });
+   }
+   if (!defaultThread) {
+    defaultThread = await tx.chatThread.create({ data: { agencyId: a.agencyId, clientId: c.clientId, title: client.name + ' · internal', kind: 'CLIENT_INTERNAL', clientVisible: false, members: { create: [...new Set([a.id, ...superAdminIds])].map(userId => ({ userId })) } } });
+   }
+   const ids = [...new Set([a.id, ...Object.values(d.assignees).filter(Boolean) as string[], ...superAdminIds])];
+   for (const userId of ids) {
+    await tx.chatMember.upsert({ where: { threadId_userId: { threadId: defaultThread.id, userId } }, create: { threadId: defaultThread.id, userId }, update: {} });
+   }
+   const code = contentCode(c.id);
+   await tx.chatMessage.create({ data: { threadId: defaultThread.id, authorId: a.id, body: '🎬 New content planned: **' + code + ' · ' + c.title + '** (' + c.platform + ' · ' + c.type + ') · View at /content/' + c.id } });
+   await tx.chatThread.update({ where: { id: defaultThread.id }, data: { updatedAt: new Date() } });
+   await this.notices.emit(tx, [d.assignees.writer, d.assignees.smm].filter(Boolean) as string[], { event: 'content.created', title: 'Content Created', body: code + ' · ' + c.title + ' for ' + client.name, href: '/content/' + c.id, key: 'content:created:' + c.id }, a.agencyId, a.id);
    await tx.contentStatusHistory.create({data:{contentId:c.id,actorId:a.id,previous:'',next:c.status,event:'content.created'}});
    await audit(tx,a,'content.created','content',String(c.id),{clientId:c.clientId,contentId:c.id,next:{title:c.title,status:c.status}});
    return {id:c.id};

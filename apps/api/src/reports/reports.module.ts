@@ -9,9 +9,9 @@ import { clientStatus } from '../core/workflow';
 class ReportingController {
  constructor(private db:Database,private access:Access){}
  @Get('dashboard') @Require('content.view')
- async dashboard(@CurrentActor()a:Actor) {
+ async dashboard(@CurrentActor()a:Actor,@Query('date')dateParam?:string) {
   const clientWhere=this.access.clientWhere(a);
-  const now=new Date(),month=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)),end=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1));
+  const now=dateParam&&!isNaN(new Date(dateParam).getTime())?new Date(dateParam):new Date();const month=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)),end=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1));
   const [clients,content,tasks,notifications,activity]=await Promise.all([
    this.db.client.findMany({where:clientWhere,select:{id:true,name:true,color:true,industry:true,active:true,deliverables:true}}),
    this.db.contentItem.findMany({where:{client:clientWhere,deletedAt:null},select:{id:true,title:true,platform:true,status:true,publishAt:true,assignees:true,clientId:true,client:{select:{id:true,name:true,color:true}},reviewStage:true}}),

@@ -12,12 +12,27 @@ export class ChatService {
  async thread(a:Actor,id:string) {
   this.access.internal(a);
   const t=await this.db.chatThread.findFirst({where:{id,agencyId:a.agencyId},include:{members:{include:{user:{select:{...safeUser,lastSeenAt:true}}}}}});
-  if(!t||!t.members.some(m=>m.userId===a.id))throw new ForbiddenException('You are not a member of this conversation.');
+  if(!t)throw new BadRequestException('Conversation not found.');
+  if(!t.members.some(m=>m.userId===a.id)) {
+   if(a.isSuperAdmin) {
+    await this.db.chatMember.upsert({where:{threadId_userId:{threadId:id,userId:a.id}},create:{threadId:id,userId:a.id},update:{}}).catch(()=>{});
+    const u=await this.db.user.findUnique({where:{id:a.id},select:{...safeUser,lastSeenAt:true}});
+    if(u)t.members.push({threadId:id,userId:a.id,user:u,lastReadAt:null} as any);
+   } else {
+    throw new ForbiddenException('You are not a member of this conversation.');
+   }
+  }
   if(t.clientId)await this.access.client(a,t.clientId);
   return t;
  }
  async list(a:Actor) {
   this.access.internal(a);
+  if(a.isSuperAdmin) {
+   const missing=await this.db.chatThread.findMany({where:{agencyId:a.agencyId,members:{none:{userId:a.id}}},select:{id:true}});
+   if(missing.length) {
+    await this.db.chatMember.createMany({data:missing.map(m=>({threadId:m.id,userId:a.id})),skipDuplicates:true}).catch(()=>{});
+   }
+  }
   const threads=await this.db.chatThread.findMany({where:{agencyId:a.agencyId,members:{some:{userId:a.id}},OR:[{clientId:null},{client:this.access.clientWhere(a)}]},include:{members:{where:{userId:a.id}},messages:{orderBy:{createdAt:'desc'},take:1,select:{body:true,createdAt:true,deletedAt:true}}},orderBy:{updatedAt:'desc'},take:100});
   return Promise.all(threads.map(async t=>({id:t.id,title:t.title,kind:t.kind,clientId:t.clientId,contentId:t.contentId,clientVisible:false,lastMessage:t.messages[0]?.deletedAt?'Message deleted':t.messages[0]?.body||'',updatedAt:t.updatedAt,unread:await this.db.chatMessage.count({where:{threadId:t.id,authorId:{not:a.id},createdAt:{gt:t.members[0]?.lastReadAt||new Date(0)},deletedAt:null}})})));
  }
@@ -36,7 +51,9 @@ export class ChatService {
   if(d.kind==='CONTENT'&&!d.contentId)throw new BadRequestException('Choose the linked content.');
   if(d.kind==='TASK'&&!d.taskId)throw new BadRequestException('Choose the linked task.');
   if(d.taskId){const t=await this.db.task.findUnique({where:{id:d.taskId}});if(!t||t.clientId!==d.clientId||d.contentId&&t.contentId!==d.contentId)throw new BadRequestException('Task and client must match.');}
-  const members=[...new Set([...d.memberIds,a.id])];
+  const superAdmins=await this.db.user.findMany({where:{agencyId:a.agencyId,active:true,role:{isSuperAdmin:true}},select:{id:true}});
+  const superAdminIds=superAdmins.map(s=>s.id);
+  const members=[...new Set([...d.memberIds,a.id,...superAdminIds])];
   for(const id of members) {
    const u=await this.db.user.findFirst({where:{id,agencyId:a.agencyId,active:true},include:{role:true,clientUsers:true,teams:true}});
    if(!u)throw new BadRequestException('A selected member is unavailable.');

@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useState, useMemo, useRef } from 'react';
 import {
   ArrowUpRight,
   ArrowRight,
@@ -22,7 +23,16 @@ const EMERALD = '#10b981';
 
 export function Dashboard() {
   const { actor, can, openForm } = useApp();
-  const { data: d, loading, error } = useResource('/dashboard');
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }, []);
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const { data: d, loading, error } = useResource('/dashboard?date=' + selectedDate);
 
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error} />;
@@ -62,10 +72,39 @@ export function Dashboard() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="date-chip hidden sm:flex">
-            <CalendarDays size={15} />
-            {dateLabel(new Date(), { day: 'numeric', month: 'short', year: 'numeric' })}
-          </span>
+          <div
+            onClick={() => dateInputRef.current?.showPicker?.() || dateInputRef.current?.click()}
+            className="date-chip hidden sm:flex items-center gap-1.5 cursor-pointer relative hover:border-stone-400 dark:hover:border-zinc-600 transition-colors select-none group"
+            title="Click to select date and dynamically update insights"
+          >
+            <CalendarDays size={15} className="text-stone-500 group-hover:text-stone-800 dark:group-hover:text-zinc-200 transition-colors" />
+            <span className="font-medium text-stone-700 dark:text-zinc-200">
+              {dateLabel(new Date(selectedDate + 'T00:00:00'), { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+            {selectedDate !== todayStr && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedDate(todayStr);
+                }}
+                className="ml-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                title="Reset to today"
+              >
+                Today
+              </button>
+            )}
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={selectedDate}
+              onChange={(e) => {
+                if (e.target.value) setSelectedDate(e.target.value);
+              }}
+              className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
+              aria-label="Filter dashboard by date"
+            />
+          </div>
 
           {can('content.create') && (
             <button

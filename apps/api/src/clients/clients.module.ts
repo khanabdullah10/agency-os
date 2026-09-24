@@ -5,9 +5,10 @@ import { Actor, safeUser } from '../core/types';
 import { clientDto, clientUpdateDto } from '../core/schemas';
 import { audit } from '../core/audit';
 import { hashPassword } from '../auth/password';
+import { NotificationsService } from '../notifications/notifications.module';
 @Injectable()
 export class ClientsService {
- constructor(private db:Database,private access:Access){}
+ constructor(private db:Database,private access:Access,private notices:NotificationsService){}
  async list(a:Actor) {
   const clients=await this.db.client.findMany({where:this.access.clientWhere(a),include:{_count:{select:{content:true}},team:{include:{user:{select:safeUser}}}},orderBy:{name:'asc'}});
   return clients.map(c=>a.isClient?{id:c.id,name:c.name,industry:c.industry,color:c.color,avatarUrl:c.avatarUrl,platforms:c.platforms,active:c.active,_count:c._count}:c);
@@ -36,27 +37,49 @@ export class ClientsService {
     const u=await tx.user.create({data:{agencyId:a.agencyId,roleId:role.id,name:login.name,email:login.email.toLowerCase(),passwordHash:passwordHash!,avatarUrl:login.avatarUrl,clientUsers:{create:{clientId:c.id}}}});
     clientUserId=u.id;
    }
-   const internalIds=[...new Set([a.id,...team.map(t=>t.userId)])];
-   await tx.chatThread.create({data:{agencyId:a.agencyId,clientId:c.id,title:c.name+' · internal',kind:'CLIENT_INTERNAL',clientVisible:false,members:{create:internalIds.map(userId=>({userId}))}}});
-   if(data.brand.assetsUrl)await tx.driveLink.create({data:{clientId:c.id,title:'Brand assets',url:data.brand.assetsUrl,category:'Brand Asset',addedById:a.id,clientVisible:true}});
-   if(data.brand.logoUrl)await tx.driveLink.create({data:{clientId:c.id,title:'Logo',url:data.brand.logoUrl,category:'Brand Asset',addedById:a.id,clientVisible:true}});
-   await audit(tx,a,'client.onboarded','client',c.id,{clientId:c.id,next:{name:c.name,teamCount:team.length}});
-   return c;
-  });
- }
- async update(a:Actor,id:string,raw:unknown) {
-  this.access.internal(a); const old=await this.access.client(a,id); const d=clientUpdateDto.parse(raw);
-  if(d.active===false)this.access.permission(a,'client.archive');
-  if(d.team)await this.checkTeam(a,d.team);
-  const {team,socialAccounts,...data}=d;
-  return this.db.atomic(async tx=>{
-   if(team){await tx.clientTeamMember.deleteMany({where:{clientId:id}});await tx.clientTeamMember.createMany({data:team.map(t=>({...t,clientId:id}))});}
-   if(socialAccounts){await tx.socialAccount.deleteMany({where:{clientId:id}});await tx.socialAccount.createMany({data:socialAccounts.map(t=>({...t,clientId:id}))});}
-   const updated=await tx.client.update({where:{id},data:{...data,...(d.active!==undefined?{archivedAt:d.active?null:new Date()}:{})}});
-   await audit(tx,a,'client.updated','client',id,{clientId:id,previous:{name:old.name,active:old.active},next:{name:updated.name,active:updated.active,changedFields:Object.keys(d)}});
-   return updated;
-  });
- }
+    const superAdmins=await tx.user.findMany({where:{agencyId:a.agencyId,active:true,role:{isSuperAdmin:true}},select:{id:true}});
+    const superAdminIds=superAdmins.map(s=>s.id);
+    const internalIds=[...new Set([a.id,...team.map(t=>t.userId),...superAdminIds])];
+    await tx.chatThread.create({data:{agencyId:a.agencyId,clientId:c.id,title:c.name+' · internal',kind:'CLIENT_INTERNAL',clientVisible:false,members:{create:internalIds.map(userId=>({userId}))}}});
+    if(data.brand.assetsUrl)await tx.driveLink.create({data:{clientId:c.id,title:'Brand assets',url:data.brand.assetsUrl,category:'Brand Asset',addedById:a.id,clientVisible:true}});
+    if(data.brand.logoUrl)await tx.driveLink.create({data:{clientId:c.id,title:'Logo',url:data.brand.logoUrl,category:'Brand Asset',addedById:a.id,clientVisible:true}});
+    for(const t of team){
+     await this.notices.emit(tx,[t.userId],{event:'client.assigned',title:'Assigned to Client',body:'You are assigned with the client '+c.name,href:'/clients/'+c.id,key:'client:assigned:'+c.id+':'+t.userId},a.agencyId,a.id);
+    }
+    await this.notices.emit(tx,superAdminIds,{event:'client.onboarded',title:'Client Onboarded',body:c.name+' onboarded with '+team.length+' team member(s)',href:'/clients/'+c.id,key:'client:onboarded:'+c.id},a.agencyId,a.id);
+    await audit(tx,a,'client.onboarded','client',c.id,{clientId:c.id,next:{name:c.name,teamCount:team.length}});
+    return c;
+   });
+  }
+  async update(a:Actor,id:string,raw:unknown) {
+   this.access.internal(a); const old=await this.access.client(a,id); const d=clientUpdateDto.parse(raw);
+   if(d.active===false)this.access.permission(a,'client.archive');
+   if(d.team)await this.checkTeam(a,d.team);
+   const {team,socialAccounts,...data}=d;
+   return this.db.atomic(async tx=>{
+    if(team){
+     const previousTeam=await tx.clientTeamMember.findMany({where:{clientId:id}});
+     const prevIds=new Set(previousTeam.map(t=>t.userId));
+     await tx.clientTeamMember.deleteMany({where:{clientId:id}});
+     await tx.clientTeamMember.createMany({data:team.map(t=>({...t,clientId:id}))});
+     const defaultThread=await tx.chatThread.findFirst({where:{clientId:id,kind:'CLIENT_INTERNAL'}});
+     if(defaultThread){
+      for(const t of team){
+       await tx.chatMember.upsert({where:{threadId_userId:{threadId:defaultThread.id,userId:t.userId}},create:{threadId:defaultThread.id,userId:t.userId},update:{}});
+      }
+     }
+     const newMembers=team.filter(t=>!prevIds.has(t.userId));
+     for(const t of newMembers){
+      await this.notices.emit(tx,[t.userId],{event:'client.assigned',title:'Assigned to Client',body:'You are assigned with the client '+(d.name||old.name),href:'/clients/'+id,key:'client:assigned:'+id+':'+t.userId+':'+Date.now()},a.agencyId,a.id);
+     }
+    }
+    if(socialAccounts){await tx.socialAccount.deleteMany({where:{clientId:id}});await tx.socialAccount.createMany({data:socialAccounts.map(t=>({...t,clientId:id}))});}
+    const updated=await tx.client.update({where:{id},data:{...data,...(d.active!==undefined?{archivedAt:d.active?null:new Date()}:{})}});
+    await this.notices.emit(tx,[],{event:'client.updated',title:'Client Updated',body:updated.name+' was updated',href:'/clients/'+id,key:'client:updated:'+id+':'+Date.now()},a.agencyId,a.id);
+    await audit(tx,a,'client.updated','client',id,{clientId:id,previous:{name:old.name,active:old.active},next:{name:updated.name,active:updated.active,changedFields:Object.keys(d)}});
+    return updated;
+   });
+  }
   async delete(a:Actor,id:string) {
    this.access.internal(a);
    if (!a.isSuperAdmin) throw new ForbiddenException('Only Super Admins can permanently delete a client workspace.');

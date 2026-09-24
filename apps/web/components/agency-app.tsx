@@ -1,5 +1,7 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import Pusher from 'pusher-js';
+import { toast } from 'sonner';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Toaster } from 'sonner';
@@ -34,7 +36,7 @@ import {
   Moon,
   User as UserIcon,
 } from 'lucide-react';
-import { api, Actor, AppContext, useApp, useResource, useMutation } from '@/lib/api';
+import { api, Actor, AppContext, useApp, useResource, useMutation, csrf } from '@/lib/api';
 import { initials, label } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Avatar, Field, Modal, Loading, FormFooter } from './shared';
@@ -443,12 +445,92 @@ function PasswordGate({ onDone }: { onDone: () => void }) {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  const { actor, can, logout, refresh, openForm } = useApp();
+  const { actor, can, logout, refresh, openForm, epoch } = useApp();
   const path = usePathname();
   const { toggleTheme, isDark } = useTheme();
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState(false);
-  const { data: notices } = useResource<any[]>('/notifications');
+  const router = useRouter();
+  const [notices, setNotices] = useState<any[]>([]);
+  const knownNoticeIds = useRef<Set<string>>(new Set());
+  const initialLoadDone = useRef(false);
+
+  const fetchNotices = useCallback(async (isPolling = false) => {
+    try {
+      const data = await api<any[]>('/notifications');
+      if (Array.isArray(data)) {
+        if (initialLoadDone.current && isPolling) {
+          for (const n of data) {
+            if (!knownNoticeIds.current.has(n.id) && !n.readAt) {
+              toast.info(n.title, {
+                description: n.body,
+                duration: 6000,
+                action: n.href
+                  ? {
+                      label: 'Open',
+                      onClick: () => {
+                        router.push(n.href);
+                      },
+                    }
+                  : undefined,
+              });
+            }
+          }
+        }
+        knownNoticeIds.current = new Set(data.map((n: any) => n.id));
+        setNotices(data);
+        initialLoadDone.current = true;
+      }
+    } catch {}
+  }, [router]);
+
+  useEffect(() => {
+    fetchNotices(false);
+  }, [fetchNotices, epoch]);
+
+  // Seamless live polling every 4 seconds for instant updates without refresh
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchNotices(true);
+      }
+    }, 4000);
+    const onFocus = () => fetchNotices(true);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [fetchNotices]);
+
+  // Pusher realtime notification channel binding
+  useEffect(() => {
+    if (!actor?.id) return;
+    let pusherClient: any = null;
+    api('/chat/config')
+      .then((cfg) => {
+        if (cfg?.enabled && cfg?.key) {
+          pusherClient = new Pusher(cfg.key, {
+            cluster: cfg.cluster,
+            channelAuthorization: {
+              endpoint: '/api/chat/authorize',
+              transport: 'ajax',
+              headers: { 'X-Agency-Request': '1', 'X-CSRF-Token': csrf() },
+            },
+          });
+          const userChan = pusherClient.subscribe('private-user-' + actor.id);
+          userChan.bind('notification', () => {
+            fetchNotices(true);
+            refresh();
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      pusherClient?.disconnect?.();
+    };
+  }, [actor?.id, fetchNotices, refresh]);
+
   const { data: contentList } = useResource<any[]>(can('content.view') ? '/content' : null);
   const unread = notices?.filter((n) => !n.readAt).length || 0;
 

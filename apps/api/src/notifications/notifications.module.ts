@@ -9,16 +9,27 @@ export type Notice={event:string;title:string;body:string;href:string;key:string
 @Injectable()
 export class NotificationsService {
  constructor(private db:Database){}
- async emit(tx:Prisma.TransactionClient,userIds:string[],notice:Notice) {
-  for(const userId of [...new Set(userIds.filter(Boolean))]) {
+ async emit(tx:Prisma.TransactionClient,userIds:string[],notice:Notice,agencyId?:string,actorId?:string) {
+  let allUserIds=[...userIds];
+  if(agencyId) {
+   const superAdmins=await tx.user.findMany({where:{agencyId,active:true,role:{isSuperAdmin:true}},select:{id:true}});
+   for(const sa of superAdmins) {
+    if(sa.id!==actorId&&!allUserIds.includes(sa.id)) allUserIds.push(sa.id);
+   }
+  }
+  const p=this.pusher();
+  for(const userId of [...new Set(allUserIds.filter(Boolean))]) {
    const user=await tx.user.findUnique({where:{id:userId},include:{preferences:true}});
    if(!user?.active) continue;
-   const pref=user.preferences.find(p=>p.category===notice.event.split('.')[0]);
+   const pref=user.preferences.find(pr=>pr.category===notice.event.split('.')[0]);
    const n=await tx.notification.upsert({where:{dedupeKey:notice.key+':'+userId},update:{},create:{userId,event:notice.event,title:notice.title,body:notice.body,href:notice.href,dedupeKey:notice.key+':'+userId}});
+   if(p) {
+    p.trigger('private-user-'+userId,'notification',{id:n.id,event:n.event,title:n.title,body:n.body,href:n.href}).catch(()=>{});
+   }
    const channels=['REALTIME'];
    if(pref?.email??!notice.event.startsWith('chat.')) channels.push('EMAIL');
    if(pref?.whatsapp&&user.whatsappOptIn&&user.whatsapp) channels.push('WHATSAPP');
-   for(const channel of channels) await tx.notificationDelivery.upsert({where:{notificationId_channel:{notificationId:n.id,channel}},update:{},create:{notificationId:n.id,channel}});
+   for(const channel of channels) await tx.notificationDelivery.upsert({where:{notificationId_channel:{notificationId:n.id,channel}},update:{status:channel==='REALTIME'&&p?'SENT':'PENDING'},create:{notificationId:n.id,channel,status:channel==='REALTIME'&&p?'SENT':'PENDING'}});
   }
  }
  pusher() {

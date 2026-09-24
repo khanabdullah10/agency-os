@@ -53,7 +53,7 @@ export class WorkflowService {
     await audit(tx,a,event,'content',String(id),{...base,previous:{status},next:{status:next},clientVisible});
     status=next;
    };
-   const notice=async(recipients:(string|undefined)[],event:string,title:string)=>this.notifications.emit(tx,recipients.filter(Boolean) as string[],{event,title,body:code+' · '+c.title,href:'/content/'+id,key:'content:'+id+':'+(c.revision+1)+':'+event+':'+(stage||'')});
+   const notice=async(recipients:(string|undefined)[],event:string,title:string)=>this.notifications.emit(tx,recipients.filter(Boolean) as string[],{event,title,body:code+' · '+c.title,href:'/content/'+id,key:'content:'+id+':'+(c.revision+1)+':'+event+':'+(stage||'')},a.agencyId,a.id);
    const clients=c.client.users.map(x=>x.userId);
    const production=async()=>{
     if(c.requiresShoot){if(!team.videographer)throw new BadRequestException('Assign a videographer before approving the production plan.');await update('READY_FOR_SHOOT','shoot.assigned');await this.tasks.system(tx,a,c,'SHOOT',team.videographer,deadlines.shoot);}
@@ -77,7 +77,7 @@ export class WorkflowService {
     case 'START_SCRIPT':
      if(!team.writer)throw new BadRequestException('Assign a writer first.');
      await update('SCRIPT_WRITING','script.assigned');
-     await this.tasks.system(tx,a,c,'SCRIPT',team.writer,deadlines.script);break;
+     await this.tasks.system(tx,a,c,'SCRIPT',team.writer,deadlines.script);await notice([team.writer],'script.assigned','Script writing assigned');break;
     case 'SUBMIT_SCRIPT':
      if(!c.script?.body.trim()||!c.script.hook.trim())throw new BadRequestException('Save a hook and script before submitting.');
      stage='SMM';await update('INTERNAL_SCRIPT_REVIEW','script.submitted');
@@ -97,7 +97,7 @@ export class WorkflowService {
      await update('SHOOT_COMPLETED','shoot.completed');await update('RAW_FOOTAGE_READY','shoot.raw_footage_ready');
      await this.tasks.system(tx,a,c,'EDIT',team.editor,deadlines.edit);await notice([team.smm,team.editor],'shoot.completed','Raw footage is ready');break;
     case 'START_PRODUCTION':await production();break;
-    case 'START_EDITING':await update('EDITING','edit.started');await this.tasks.status(tx,a,id,['EDIT','DESIGN'],'IN_PROGRESS');break;
+    case 'START_EDITING':await update('EDITING','edit.started');await this.tasks.status(tx,a,id,['EDIT','DESIGN'],'IN_PROGRESS');await notice([team.smm],'edit.started','Editing started');break;
     case 'SUBMIT_EDIT':
      if(!c.versions.length)throw new BadRequestException('Add a Google Drive version before submitting.');
      if(c.revisions.length&&c.versions[0].createdAt<=c.revisions.reduce((latest,r)=>r.createdAt>latest?r.createdAt:latest,new Date(0)))throw new BadRequestException('Add a new version to resolve the requested changes.');
@@ -148,7 +148,7 @@ export class WorkflowService {
     case 'SCHEDULE_PUBLISH':
      if(!d.scheduledAt)throw new BadRequestException('Choose the publishing date and time.');
      await tx.publishingRecord.update({where:{contentId:id},data:{status:'SCHEDULED',scheduledAt:new Date(d.scheduledAt)}});
-     await update('SCHEDULED','content.scheduled',true);break;
+     await update('SCHEDULED','content.scheduled',true);await notice([team.smm],'content.scheduled','Content scheduled for publishing');break;
     case 'PUBLISH':
      if(!d.publishedUrl)throw new BadRequestException('Paste the published post URL.');
      await tx.publishingRecord.update({where:{contentId:id},data:{status:'PUBLISHED',publishedUrl:d.publishedUrl,publishedAt:new Date(),externalPostId:d.externalPostId,publishedById:a.id}});
