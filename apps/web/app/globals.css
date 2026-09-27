@@ -3256,9 +3256,15 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   font-weight: 500;
   color: var(--foreground);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
   max-width: 100%;
   box-sizing: border-box;
+}
+.comment-form {
+  padding: 18px 22px 22px;
+  border-top: 1px solid var(--border-color);
 }
 .user-options-grid {
   display: grid;
@@ -4219,13 +4225,24 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
     border-radius: 14px !important;
   }
   .checkbox-grid {
-    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)) !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
     gap: 6px !important;
   }
   .checkbox-label {
-    padding: 8px 10px !important;
+    padding: 8px 12px !important;
     font-size: 11.5px !important;
     gap: 8px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .comment-form {
+    padding: 14px 14px 18px !important;
+  }
+  .versions-list > div {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    padding: 14px 14px !important;
   }
   .user-options-grid {
     grid-template-columns: 1fr !important;

@@ -331,6 +331,8 @@ function Login({ onLogin }: { onLogin: () => void }) {
                   method: 'POST',
                   body: JSON.stringify({ email: f.get('email'), password: f.get('password') }),
                 });
+                toast.success('Welcome back! Successfully signed in.');
+                playNotificationTone();
                 onLogin();
               } catch (err: any) {
                 setError(err.message || 'Invalid email or password');
@@ -496,6 +498,27 @@ function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchNotices(false);
   }, [fetchNotices, epoch]);
+
+  // Unlock browser audio context on first user interaction so notification tones never get missed
+  useEffect(() => {
+    const unlock = () => {
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.load();
+      } catch {}
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+    window.addEventListener('click', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, []);
 
   // Seamless live polling every 4 seconds for instant updates without refresh
   useEffect(() => {

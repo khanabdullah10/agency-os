@@ -19,7 +19,7 @@ export const webUrl = z.string().trim().max(2000).transform(v => {
   return v;
 }).refine(v => !v || validateWebUrl(v), 'Use a valid HTTP or HTTPS URL.');
 export const rules = z.object({ smm:z.literal(true), admin:z.boolean(), superAdmin:z.boolean(), client:z.boolean() }).strict();
-export const deadlineOffsets = z.object({script:z.number().int().min(0).max(365),clientScript:z.number().int().min(0).max(365),shoot:z.number().int().min(0).max(365),edit:z.number().int().min(0).max(365),internal:z.number().int().min(0).max(365),clientFinal:z.number().int().min(0).max(365),ready:z.number().int().min(0).max(365)}).strict();
+export const deadlineOffsets = z.object({script:z.number().int().min(0).max(365),clientScript:z.number().int().min(0).max(365).optional(),shoot:z.number().int().min(0).max(365),edit:z.number().int().min(0).max(365),internal:z.number().int().min(0).max(365),clientFinal:z.number().int().min(0).max(365),ready:z.number().int().min(0).max(365)}).strict();
 export const assignments = z.object({smm:id,writer:id.optional(),designer:id.optional(),editor:id.optional(),videographer:id.optional()}).strict();
 export const loginDto = z.object({email:z.string().email().max(254),password:z.string().min(1).max(128)}).strict();
 
