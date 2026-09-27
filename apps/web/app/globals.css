@@ -52,6 +52,8 @@
 html, body {
   margin: 0;
   min-height: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -3236,9 +3238,11 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
 }
 .checkbox-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
   margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .checkbox-label {
   display: inline-flex;
@@ -3253,6 +3257,16 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   color: var(--foreground);
   cursor: pointer;
   transition: all 0.15s ease;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.user-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 .light .checkbox-label {
   background: rgba(0, 0, 0, 0.02);
@@ -3900,16 +3914,31 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   .filter-bar {
     gap: 8px;
     margin-bottom: 14px;
+    width: 100%;
+    box-sizing: border-box;
   }
   .filter-bar > .search-field {
     width: 100%;
     min-width: 100%;
     max-width: none;
   }
-  .filter-bar > select {
+  .filter-bar > select,
+  .filter-bar > input[type="date"],
+  .filter-bar > .checkbox-label {
     flex: 1 1 calc(50% - 4px);
     min-width: 130px;
     max-width: none;
+    box-sizing: border-box;
+  }
+  .filter-bar > .segmented {
+    width: 100%;
+    display: flex;
+    justify-content: stretch;
+  }
+  .filter-bar > .segmented button {
+    flex: 1;
+    text-align: center;
+    padding: 6px 4px;
   }
   .filter-count {
     width: 100%;
@@ -3945,6 +3974,8 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
     max-height: 90vh !important;
     padding: 20px 16px !important;
     border-radius: 16px !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
   .dialog-title {
     font-size: 18px;
@@ -4105,7 +4136,10 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
     padding: 12px 14px;
   }
   .date-chip {
-    display: none !important;
+    display: inline-flex !important;
+    padding: 5px 9px;
+    font-size: 11px;
+    border-radius: 8px;
   }
   .panel-heading {
     flex-wrap: wrap;
@@ -4167,7 +4201,10 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   .detail-grid {
     grid-template-columns: 1fr;
   }
-  .filter-bar > select {
+  .filter-bar > select,
+  .filter-bar > input[type="date"],
+  .filter-bar > .checkbox-label,
+  .filter-bar > button {
     flex: 1 1 100%;
     width: 100%;
   }
@@ -4179,5 +4216,38 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   .dialog-content {
     max-width: calc(100vw - 12px) !important;
     padding: 16px 12px !important;
+    border-radius: 14px !important;
+  }
+  .checkbox-grid {
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .checkbox-label {
+    padding: 8px 10px !important;
+    font-size: 11.5px !important;
+    gap: 8px !important;
+  }
+  .user-options-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .content-detail-eyebrow {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+  .content-detail-header h1 {
+    font-size: 20px;
+    line-height: 1.25;
+  }
+  .content-detail-meta {
+    gap: 8px 12px;
+  }
+  .task-views {
+    gap: 8px;
+  }
+  .task-detail-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }

@@ -71,14 +71,14 @@ export function Dashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
           <div
             onClick={() => dateInputRef.current?.showPicker?.() || dateInputRef.current?.click()}
-            className="date-chip hidden sm:flex items-center gap-1.5 cursor-pointer relative hover:border-stone-400 dark:hover:border-zinc-600 transition-colors select-none group"
+            className="date-chip flex items-center gap-1.5 cursor-pointer relative hover:border-stone-400 dark:hover:border-zinc-600 transition-colors select-none group"
             title="Click to select date and dynamically update insights"
           >
-            <CalendarDays size={15} className="text-stone-500 group-hover:text-stone-800 dark:group-hover:text-zinc-200 transition-colors" />
-            <span className="font-medium text-stone-700 dark:text-zinc-200">
+            <CalendarDays size={15} className="text-stone-500 group-hover:text-stone-800 dark:group-hover:text-zinc-200 transition-colors shrink-0" />
+            <span className="font-medium text-stone-700 dark:text-zinc-200 text-xs sm:text-sm">
               {dateLabel(new Date(selectedDate + 'T00:00:00'), { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
             {selectedDate !== todayStr && (

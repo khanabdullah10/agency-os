@@ -101,8 +101,8 @@ export function ContentForm({initial,onDone}:{initial?:any;onDone:()=>void}){
    })}
   </div>
  </div>
- <div className="form-section-title">The team behind it</div><div className="form-grid three">{responsibilities.map(r=><Field key={r} label={r==='smm'?'Social media manager':label(r)}><select value={d.assignees?.[r]||''} required={r==='smm'} onChange={e=>set('assignees',{...d.assignees,[r]:e.target.value})}><option value="">{r==='smm'?'Choose your SMM':'Assign later'}</option>{client?.team?.filter((t:any,i:number,arr:any[])=>arr.findIndex(x=>x.userId===t.userId)===i).map((t:any)=><option key={t.userId} value={t.userId}>{t.user.name}</option>)}</select></Field>)}</div><label className="checkbox-label"><input type="checkbox" checked={d.requiresShoot} onChange={e=>set('requiresShoot',e.target.checked)}/> This content needs a shoot</label>
- <div className="form-section-title">Work backwards from publish day<Button type="button" variant="ghost" size="sm" onClick={()=>setDates(deadlines(d.publishAt,client?.deadlineOffsets||offsets))}><CalendarDays size={13}/> Suggest deadlines</Button></div><div className="form-grid three">{Object.entries(dates).map(([key,value])=><Field label={label(key.replace(/([A-Z])/g,' $1'))} key={key}><input type="datetime-local" required value={inputDate(value as string)} onChange={e=>e.target.value&&setDates({...dates,[key]:new Date(e.target.value).toISOString()})}/></Field>)}</div><Field label="Internal brief & notes"><textarea value={d.notes||''} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="What should the team know?"/></Field><FormFooter pending={pending} onCancel={onDone} submit={initial?.id?'Save content plan':'Create content'}/></form>;
+ <div className="form-section-title">The team behind it</div><div className="form-grid three">{responsibilities.map(r=><Field key={r} label={r==='smm'?'Social media manager':label(r)}><select value={d.assignees?.[r]||''} required={r==='smm'} onChange={e=>set('assignees',{...d.assignees,[r]:e.target.value})}><option value="">{r==='smm'?'Choose your SMM':'Assign later'}</option>{client?.team?.filter((t:any,i:number,arr:any[])=>arr.findIndex(x=>x.userId===t.userId)===i).map((t:any)=><option key={t.userId} value={t.userId}>{t.user.name}</option>)}</select></Field>)}</div><label className="checkbox-label" style={{margin:'8px 0',boxSizing:'border-box',width:'100%',border:d.requiresShoot?'1px solid var(--accent, #0284c7)':'1px solid var(--border-color)',background:d.requiresShoot?'rgba(2, 132, 199, 0.08)':'transparent'}}><input type="checkbox" checked={d.requiresShoot} onChange={e=>set('requiresShoot',e.target.checked)}/> This content needs a shoot</label>
+ <div className="form-section-title" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'8px'}}><span>Work backwards from publish day</span><Button type="button" variant="ghost" size="sm" onClick={()=>setDates(deadlines(d.publishAt,client?.deadlineOffsets||offsets))}><CalendarDays size={13}/> Suggest deadlines</Button></div><div className="form-grid three">{Object.entries(dates).map(([key,value])=><Field label={label(key.replace(/([A-Z])/g,' $1'))} key={key}><input type="datetime-local" required value={inputDate(value as string)} onChange={e=>e.target.value&&setDates({...dates,[key]:new Date(e.target.value).toISOString()})}/></Field>)}</div><Field label="Internal brief & notes"><textarea value={d.notes||''} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="What should the team know?"/></Field><FormFooter pending={pending} onCancel={onDone} submit={initial?.id?'Save content plan':'Create content'}/></form>;
 }
 function ClientForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  const {mutate,pending}=useMutation(),{data:users}=useResource<any[]>('/users'),router=useRouter();
@@ -155,6 +155,8 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
 
  const [avatarUrl,setAvatarUrl]=useState<string|null>(initial?.avatarUrl||null);
  const [customEnabled,setCustomEnabled]=useState(Boolean(initial?.permissions?.length));
+ const [whatsappOptIn,setWhatsappOptIn]=useState<boolean>(Boolean(initial?.whatsappOptIn));
+ const [active,setActive]=useState<boolean>(initial?.id ? Boolean(initial?.active) : true);
  const [customPerms,setCustomPerms]=useState<Record<string,boolean>>(()=>{
   const map:Record<string,boolean>={};
   if(initial?.permissions){
@@ -195,9 +197,9 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
    avatarUrl,
    phone:f.get('phone')||'',
    whatsapp:f.get('whatsapp')||'',
-   whatsappOptIn:f.get('whatsappOptIn')==='on'
+   whatsappOptIn
   };
-  if(initial?.id) d.active=f.get('active')==='on';
+  if(initial?.id) d.active=active;
   else{
    d.password=f.get('password');
    if(f.get('clientId')) d.clientId=f.get('clientId');
@@ -226,11 +228,11 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
    <Field label="WhatsApp number"><input name="whatsapp" type="tel" defaultValue={initial?.whatsapp}/></Field>
   </div>
   <div style={{gridColumn:'1 / -1',margin:'8px 0 12px 0'}}>
-   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}}>
+   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'6px',marginBottom:'8px'}}>
     <label style={{fontSize:'13px',fontWeight:600}}>Roles (Select all that apply)</label>
     <small className="muted" style={{fontSize:'11px'}}>A user can have multiple roles (e.g. Videographer + Graphic Designer)</small>
    </div>
-   <div className="checkbox-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))',gap:'8px'}}>
+   <div className="checkbox-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(130px, 1fr))',gap:'8px'}}>
     {baseRoles.filter((r: any) => !r.isSuperAdmin || actor.isSuperAdmin).map((r: any) => {
      const isChecked = selectedRoleIds.includes(r.id);
      return (
@@ -281,12 +283,69 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
    )}
   </div>
   {!initial?.id&&hasClient&&<Field label="Client workspace"><select name="clientId" required><option value="">Choose a client</option>{clients?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
-  <label className="checkbox-label"><input type="checkbox" name="whatsappOptIn" defaultChecked={initial?.whatsappOptIn}/> This person has opted in to WhatsApp notifications</label>
-  {initial?.id&&<label className="checkbox-label"><input type="checkbox" name="active" defaultChecked={initial.active}/> Account active</label>}
+  <div className="user-options-grid" style={{display:'grid',gridTemplateColumns:initial?.id?'repeat(auto-fit, minmax(220px, 1fr))':'1fr',gap:'10px',margin:'12px 0 16px 0',width:'100%'}}>
+   <label
+    className="checkbox-label"
+    style={{
+     margin: 0,
+     padding: '10px 14px',
+     borderRadius: '10px',
+     border: whatsappOptIn ? '1px solid var(--accent, #0284c7)' : '1px solid var(--border-color)',
+     background: whatsappOptIn ? 'rgba(2, 132, 199, 0.08)' : 'transparent',
+     cursor: 'pointer',
+     display: 'flex',
+     alignItems: 'center',
+     gap: '10px',
+     fontSize: '12.5px',
+     fontWeight: whatsappOptIn ? 600 : 400,
+     transition: 'all 0.15s ease',
+     width: '100%',
+     boxSizing: 'border-box'
+    }}
+   >
+    <input
+     type="checkbox"
+     name="whatsappOptIn"
+     checked={whatsappOptIn}
+     onChange={e => setWhatsappOptIn(e.target.checked)}
+    />
+    <span>This person has opted in to WhatsApp notifications</span>
+   </label>
+
+   {initial?.id && (
+    <label
+     className="checkbox-label"
+     style={{
+      margin: 0,
+      padding: '10px 14px',
+      borderRadius: '10px',
+      border: active ? '1px solid var(--accent, #0284c7)' : '1px solid var(--border-color)',
+      background: active ? 'rgba(2, 132, 199, 0.08)' : 'transparent',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      fontSize: '12.5px',
+      fontWeight: active ? 600 : 400,
+      transition: 'all 0.15s ease',
+      width: '100%',
+      boxSizing: 'border-box'
+     }}
+    >
+     <input
+      type="checkbox"
+      name="active"
+      checked={active}
+      onChange={e => setActive(e.target.checked)}
+     />
+     <span>Account active</span>
+    </label>
+   )}
+  </div>
 
   {actor.isSuperAdmin&&selectedRoleIds.length>0&&!hasSuperAdmin&&(
    <div style={{marginTop:'16px',borderTop:'1px solid var(--border-color)',paddingTop:'16px'}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'8px',marginBottom:'8px'}}>
      <div>
       <strong style={{fontSize:'13px',display:'block'}}>Custom Granular Permissions</strong>
       <small className="muted" style={{fontSize:'11px'}}>Super Admin override: grant or revoke individual permissions beyond the base role defaults.</small>
@@ -305,7 +364,7 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
     </div>
     {customEnabled&&(
      <div style={{background:'var(--background)',borderRadius:'12px',padding:'12px 16px',border:'1px solid var(--border-color)',marginTop:'8px'}}>
-      <div style={{display:'flex',gap:'8px',justifyContent:'flex-end',alignItems:'center',marginBottom:'10px'}}>
+      <div style={{display:'flex',gap:'8px',justifyContent:'flex-end',alignItems:'center',flexWrap:'wrap',marginBottom:'10px'}}>
        <button type="button" className="text-button" style={{fontSize:'11px',color:'var(--accent)',cursor:'pointer'}} onClick={()=>{const m:Record<string,boolean>={};(permissions||[]).forEach(p=>m[p.key]=defaultRolePermKeys.has(p.key));setCustomPerms(m);}}>Reset to role defaults</button>
        <span className="muted" style={{fontSize:'11px'}}>·</span>
        <button type="button" className="text-button" style={{fontSize:'11px',color:'var(--accent)',cursor:'pointer'}} onClick={()=>{const m:Record<string,boolean>={};(permissions||[]).forEach(p=>m[p.key]=true);setCustomPerms(m);}}>Grant all</button>
