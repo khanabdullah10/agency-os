@@ -19,7 +19,7 @@ export class ContentService {
  async list(a:Actor,q:Record<string,string>) {
   const filters:any={deletedAt:null,client:this.access.clientWhere(a)};
   if(q.clientId)filters.clientId=q.clientId;
-  if(q.platform)filters.platform=q.platform;
+  if(q.platform)filters.platform={contains:q.platform};
   if(q.type)filters.type=q.type;
   if(q.status&&!a.isClient)filters.status=q.status;
   if(q.from||q.to){filters.publishAt={...(q.from?{gte:new Date(q.from)}:{}),...(q.to?{lte:new Date(q.to)}:{})};}

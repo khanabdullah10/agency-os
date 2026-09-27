@@ -37,7 +37,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { api, Actor, AppContext, useApp, useResource, useMutation, csrf } from '@/lib/api';
-import { initials, label } from '@/lib/utils';
+import { initials, label, playNotificationTone } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Avatar, Field, Modal, Loading, FormFooter } from './shared';
 import { Dashboard } from './dashboard';
@@ -175,6 +175,8 @@ export function AgencyApp() {
             ? 'Create a task'
             : form?.kind === 'drive'
             ? 'Add a Drive link'
+            : form?.kind === 'metrics'
+            ? 'Feed post metrics'
             : 'Plan something great'
         }
         description={
@@ -184,9 +186,11 @@ export function AgencyApp() {
             ? 'One content item. Every step of production, connected.'
             : form?.kind === 'profile'
             ? 'Update your profile photo and display name.'
+            : form?.kind === 'metrics'
+            ? 'Record cumulative impressions, views, and engagements for reporting.'
             : undefined
         }
-        wide={form?.kind === 'client' || form?.kind === 'content' || form?.kind === 'user'}
+        wide={form?.kind === 'client' || form?.kind === 'content' || form?.kind === 'user' || form?.kind === 'metrics'}
       >
         {form && <CreateForm kind={form.kind} initial={form.initial} onDone={() => setForm(null)} />}
       </Modal>
@@ -460,8 +464,10 @@ function Shell({ children }: { children: React.ReactNode }) {
       const data = await api<any[]>('/notifications');
       if (Array.isArray(data)) {
         if (initialLoadDone.current && isPolling) {
+          let hasNew = false;
           for (const n of data) {
             if (!knownNoticeIds.current.has(n.id) && !n.readAt) {
+              hasNew = true;
               toast.info(n.title, {
                 description: n.body,
                 duration: 6000,
@@ -475,6 +481,9 @@ function Shell({ children }: { children: React.ReactNode }) {
                   : undefined,
               });
             }
+          }
+          if (hasNew) {
+            playNotificationTone();
           }
         }
         knownNoticeIds.current = new Set(data.map((n: any) => n.id));

@@ -9,4 +9,10 @@ export const code=(id:number)=>'CNT-'+String(id).padStart(4,'0');
 export const inputDate=(d:Date|string)=>{const v=new Date(d);return new Date(v.getTime()-v.getTimezoneOffset()*60000).toISOString().slice(0,16);};
 export const number=(n:number)=>Intl.NumberFormat('en-IN',{notation:n>=10000?'compact':'standard',maximumFractionDigits:1}).format(n||0);
 export const statusTone=(s:string='')=>s.includes('CHANGES')||s==='OVERDUE'?'red':s.includes('REVIEW')?'amber':['READY_TO_PUBLISH','FINAL_CLIENT_APPROVED','PUBLISHED','COMPLETED','APPROVED'].includes(s)?'green':s.includes('SCRIPT')?'purple':['EDITING','IN_PROGRESS','SCHEDULED'].includes(s)?'blue':'neutral';
-
+export const playNotificationTone = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    const audio = new Audio('/notification.mp3');
+    audio.play().catch(() => {});
+  } catch {}
+};

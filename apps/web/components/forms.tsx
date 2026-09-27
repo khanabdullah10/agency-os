@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { useMutation, useResource, useApp } from '@/lib/api';
-import { inputDate, label } from '@/lib/utils';
+import { inputDate, label, code } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Field, FormFooter, Loading, ErrorState, ImageUploadField, ColorPickerField } from './shared';
 const offsets={script:8,clientScript:7,shoot:5,edit:3,internal:3,clientFinal:2,ready:1};
@@ -16,6 +16,7 @@ export function CreateForm({kind,initial,onDone}:{kind:string;initial?:any;onDon
  if(kind==='profile')return <ProfileForm onDone={onDone}/>;
  if(kind==='task')return <TaskForm initial={initial} onDone={onDone}/>;
  if(kind==='drive')return <DriveForm initial={initial} onDone={onDone}/>;
+ if(kind==='metrics')return <FeedMetricsForm initial={initial} onDone={onDone}/>;
  return <ContentForm initial={initial} onDone={onDone}/>;
 }
 export function ContentForm({initial,onDone}:{initial?:any;onDone:()=>void}){
@@ -23,12 +24,83 @@ export function ContentForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  const {data:clients,loading,error}=useResource<any[]>('/clients');
  const [d,setD]=useState<any>({clientId:'',title:'',platform:'Instagram',type:'Instagram Reel',pillar:'',publishAt:new Date(Date.now()+8*86400000).toISOString(),requiresShoot:false,assignees:{},notes:'',...initial});
  const {data:client}=useResource(d.clientId?'/clients/'+d.clientId:null);
+ const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(() => {
+  if (initial?.platform) {
+   return initial.platform.split(',').map((s: string) => s.trim()).filter(Boolean);
+  }
+  return ['Instagram'];
+ });
  const [dates,setDates]=useState<any>(initial?.deadlines||deadlines(d.publishAt));
- useEffect(()=>{if(client&&!initial?.id){const team:any={};for(const r of responsibilities)team[r]=client.team?.find((t:any)=>t.responsibility===r)?.userId||'';setD((v:any)=>({...v,assignees:team}));setDates(deadlines(d.publishAt,client.deadlineOffsets));}},[client?.id]);
+ useEffect(()=>{
+  if(client&&!initial?.id){
+   const team:any={};
+   for(const r of responsibilities)team[r]=client.team?.find((t:any)=>t.responsibility===r)?.userId||'';
+   setD((v:any)=>({...v,assignees:team}));
+   setDates(deadlines(d.publishAt,client.deadlineOffsets));
+   if(client.platforms?.length&&(!initial?.platform||selectedPlatforms.length===0)){
+    setSelectedPlatforms(client.platforms);
+   }
+  }
+ },[client?.id]);
  const set=(key:string,value:any)=>setD((v:any)=>({...v,[key]:value}));
  if(loading)return <Loading/>;if(error)return <ErrorState message={error}/>;
- return <form onSubmit={async e=>{e.preventDefault();const payload={title:d.title,platform:d.platform,type:d.type,pillar:d.pillar||'',publishAt:d.publishAt,requiresShoot:d.requiresShoot,assignees:Object.fromEntries(Object.entries(d.assignees).filter(([,v])=>v)),notes:d.notes||'',deadlines:dates};try{const result=await mutate(initial?.id?'/content/'+initial.id:'/content',initial?.id?{...payload,revision:initial.revision}:{...payload,clientId:d.clientId},initial?.id?'PATCH':'POST',initial?.id?'Content plan updated':'Your new content is ready');onDone();if(!initial?.id)router.push('/content/'+result.id);}catch{}}}>
- <div className="form-grid"><Field label="Client"><select value={d.clientId} onChange={e=>set('clientId',e.target.value)} required disabled={!!initial?.id}><option value="">Choose a client</option>{clients?.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field><Field label="Content title"><input value={d.title} onChange={e=>set('title',e.target.value)} required minLength={3} maxLength={300} placeholder="Give this story a name"/></Field><Field label="Platform"><select value={d.platform} onChange={e=>set('platform',e.target.value)}>{['Instagram','Facebook','YouTube','LinkedIn','Google Business Profile','Other'].map(p=><option key={p}>{p}</option>)}</select></Field><Field label="Format"><input list="content-formats" value={d.type} onChange={e=>set('type',e.target.value)} required/><datalist id="content-formats">{['Instagram Reel','Facebook Reel','YouTube Short','Long Video','Static Post','Carousel','Story','LinkedIn Post','Other Custom Type'].map(t=><option key={t}>{t}</option>)}</datalist></Field><Field label="Content pillar"><input value={d.pillar||''} onChange={e=>set('pillar',e.target.value)} placeholder="Education, brand stories, community…"/></Field><Field label="Publish date & time" hint="Shown in your device’s local timezone."><input type="datetime-local" required value={inputDate(d.publishAt)} onChange={e=>e.target.value&&set('publishAt',new Date(e.target.value).toISOString())}/></Field></div>
+
+ const availablePlatforms = Array.from(new Set([
+  ...(client?.platforms || []),
+  'Instagram',
+  'Facebook',
+  'YouTube',
+  'LinkedIn',
+  'Google Business Profile',
+  'TikTok',
+  'X / Twitter',
+  'Pinterest',
+  'Other'
+ ]));
+
+ return <form onSubmit={async e=>{
+  e.preventDefault();
+  const finalPlatform = selectedPlatforms.join(', ') || 'Instagram';
+  const payload={title:d.title,platform:finalPlatform,type:d.type,pillar:d.pillar||'',publishAt:d.publishAt,requiresShoot:d.requiresShoot,assignees:Object.fromEntries(Object.entries(d.assignees).filter(([,v])=>v)),notes:d.notes||'',deadlines:dates};
+  try{
+   const result=await mutate(initial?.id?'/content/'+initial.id:'/content',initial?.id?{...payload,revision:initial.revision}:{...payload,clientId:d.clientId},initial?.id?'PATCH':'POST',initial?.id?'Content plan updated':'Your new content is ready');
+   onDone();
+   if(!initial?.id)router.push('/content/'+result.id);
+  }catch{}
+ }}>
+ <div className="form-grid">
+  <Field label="Client"><select value={d.clientId} onChange={e=>set('clientId',e.target.value)} required disabled={!!initial?.id}><option value="">Choose a client</option>{clients?.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+  <Field label="Content title"><input value={d.title} onChange={e=>set('title',e.target.value)} required minLength={3} maxLength={300} placeholder="Give this story a name"/></Field>
+  <Field label="Format"><input list="content-formats" value={d.type} onChange={e=>set('type',e.target.value)} required/><datalist id="content-formats">{['Instagram Reel','Facebook Reel','YouTube Short','Long Video','Static Post','Carousel','Story','LinkedIn Post','Other Custom Type'].map(t=><option key={t}>{t}</option>)}</datalist></Field>
+  <Field label="Content pillar"><input value={d.pillar||''} onChange={e=>set('pillar',e.target.value)} placeholder="Education, brand stories, community…"/></Field>
+  <Field label="Publish date & time" hint="Shown in your device’s local timezone."><input type="datetime-local" required value={inputDate(d.publishAt)} onChange={e=>e.target.value&&set('publishAt',new Date(e.target.value).toISOString())}/></Field>
+ </div>
+ <div style={{marginTop:'12px',marginBottom:'12px'}}>
+  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px'}}>
+   <label style={{fontSize:'13px',fontWeight:600}}>Platforms</label>
+   <small className="muted" style={{fontSize:'11px'}}>Select multiple platforms as needed</small>
+  </div>
+  <div className="checkbox-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(130px, 1fr))',gap:'8px'}}>
+   {availablePlatforms.map(p=>{
+    const isChecked=selectedPlatforms.includes(p);
+    return (
+     <label key={p} className="checkbox-label" style={{margin:0,padding:'7px 10px',borderRadius:'8px',border:isChecked?'1px solid var(--accent, #0284c7)':'1px solid var(--border-color)',background:isChecked?'rgba(2, 132, 199, 0.08)':'transparent',cursor:'pointer',display:'flex',alignItems:'center',gap:'8px',fontSize:'12px',fontWeight:isChecked?600:400,transition:'all 0.15s ease'}}>
+      <input type="checkbox" checked={isChecked} onChange={e=>{
+       if(e.target.checked){
+        setSelectedPlatforms(prev=>[...prev,p]);
+       } else {
+        setSelectedPlatforms(prev=>{
+         const next=prev.filter(x=>x!==p);
+         return next.length>0?next:[p];
+        });
+       }
+      }}/>
+      <span>{p}</span>
+     </label>
+    );
+   })}
+  </div>
+ </div>
  <div className="form-section-title">The team behind it</div><div className="form-grid three">{responsibilities.map(r=><Field key={r} label={r==='smm'?'Social media manager':label(r)}><select value={d.assignees?.[r]||''} required={r==='smm'} onChange={e=>set('assignees',{...d.assignees,[r]:e.target.value})}><option value="">{r==='smm'?'Choose your SMM':'Assign later'}</option>{client?.team?.filter((t:any,i:number,arr:any[])=>arr.findIndex(x=>x.userId===t.userId)===i).map((t:any)=><option key={t.userId} value={t.userId}>{t.user.name}</option>)}</select></Field>)}</div><label className="checkbox-label"><input type="checkbox" checked={d.requiresShoot} onChange={e=>set('requiresShoot',e.target.checked)}/> This content needs a shoot</label>
  <div className="form-section-title">Work backwards from publish day<Button type="button" variant="ghost" size="sm" onClick={()=>setDates(deadlines(d.publishAt,client?.deadlineOffsets||offsets))}><CalendarDays size={13}/> Suggest deadlines</Button></div><div className="form-grid three">{Object.entries(dates).map(([key,value])=><Field label={label(key.replace(/([A-Z])/g,' $1'))} key={key}><input type="datetime-local" required value={inputDate(value as string)} onChange={e=>e.target.value&&setDates({...dates,[key]:new Date(e.target.value).toISOString()})}/></Field>)}</div><Field label="Internal brief & notes"><textarea value={d.notes||''} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="What should the team know?"/></Field><FormFooter pending={pending} onCancel={onDone} submit={initial?.id?'Save content plan':'Create content'}/></form>;
 }
@@ -199,5 +271,119 @@ function ProfileForm({onDone}:{onDone:()=>void}){
  const [avatarUrl,setAvatarUrl]=useState<string|null>(actor.avatarUrl||null);
  const [name,setName]=useState(actor.name);
  return <form onSubmit={async e=>{e.preventDefault();try{await mutate('/auth/profile',{avatarUrl,name},'PATCH','Profile updated');refresh();onDone();}catch{}}}><ImageUploadField label="Your profile photo" value={avatarUrl} onChange={setAvatarUrl} name={name} hint="Visible in your sidebar, comments, team directory, and header"/><div className="form-grid"><Field label="Your name"><input value={name} onChange={e=>setName(e.target.value)} required minLength={2}/></Field><Field label="Email"><input value={actor.email} disabled className="opacity-70 cursor-not-allowed"/></Field></div><FormFooter pending={pending} onCancel={onDone} submit="Save profile"/></form>;
+}
+
+export function FeedMetricsForm({initial, onDone}: {initial?: any; onDone: () => void}) {
+ const {mutate, pending} = useMutation(), {refresh} = useApp();
+ const {data: clients} = useResource<any[]>('/clients');
+ const [clientId, setClientId] = useState<string>(initial?.clientId || '');
+ const {data: contentList, loading: contentLoading} = useResource<any[]>(clientId ? '/content?clientId=' + clientId : '/content');
+ const [contentId, setContentId] = useState<string>(initial?.contentId ? String(initial.contentId) : '');
+ const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
+
+ const selectedPost = contentList?.find((c: any) => String(c.id) === contentId);
+ const existingMetrics = initial?.initialMetrics || selectedPost?.metrics?.[0] || {};
+
+ const [metrics, setMetrics] = useState<Record<string, number>>({
+  reach: existingMetrics.reach || 0,
+  impressions: existingMetrics.impressions || 0,
+  views: existingMetrics.views || 0,
+  likes: existingMetrics.likes || 0,
+  comments: existingMetrics.comments || 0,
+  shares: existingMetrics.shares || 0,
+  saves: existingMetrics.saves || 0,
+  followerGrowth: existingMetrics.followerGrowth || 0,
+ });
+
+ useEffect(() => {
+  if (selectedPost?.metrics?.[0]) {
+   const m = selectedPost.metrics[0];
+   setMetrics({
+    reach: m.reach || 0,
+    impressions: m.impressions || 0,
+    views: m.views || 0,
+    likes: m.likes || 0,
+    comments: m.comments || 0,
+    shares: m.shares || 0,
+    saves: m.saves || 0,
+    followerGrowth: m.followerGrowth || 0,
+   });
+  }
+ }, [contentId, selectedPost]);
+
+ const updateMetric = (k: string, val: number) => {
+  setMetrics(prev => ({ ...prev, [k]: isNaN(val) ? 0 : val }));
+ };
+
+ return (
+  <form onSubmit={async (e) => {
+   e.preventDefault();
+   if (!contentId) return;
+   const payload = {
+    contentId: Number(contentId),
+    date: new Date(date).toISOString(),
+    ...metrics
+   };
+   try {
+    await mutate('/reports/metrics', payload, 'POST', 'Performance metrics saved');
+    refresh();
+    onDone();
+   } catch {}
+  }}>
+   <div className="form-grid">
+    <Field label="Client">
+     <select value={clientId} onChange={(e) => { setClientId(e.target.value); setContentId(''); }} required>
+      <option value="">Choose a client</option>
+      {clients?.map((c: any) => (
+       <option key={c.id} value={c.id}>{c.name}</option>
+      ))}
+     </select>
+    </Field>
+    <Field label="Content story / post">
+     <select value={contentId} onChange={(e) => setContentId(e.target.value)} required disabled={!clientId || contentLoading}>
+      <option value="">{contentLoading ? 'Loading stories…' : 'Choose a content item'}</option>
+      {contentList?.map((c: any) => (
+       <option key={c.id} value={c.id}>
+        {c.code || code(c.id)} · {c.title} ({c.platform})
+       </option>
+      ))}
+     </select>
+    </Field>
+    <Field label="Snapshot date" hint="Date these numbers were recorded.">
+     <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
+    </Field>
+   </div>
+
+   <div className="form-section-title" style={{ marginTop: '16px' }}>Performance numbers</div>
+   <div className="form-grid three">
+    <Field label="Views" hint="Video / Reel views">
+     <input type="number" min={0} required value={metrics.views} onChange={(e) => updateMetric('views', Number(e.target.value))} />
+    </Field>
+    <Field label="Impressions" hint="Total times displayed">
+     <input type="number" min={0} required value={metrics.impressions} onChange={(e) => updateMetric('impressions', Number(e.target.value))} />
+    </Field>
+    <Field label="Reach" hint="Unique accounts reached">
+     <input type="number" min={0} required value={metrics.reach} onChange={(e) => updateMetric('reach', Number(e.target.value))} />
+    </Field>
+    <Field label="Likes">
+     <input type="number" min={0} required value={metrics.likes} onChange={(e) => updateMetric('likes', Number(e.target.value))} />
+    </Field>
+    <Field label="Comments">
+     <input type="number" min={0} required value={metrics.comments} onChange={(e) => updateMetric('comments', Number(e.target.value))} />
+    </Field>
+    <Field label="Shares">
+     <input type="number" min={0} required value={metrics.shares} onChange={(e) => updateMetric('shares', Number(e.target.value))} />
+    </Field>
+    <Field label="Saves / Bookmarks">
+     <input type="number" min={0} required value={metrics.saves} onChange={(e) => updateMetric('saves', Number(e.target.value))} />
+    </Field>
+    <Field label="Follower growth" hint="Net new followers attributed">
+     <input type="number" value={metrics.followerGrowth} onChange={(e) => updateMetric('followerGrowth', Number(e.target.value))} />
+    </Field>
+   </div>
+
+   <FormFooter pending={pending} onCancel={onDone} submit="Save & record metrics" />
+  </form>
+ );
 }
 

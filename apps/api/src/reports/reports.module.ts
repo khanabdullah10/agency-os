@@ -37,16 +37,42 @@ class ReportingController {
   for(const c of published)if(c.metrics[0])for(const key of Object.keys(totals))totals[key as keyof typeof totals]+=(c.metrics[0] as any)[key]||0;
   const delays:number[]=[];
   if(!a.isClient)for(const c of content){for(let i=0;i<c.history.length-1;i++){if(c.history[i].next.includes('REVIEW'))delays.push((c.history[i+1].createdAt.getTime()-c.history[i].createdAt.getTime())/3600000);}}
-  return {totals,planned:content.length,published:published.length,revisionCount:a.isClient?undefined:content.reduce((s,c)=>s+c._count.revisions,0),averageApprovalHours:a.isClient?undefined:delays.length?delays.reduce((s,x)=>s+x,0)/delays.length:null,topContent:published.filter(c=>c.metrics.length).sort((a,b)=>(b.metrics[0]?.views||0)-(a.metrics[0]?.views||0)).slice(0,10).map(c=>({id:c.id,title:c.title,platform:c.platform,client:c.client,metrics:c.metrics[0]})),reports:await this.db.report.findMany({where:{client:where,...(a.isClient?{clientVisible:true}:{})},include:{client:{select:{name:true,color:true}}},orderBy:{periodStart:'desc'},take:100}),byPlatform:[...new Set(content.map(c=>c.platform))].map(platform=>({platform,planned:content.filter(c=>c.platform===platform).length,published:published.filter(c=>c.platform===platform).length}))};
+  return {totals,planned:content.length,published:published.length,revisionCount:a.isClient?undefined:content.reduce((s,c)=>s+c._count.revisions,0),averageApprovalHours:a.isClient?undefined:delays.length?delays.reduce((s,x)=>s+x,0)/delays.length:null,topContent:published.filter(c=>c.metrics.length).sort((a,b)=>(b.metrics[0]?.views||0)-(a.metrics[0]?.views||0)).slice(0,10).map(c=>({id:c.id,title:c.title,platform:c.platform,client:c.client,metrics:c.metrics[0]})),reports:await this.db.report.findMany({where:{client:where,...(a.isClient?{clientVisible:true}:{})},include:{client:{select:{name:true,color:true}}},orderBy:{periodStart:'desc'},take:100}),byPlatform:[...new Set(content.flatMap(c=>(c.platform||'').split(',').map(p=>p.trim()).filter(Boolean)))].map(platform=>({platform,planned:content.filter(c=>c.platform?.includes(platform)).length,published:published.filter(c=>c.platform?.includes(platform)).length}))};
  }
  @Post('reports') @Require('report.manage')
  async createReport(@CurrentActor()a:Actor,@Body()raw:unknown){this.access.internal(a);const d=reportDto.parse(raw);await this.access.client(a,d.clientId);return this.db.atomic(async tx=>{const r=await tx.report.create({data:{...d,periodStart:new Date(d.periodStart),periodEnd:new Date(d.periodEnd)}});await audit(tx,a,'report.created','report',r.id,{clientId:d.clientId,clientVisible:d.clientVisible,next:{title:d.title}});return r;});}
  @Post('content/:id/metrics') @Require('report.manage')
  async metrics(@CurrentActor()a:Actor,@Param('id',ParseIntPipe)id:number,@Body()raw:unknown) {
   this.access.internal(a);const c=await this.access.content(a,id),d=metricsDto.parse(raw);
-  if(!['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status))throw new BadRequestException('Metrics can be recorded for published content.');
   const date=new Date(d.date);date.setUTCHours(0,0,0,0);
-  return this.db.atomic(async tx=>{const previous=await tx.analyticsEntry.findUnique({where:{contentId_date:{contentId:id,date}}});const m=await tx.analyticsEntry.upsert({where:{contentId_date:{contentId:id,date}},create:{...d,date,contentId:id},update:{...d,date}});await audit(tx,a,'analytics.recorded','analytics',m.id,{clientId:c.clientId,contentId:id,previous:previous?JSON.parse(JSON.stringify(previous)):undefined,next:d});return m;});
+  return this.db.atomic(async tx=>{
+   if(!['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status)){
+    await tx.contentItem.update({where:{id},data:{status:'PUBLISHED'}});
+    await tx.contentStatusHistory.create({data:{contentId:id,actorId:a.id,previous:c.status,next:'PUBLISHED',event:'content.published'}});
+   }
+   const previous=await tx.analyticsEntry.findUnique({where:{contentId_date:{contentId:id,date}}});
+   const m=await tx.analyticsEntry.upsert({where:{contentId_date:{contentId:id,date}},create:{...d,date,contentId:id},update:{...d,date}});
+   await audit(tx,a,'analytics.recorded','analytics',m.id,{clientId:c.clientId,contentId:id,previous:previous?JSON.parse(JSON.stringify(previous)):undefined,next:d});
+   return m;
+  });
+ }
+ @Post('reports/metrics') @Require('report.manage')
+ async feedMetricsDirect(@CurrentActor()a:Actor,@Body()raw:any) {
+  this.access.internal(a);
+  const contentId=Number(raw?.contentId);
+  if(!contentId||isNaN(contentId))throw new BadRequestException('A valid content item is required.');
+  const c=await this.access.content(a,contentId),d=metricsDto.parse(raw);
+  const date=new Date(d.date);date.setUTCHours(0,0,0,0);
+  return this.db.atomic(async tx=>{
+   if(!['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status)){
+    await tx.contentItem.update({where:{id:contentId},data:{status:'PUBLISHED'}});
+    await tx.contentStatusHistory.create({data:{contentId,actorId:a.id,previous:c.status,next:'PUBLISHED',event:'content.published'}});
+   }
+   const previous=await tx.analyticsEntry.findUnique({where:{contentId_date:{contentId,date}}});
+   const m=await tx.analyticsEntry.upsert({where:{contentId_date:{contentId,date}},create:{...d,date,contentId},update:{...d,date}});
+   await audit(tx,a,'analytics.recorded','analytics',m.id,{clientId:c.clientId,contentId,previous:previous?JSON.parse(JSON.stringify(previous)):undefined,next:d});
+   return m;
+  });
  }
  @Get('activity') @Require('activity.view')
  async activity(@CurrentActor()a:Actor,@Query('before')before?:string) {
