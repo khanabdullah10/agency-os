@@ -132,7 +132,27 @@ function DriveForm({initial,onDone}:{initial?:any;onDone:()=>void}){
 }
 function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  const {actor}=useApp(),{mutate,pending}=useMutation(),{data:roles}=useResource<any[]>('/roles'),{data:clients}=useResource<any[]>('/clients'),{data:permissions}=useResource<any[]>(actor.isSuperAdmin?'/roles/permissions':null);
- const [role,setRole]=useState(initial?.roleId||'');
+
+ const baseRoles = (roles || []).filter((r: any) => !r.name.includes(', ') || r.systemKey);
+
+ const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(() => {
+  if (initial?.role?.name && roles?.length) {
+   const names = initial.role.name.split(',').map((s: string) => s.trim());
+   const matched = roles.filter((r: any) => names.includes(r.name)).map((r: any) => r.id);
+   if (matched.length > 0) return matched;
+  }
+  return initial?.roleId ? [initial.roleId] : [];
+ });
+
+ useEffect(() => {
+  if (roles?.length && initial?.role?.name && selectedRoleIds.length === 0) {
+   const names = initial.role.name.split(',').map((s: string) => s.trim());
+   const matched = roles.filter((r: any) => names.includes(r.name)).map((r: any) => r.id);
+   if (matched.length > 0) setSelectedRoleIds(matched);
+   else if (initial.roleId) setSelectedRoleIds([initial.roleId]);
+  }
+ }, [roles, initial]);
+
  const [avatarUrl,setAvatarUrl]=useState<string|null>(initial?.avatarUrl||null);
  const [customEnabled,setCustomEnabled]=useState(Boolean(initial?.permissions?.length));
  const [customPerms,setCustomPerms]=useState<Record<string,boolean>>(()=>{
@@ -145,8 +165,13 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
   return map;
  });
 
- const selectedRoleObj=roles?.find(r=>r.id===role);
- const defaultRolePermKeys=new Set(selectedRoleObj?.permissions?.map((p:any)=>p.permissionKey)||[]);
+ const selectedRoleObjs = (roles || []).filter((r: any) => selectedRoleIds.includes(r.id));
+ const hasSuperAdmin = selectedRoleObjs.some((r: any) => r.isSuperAdmin);
+ const hasClient = selectedRoleObjs.some((r: any) => r.isClient);
+
+ const defaultRolePermKeys = new Set(
+  selectedRoleObjs.flatMap((r: any) => r.permissions?.map((p: any) => p.permissionKey) || [])
+ );
 
  const isPermAllowed=(key:string)=>{
   if(customPerms[key]!==undefined) return customPerms[key];
@@ -160,11 +185,13 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
 
  return <form onSubmit={async e=>{
   e.preventDefault();
+  if (selectedRoleIds.length === 0) return;
   const f=new FormData(e.currentTarget);
   const d:any={
    name:f.get('name'),
    email:f.get('email'),
-   roleId:role,
+   roleId:selectedRoleIds[0],
+   roleIds:selectedRoleIds,
    avatarUrl,
    phone:f.get('phone')||'',
    whatsapp:f.get('whatsapp')||'',
@@ -175,7 +202,7 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
    d.password=f.get('password');
    if(f.get('clientId')) d.clientId=f.get('clientId');
   }
-  if(actor.isSuperAdmin&&!selectedRoleObj?.isSuperAdmin){
+  if(actor.isSuperAdmin&&!hasSuperAdmin){
    if(customEnabled){
     const permsPayload=(permissions||[])
      .filter(p=>isPermAllowed(p.key)!==defaultRolePermKeys.has(p.key))
@@ -194,24 +221,70 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
   <div className="form-grid">
    <Field label="Full name"><input name="name" required minLength={2} defaultValue={initial?.name}/></Field>
    <Field label="Email"><input name="email" type="email" required defaultValue={initial?.email}/></Field>
-   <Field label="Role">
-    <select required value={role} onChange={e=>{
-     setRole(e.target.value);
-     if(!initial?.id) setCustomPerms({});
-    }}>
-     <option value="">Choose a role</option>
-     {roles?.filter(r=>!r.isSuperAdmin||actor.isSuperAdmin).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
-    </select>
-   </Field>
    {!initial?.id&&<Field label="Temporary password"><input name="password" type="password" minLength={12} required autoComplete="new-password"/></Field>}
    <Field label="Phone"><input name="phone" type="tel" defaultValue={initial?.phone}/></Field>
    <Field label="WhatsApp number"><input name="whatsapp" type="tel" defaultValue={initial?.whatsapp}/></Field>
   </div>
-  {!initial?.id&&selectedRoleObj?.isClient&&<Field label="Client workspace"><select name="clientId" required><option value="">Choose a client</option>{clients?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
+  <div style={{gridColumn:'1 / -1',margin:'8px 0 12px 0'}}>
+   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}}>
+    <label style={{fontSize:'13px',fontWeight:600}}>Roles (Select all that apply)</label>
+    <small className="muted" style={{fontSize:'11px'}}>A user can have multiple roles (e.g. Videographer + Graphic Designer)</small>
+   </div>
+   <div className="checkbox-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))',gap:'8px'}}>
+    {baseRoles.filter((r: any) => !r.isSuperAdmin || actor.isSuperAdmin).map((r: any) => {
+     const isChecked = selectedRoleIds.includes(r.id);
+     return (
+      <label
+       key={r.id}
+       className="checkbox-label"
+       style={{
+        margin: 0,
+        padding: '8px 12px',
+        borderRadius: '8px',
+        border: isChecked ? '1px solid var(--accent, #0284c7)' : '1px solid var(--border-color)',
+        background: isChecked ? 'rgba(2, 132, 199, 0.08)' : 'transparent',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontSize: '12.5px',
+        fontWeight: isChecked ? 600 : 400,
+        transition: 'all 0.15s ease'
+       }}
+      >
+       <input
+        type="checkbox"
+        checked={isChecked}
+        onChange={e => {
+         if (r.isClient) {
+          setSelectedRoleIds(e.target.checked ? [r.id] : []);
+         } else {
+          if (e.target.checked) {
+           const nonClient = selectedRoleIds.filter(id => !roles?.find((x: any) => x.id === id)?.isClient);
+           setSelectedRoleIds([...nonClient, r.id]);
+          } else {
+           setSelectedRoleIds(prev => prev.filter(id => id !== r.id));
+          }
+         }
+         if (!initial?.id) setCustomPerms({});
+        }}
+       />
+       <span>{r.name}</span>
+      </label>
+     );
+    })}
+   </div>
+   {selectedRoleIds.length === 0 && (
+    <span style={{fontSize:'11px',color:'#ef4444',marginTop:'6px',display:'block'}}>
+     Please select at least one role.
+    </span>
+   )}
+  </div>
+  {!initial?.id&&hasClient&&<Field label="Client workspace"><select name="clientId" required><option value="">Choose a client</option>{clients?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
   <label className="checkbox-label"><input type="checkbox" name="whatsappOptIn" defaultChecked={initial?.whatsappOptIn}/> This person has opted in to WhatsApp notifications</label>
   {initial?.id&&<label className="checkbox-label"><input type="checkbox" name="active" defaultChecked={initial.active}/> Account active</label>}
 
-  {actor.isSuperAdmin&&role&&!selectedRoleObj?.isSuperAdmin&&(
+  {actor.isSuperAdmin&&selectedRoleIds.length>0&&!hasSuperAdmin&&(
    <div style={{marginTop:'16px',borderTop:'1px solid var(--border-color)',paddingTop:'16px'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
      <div>
