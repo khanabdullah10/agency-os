@@ -526,6 +526,57 @@ export function SpreadsheetView() {
     [evaluateFormula]
   );
 
+  // Theme-aware cell style computation (resolves dark/light mode inconsistency)
+  const resolveCellStyles = useCallback(
+    (cell: CellFormat | undefined, isMatch: boolean) => {
+      let bg = cell?.bg;
+      let color = cell?.color;
+
+      const isLightNeutral =
+        bg === '#f1f5f9' || bg === '#f8fafc' || bg === '#ffffff' || bg === '#f3f3f3' || bg === '#efefef';
+      const isDarkNeutral =
+        bg === '#1c2029' || bg === '#181b22' || bg === '#14171d' || bg === '#0f1115';
+
+      if (isDark) {
+        if (isLightNeutral) {
+          bg = '#1c2029'; // dark surface tint for headers/neutral cells
+          if (!color) color = '#f4f4f5';
+        } else if (bg && bg !== 'transparent') {
+          // If a light pastel color is applied (e.g. #fef3c7, #dcfce7), make sure text is high-contrast dark
+          if (!color) color = '#09090b';
+        }
+      } else {
+        if (isDarkNeutral) {
+          bg = '#f1f5f9';
+          if (!color) color = '#09090b';
+        } else if (isLightNeutral) {
+          if (!color) color = '#09090b';
+        }
+      }
+
+      if (isMatch) {
+        bg = isDark ? '#713f12' : '#fef08a';
+        color = isDark ? '#fef08a' : '#854d0e';
+      }
+
+      return {
+        backgroundColor: bg || undefined,
+        color: color || undefined,
+        fontWeight: cell?.bold ? '700' : undefined,
+        fontStyle: cell?.italic ? 'italic' : undefined,
+        textDecoration: [
+          cell?.underline ? 'underline' : '',
+          cell?.strike ? 'line-through' : '',
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined,
+        textAlign: cell?.align || 'left',
+        fontSize: cell?.fontSize ? `${cell.fontSize}px` : undefined,
+      };
+    },
+    [isDark]
+  );
+
   // Sync formula bar when selected cell changes
   useEffect(() => {
     const cell = currentTab.data[selectedCell];
@@ -935,7 +986,11 @@ export function SpreadsheetView() {
           {/* Search Toggle */}
           <div className="relative">
             {showSearch ? (
-              <div className="flex items-center gap-1 bg-white dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 rounded-lg px-2 py-1 shadow-xs">
+              <div
+                className={`flex items-center gap-1 rounded-lg px-2 py-1 shadow-xs border ${
+                  isDark ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-stone-300 text-stone-900'
+                }`}
+              >
                 <Search size={14} className="text-zinc-400" />
                 <input
                   type="text"
@@ -953,7 +1008,11 @@ export function SpreadsheetView() {
               <button
                 onClick={() => setShowSearch(true)}
                 title="Search records"
-                className="p-2 rounded-lg border border-transparent hover:border-zinc-700 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200 transition-colors"
+                className={`p-2 rounded-lg border transition-colors ${
+                  isDark
+                    ? 'border-zinc-700 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white'
+                    : 'border-stone-200 bg-white hover:bg-stone-100 text-stone-600 hover:text-stone-900'
+                }`}
               >
                 <Search size={15} />
               </button>
@@ -964,7 +1023,11 @@ export function SpreadsheetView() {
           <div className="relative">
             <button
               onClick={() => setShowTemplates((v) => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-stone-200 dark:border-zinc-750 bg-white dark:bg-zinc-850 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-all shadow-2xs"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
+                isDark
+                  ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-200'
+                  : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
+              }`}
             >
               <Sparkles size={13} className="text-emerald-500" />
               <span>Templates</span>
@@ -972,20 +1035,40 @@ export function SpreadsheetView() {
             </button>
 
             {showTemplates && (
-              <div className="absolute right-0 mt-1 w-64 rounded-xl border border-stone-200 dark:border-zinc-700 bg-white dark:bg-[#1a1d24] shadow-xl z-50 p-1.5">
-                <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1">
+              <div
+                className={`absolute right-0 mt-1 w-64 rounded-xl border shadow-xl z-50 p-1.5 ${
+                  isDark ? 'bg-[#181b22] border-zinc-700' : 'bg-white border-stone-200'
+                }`}
+              >
+                <div
+                  className={`text-[11px] font-semibold uppercase tracking-wider px-2 py-1 ${
+                    isDark ? 'text-zinc-400' : 'text-stone-500'
+                  }`}
+                >
                   Starter Templates
                 </div>
                 {Object.entries(TEMPLATES).map(([k, t]) => (
                   <button
                     key={k}
                     onClick={() => handleLoadTemplate(k)}
-                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors group"
+                    className={`w-full text-left px-2 py-1.5 rounded-lg transition-colors group ${
+                      isDark ? 'hover:bg-zinc-800' : 'hover:bg-stone-100'
+                    }`}
                   >
-                    <div className="text-xs font-medium text-stone-800 dark:text-zinc-100 group-hover:text-emerald-500">
+                    <div
+                      className={`text-xs font-medium group-hover:text-emerald-500 ${
+                        isDark ? 'text-zinc-100' : 'text-stone-800'
+                      }`}
+                    >
                       {t.title}
                     </div>
-                    <div className="text-[10px] text-zinc-400 line-clamp-1">{t.desc}</div>
+                    <div
+                      className={`text-[10px] line-clamp-1 ${
+                        isDark ? 'text-zinc-400' : 'text-stone-500'
+                      }`}
+                    >
+                      {t.desc}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -995,7 +1078,11 @@ export function SpreadsheetView() {
           {/* CSV Import */}
           <label
             title="Import CSV File"
-            className="cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-stone-200 dark:border-zinc-750 bg-white dark:bg-zinc-850 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-all shadow-2xs"
+            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
+              isDark
+                ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-200'
+                : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
+            }`}
           >
             <Upload size={13} />
             <span className="hidden sm:inline">Import</span>
@@ -1006,7 +1093,11 @@ export function SpreadsheetView() {
           <button
             onClick={handleExportCsv}
             title="Export sheet to CSV"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-stone-200 dark:border-zinc-750 bg-white dark:bg-zinc-850 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-all shadow-2xs"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
+              isDark
+                ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-200'
+                : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
+            }`}
           >
             <Download size={13} />
             <span className="hidden sm:inline">Export</span>
@@ -1282,7 +1373,7 @@ export function SpreadsheetView() {
         {/* Cell Coordinate box */}
         <div
           className={`flex items-center justify-center font-semibold text-center w-14 py-1 rounded border shadow-2xs ${
-            isDark ? 'bg-zinc-850 border-zinc-700 text-emerald-400' : 'bg-stone-50 border-stone-300 text-emerald-700'
+            isDark ? 'bg-zinc-800 border-zinc-700 text-emerald-400' : 'bg-stone-50 border-stone-300 text-emerald-700'
           }`}
         >
           {selectedCell}
@@ -1387,7 +1478,7 @@ export function SpreadsheetView() {
                     const cell = currentTab.data[cellKey];
                     const isSelected = selectedCell === cellKey;
                     const displayVal = getCellDisplay(cell);
-                    const isMatch = searchQuery && displayVal.toLowerCase().includes(searchQuery.toLowerCase());
+                    const isMatch = Boolean(searchQuery && displayVal.toLowerCase().includes(searchQuery.toLowerCase()));
 
                     return (
                       <td
@@ -1403,30 +1494,13 @@ export function SpreadsheetView() {
                           setIsEditing(true);
                           setTimeout(() => cellInputRef.current?.focus(), 10);
                         }}
-                        style={{
-                          backgroundColor: isMatch
-                            ? '#fef08a'
-                            : cell?.bg
-                            ? cell.bg
-                            : undefined,
-                          color: isMatch ? '#854d0e' : cell?.color || undefined,
-                          fontWeight: cell?.bold ? '700' : undefined,
-                          fontStyle: cell?.italic ? 'italic' : undefined,
-                          textDecoration: [
-                            cell?.underline ? 'underline' : '',
-                            cell?.strike ? 'line-through' : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ') || undefined,
-                          textAlign: cell?.align || 'left',
-                          fontSize: cell?.fontSize ? `${cell.fontSize}px` : undefined,
-                        }}
+                        style={resolveCellStyles(cell, isMatch)}
                         className={`relative h-6 px-1.5 border truncate whitespace-nowrap overflow-hidden text-xs transition-colors ${
                           isDark ? 'border-zinc-800/80' : 'border-stone-200'
                         } ${
                           isSelected
                             ? 'ring-2 ring-emerald-500 ring-inset z-5 bg-emerald-500/5'
-                            : 'hover:bg-stone-100/50 dark:hover:bg-zinc-800/40'
+                            : isDark ? 'hover:bg-zinc-800/40' : 'hover:bg-stone-100/60'
                         }`}
                       >
                         {isSelected && isEditing ? (
@@ -1463,19 +1537,27 @@ export function SpreadsheetView() {
         <div className="p-4 flex items-center gap-3">
           <button
             onClick={() => handleAddRows(10)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-zinc-750 bg-stone-50 dark:bg-zinc-850 hover:bg-stone-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+              isDark
+                ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                : 'bg-stone-100 hover:bg-stone-200 border-stone-300 text-stone-700'
+            }`}
           >
             <Plus size={13} />
             <span>Add +10 Rows</span>
           </button>
           <button
             onClick={() => handleAddRows(50)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-zinc-750 bg-stone-50 dark:bg-zinc-850 hover:bg-stone-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+              isDark
+                ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                : 'bg-stone-100 hover:bg-stone-200 border-stone-300 text-stone-700'
+            }`}
           >
             <Plus size={13} />
             <span>Add +50 Rows</span>
           </button>
-          <span className="text-xs text-zinc-400">
+          <span className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
             Total {currentTab.rowCount} rows in {currentTab.name}
           </span>
         </div>
@@ -1484,7 +1566,7 @@ export function SpreadsheetView() {
       {/* 5. MULTI-SHEET TABS BAR (AT THE BOTTOM, EXACTLY LIKE GOOGLE SHEETS) */}
       <div
         className={`px-2 py-1.5 flex items-center justify-between border-t shrink-0 ${
-          isDark ? 'bg-[#14171d] border-zinc-800' : 'bg-stone-100 border-stone-200'
+          isDark ? 'bg-[#14171d] border-zinc-800' : 'bg-stone-100 border-stone-300'
         }`}
       >
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
@@ -1492,7 +1574,9 @@ export function SpreadsheetView() {
           <button
             onClick={handleAddTab}
             title="Add a new sheet tab"
-            className="p-1.5 rounded-md hover:bg-stone-200 dark:hover:bg-zinc-750 text-zinc-400 hover:text-foreground transition-colors"
+            className={`p-1.5 rounded-md transition-colors ${
+              isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100' : 'hover:bg-stone-200 text-stone-700 hover:text-stone-950'
+            }`}
           >
             <Plus size={15} />
           </button>
@@ -1509,17 +1593,21 @@ export function SpreadsheetView() {
                   setWorkbook((prev) => ({ ...prev, activeTab: tab.id }));
                   setSelectedCell('A1');
                 }}
-                className={`group flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium cursor-pointer transition-all border ${
+                className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-all border ${
                   isActive
-                    ? 'bg-white dark:bg-zinc-900 border-emerald-500/50 text-emerald-500 shadow-2xs font-semibold'
-                    : 'bg-transparent border-transparent hover:bg-stone-200/60 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    ? isDark
+                      ? 'bg-zinc-900 border-emerald-500/60 text-emerald-400 shadow-2xs font-semibold'
+                      : 'bg-white border-emerald-600/50 text-emerald-700 shadow-2xs font-semibold'
+                    : isDark
+                      ? 'bg-transparent border-transparent hover:bg-zinc-800/80 text-zinc-300 hover:text-white'
+                      : 'bg-transparent border-transparent hover:bg-stone-200/80 text-stone-700 hover:text-stone-950'
                 }`}
               >
                 <div
-                  className="w-2 h-2 rounded-full"
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: tab.color || '#0f9d58' }}
                 />
-                <span>{tab.name}</span>
+                <span className="truncate max-w-[160px]">{tab.name}</span>
 
                 {workbook.tabs.length > 1 && (
                   <button
@@ -1528,7 +1616,9 @@ export function SpreadsheetView() {
                       handleDeleteTab(tab.id);
                     }}
                     title="Delete tab"
-                    className="opacity-0 group-hover:opacity-100 hover:text-rose-500 transition-opacity"
+                    className={`opacity-0 group-hover:opacity-100 transition-opacity ml-1 ${
+                      isDark ? 'text-zinc-400 hover:text-rose-400' : 'text-stone-400 hover:text-rose-600'
+                    }`}
                   >
                     <X size={12} />
                   </button>
@@ -1539,10 +1629,10 @@ export function SpreadsheetView() {
         </div>
 
         {/* Footer info badge */}
-        <div className="text-[11px] text-zinc-400 hidden sm:flex items-center gap-2">
+        <div className={`text-[11px] hidden sm:flex items-center gap-2 ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
           <span>Google Sheets compatible</span>
           <span>•</span>
-          <span className="text-emerald-500 font-medium">Agency OS Engine</span>
+          <span className={isDark ? 'text-emerald-400 font-medium' : 'text-emerald-700 font-medium'}>Agency OS Engine</span>
         </div>
       </div>
     </div>
