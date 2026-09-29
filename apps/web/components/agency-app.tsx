@@ -461,17 +461,50 @@ function Shell({ children }: { children: React.ReactNode }) {
   const knownNoticeIds = useRef<Set<string>>(new Set());
   const initialLoadDone = useRef(false);
 
+  const cleanNoticeBody = (body: string = '') => body.replace(/^CNT-\d+\s*·\s*/i, '');
+
   const fetchNotices = useCallback(async (isPolling = false) => {
     try {
       const data = await api<any[]>('/notifications');
       if (Array.isArray(data)) {
-        if (initialLoadDone.current && isPolling) {
+        if (!initialLoadDone.current) {
+          // Instant unattended notification popups right after login
+          const unreadNotices = data.filter((n: any) => !n.readAt);
+          if (unreadNotices.length > 0) {
+            setTimeout(() => {
+              unreadNotices.slice(0, 5).forEach((n: any, idx: number) => {
+                setTimeout(() => {
+                  toast.info(n.title, {
+                    description: cleanNoticeBody(n.body),
+                    duration: 8000,
+                    action: n.href
+                      ? {
+                          label: 'Open',
+                          onClick: () => {
+                            router.push(n.href);
+                          },
+                        }
+                      : undefined,
+                  });
+                }, idx * 300);
+              });
+              if (unreadNotices.length > 5) {
+                setTimeout(() => {
+                  toast.info(`${unreadNotices.length - 5} more unattended notifications in Inbox`, {
+                    action: { label: 'View all', onClick: () => router.push('/notifications') }
+                  });
+                }, 5 * 300 + 200);
+              }
+              playNotificationTone();
+            }, 600);
+          }
+        } else if (isPolling) {
           let hasNew = false;
           for (const n of data) {
             if (!knownNoticeIds.current.has(n.id) && !n.readAt) {
               hasNew = true;
               toast.info(n.title, {
-                description: n.body,
+                description: cleanNoticeBody(n.body),
                 duration: 6000,
                 action: n.href
                   ? {
@@ -503,7 +536,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unlock = () => {
       try {
-        const audio = new Audio('/notification.mp3');
+        const audio = new Audio('/mado-notification.mp3?v=2');
         audio.load();
       } catch {}
       window.removeEventListener('click', unlock);
@@ -564,7 +597,19 @@ function Shell({ children }: { children: React.ReactNode }) {
   }, [actor?.id, fetchNotices, refresh]);
 
   const { data: contentList } = useResource<any[]>(can('content.view') ? '/content' : null);
+  const { data: taskList } = useResource<any[]>(can('task.view') ? '/tasks' : null);
   const unread = notices?.filter((n) => !n.readAt).length || 0;
+
+  // Calculate pending tasks requiring attention from the current actor
+  const pendingTasks = useMemo(() => {
+    if (!taskList?.length) return 0;
+    return taskList.filter((t) => {
+      if (['COMPLETED', 'CANCELLED'].includes(t.status)) return false;
+      if (t.assigneeId === actor?.id) return true;
+      if (can('task.assign') && t.status === 'FOR_REVIEW') return true;
+      return false;
+    }).length;
+  }, [taskList, actor?.id, can]);
 
   // Calculate pending approvals specifically waiting for the current actor's role
   const pendingApprovals = useMemo(() => {
@@ -587,19 +632,21 @@ function Shell({ children }: { children: React.ReactNode }) {
         );
       }
 
-      // Super Admin has oversight on all reviews
-      if (actor.isSuperAdmin) return true;
-
       // Client stage reviews are waiting on client, not internal staff
       if (c.status.startsWith('CLIENT')) return false;
+
+      // Super Admin approval stage
+      if (c.reviewStage === 'SUPER_ADMIN') {
+        return actor.isSuperAdmin;
+      }
 
       // Admin review stage check
       if (c.reviewStage === 'ADMIN') {
         return can('approval.admin');
       }
-      if (c.reviewStage === 'SUPER_ADMIN') {
-        return false;
-      }
+
+      // Super Admin has oversight on all internal reviews
+      if (actor.isSuperAdmin) return true;
 
       // Dedicated SMM review stage check
       if (can('content.approve')) {
@@ -673,6 +720,9 @@ function Shell({ children }: { children: React.ReactNode }) {
                 .map((n) => {
                   const isActive = path.startsWith(n.href);
                   const hasApprovals = n.href === '/approvals' && pendingApprovals > 0;
+                  const hasTasks = n.href === '/tasks' && pendingTasks > 0;
+                  const isHighlighted = (hasApprovals || hasTasks) && !isActive;
+                  const badgeCount = n.href === '/approvals' ? pendingApprovals : (n.href === '/tasks' ? pendingTasks : 0);
                   return (
                     <Link
                       key={n.href}
@@ -681,17 +731,17 @@ function Shell({ children }: { children: React.ReactNode }) {
                       className={
                         'nav-item group ' +
                         (isActive ? 'active' : '') +
-                        (hasApprovals && !isActive ? ' has-pending-approvals' : '')
+                        (isHighlighted ? ' has-pending-approvals' : '')
                       }
                       style={{
                         backgroundColor: isActive
                           ? `${n.color}15`
-                          : hasApprovals
+                          : isHighlighted
                           ? `${n.color}0f`
                           : undefined,
                         borderLeft: isActive
                           ? `3px solid ${n.color}`
-                          : hasApprovals
+                          : isHighlighted
                           ? `3px solid ${n.color}`
                           : '3px solid transparent',
                       }}
@@ -709,7 +759,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                       <span className="truncate">
                         {n.href === '/tasks' && !can('task.view_team') ? 'My tasks' : n.name}
                       </span>
-                      {hasApprovals && (
+                      {badgeCount > 0 && (
                         <span
                           className="nav-approval-badge"
                           style={{
@@ -719,7 +769,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                           }}
                         >
                           <span className="nav-approval-pulse" style={{ backgroundColor: n.color }} />
-                          {pendingApprovals}
+                          {badgeCount}
                         </span>
                       )}
                     </Link>

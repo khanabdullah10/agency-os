@@ -120,14 +120,14 @@ describe('Workflow & Security Engine', () => {
     });
 
     it('calculates next internal approval tier based on rules', () => {
-      const smmOnly = { smm: true, admin: false, superAdmin: false, client: true };
-      expect(nextInternalStage('SMM', smmOnly)).toBe('CLIENT');
+      const standard = { smm: true, admin: false, superAdmin: true, client: true };
+      expect(nextInternalStage('SMM', standard)).toBe('SUPER_ADMIN');
 
-      const adminRequired = { smm: true, admin: true, superAdmin: false, client: true };
+      const adminRequired = { smm: true, admin: true, superAdmin: true, client: true };
       expect(nextInternalStage('SMM', adminRequired)).toBe('ADMIN');
 
-      const superAdminRequired = { smm: true, admin: false, superAdmin: true, client: true };
-      expect(nextInternalStage('SMM', superAdminRequired)).toBe('SUPER_ADMIN');
+      expect(nextInternalStage('SUPER_ADMIN', standard)).toBe('CLIENT');
+      expect(nextInternalStage('SUPER_ADMIN', { ...standard, client: false })).toBe('DONE');
     });
   });
 });

@@ -13,7 +13,7 @@ let audioContext: AudioContext | null = null;
 export const playNotificationTone = () => {
   if (typeof window === 'undefined') return;
   try {
-    const audio = new Audio('/notification.mp3');
+    const audio = new Audio('/mado-notification.mp3?v=2');
     audio.volume = 0.9;
     const playPromise = audio.play();
     if (playPromise !== undefined) {

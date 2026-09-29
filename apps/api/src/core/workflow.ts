@@ -16,7 +16,7 @@ export function allowedActions(status: string): Action[] {
 }
 export function nextInternalStage(current: string, rules: Rules): string {
  if (current === 'SMM' && rules.admin) return 'ADMIN';
- if ((current === 'SMM' || current === 'ADMIN') && rules.superAdmin) return 'SUPER_ADMIN';
+ if (current === 'SMM' || current === 'ADMIN') return 'SUPER_ADMIN';
  return rules.client ? 'CLIENT' : 'DONE';
 }
 export function suggestDeadlines(publishAt: Date, custom: Partial<typeof offsets> = {}) {

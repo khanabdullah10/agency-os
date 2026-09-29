@@ -65,7 +65,7 @@ export class TasksService {
   const previous=await tx.task.findUnique({where:{systemKey:key}});
   const t=await tx.task.upsert({where:{systemKey:key},create:{clientId:c.clientId,contentId:c.id,title:kind.replaceAll('_',' ')+' · '+c.title,kind,assigneeId,createdById:null,dueAt:new Date(deadline),systemKey:key},update:{assigneeId,status:previous?.status==='FOR_REVIEW'?'FOR_REVIEW':'TO_DO',completedAt:null,dueAt:new Date(deadline)}});
   if(previous)await tx.taskStatusHistory.create({data:{taskId:t.id,actorId:a.id,previous:previous.status,next:t.status}});
-  await this.notifications.emit(tx,[assigneeId],{event:kind==='SCRIPT'?'task.assigned':kind==='SHOOT'?'shoot.assigned':kind==='EDIT'?'edit.assigned':'task.assigned',title:kind.replaceAll('_',' ')+' task assigned',body:contentCode(c.id)+' · '+c.title+' · due '+t.dueAt.toISOString().slice(0,10),href:'/content/'+c.id,key:key+':'+c.revision},a.agencyId,a.id);return t;
+  await this.notifications.emit(tx,[assigneeId],{event:kind==='SCRIPT'?'task.assigned':kind==='SHOOT'?'shoot.assigned':kind==='EDIT'?'edit.assigned':'task.assigned',title:kind.replaceAll('_',' ')+' task assigned',body:(c.title?(a.name?`${c.title}/${a.name}`:c.title):contentCode(c.id))+' · due '+t.dueAt.toISOString().slice(0,10),href:'/content/'+c.id,key:key+':'+c.revision},a.agencyId,a.id);return t;
  }
  async status(tx:Prisma.TransactionClient,a:Actor,contentId:number,kinds:string[],status:string) {
   const tasks=await tx.task.findMany({where:{contentId,kind:{in:kinds},status:{not:'CANCELLED'}}});

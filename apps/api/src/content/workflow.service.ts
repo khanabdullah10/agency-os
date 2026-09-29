@@ -53,7 +53,7 @@ export class WorkflowService {
     await audit(tx,a,event,'content',String(id),{...base,previous:{status},next:{status:next},clientVisible});
     status=next;
    };
-   const notice=async(recipients:(string|undefined)[],event:string,title:string)=>this.notifications.emit(tx,recipients.filter(Boolean) as string[],{event,title,body:code+' · '+c.title,href:'/content/'+id,key:'content:'+id+':'+(c.revision+1)+':'+event+':'+(stage||'')},a.agencyId,a.id);
+   const notice=async(recipients:(string|undefined)[],event:string,title:string)=>this.notifications.emit(tx,recipients.filter(Boolean) as string[],{event,title,body:c.title?(a.name?`${c.title}/${a.name}`:c.title):code,href:'/content/'+id,key:'content:'+id+':'+(c.revision+1)+':'+event+':'+(stage||'')},a.agencyId,a.id);
    const clients=c.client.users.map(x=>x.userId);
    const production=async()=>{
     if(c.requiresShoot){if(!team.videographer)throw new BadRequestException('Assign a videographer before approving the production plan.');await update('READY_FOR_SHOOT','shoot.assigned');await this.tasks.system(tx,a,c,'SHOOT',team.videographer,deadlines.shoot);}
@@ -117,7 +117,7 @@ export class WorkflowService {
      await update(script?'SCRIPT_WRITING':a.isClient?'CLIENT_CHANGES':'INTERNAL_CHANGES',a.isClient?'content.client_changes_requested':script?'script.changes_requested':'edit.changes_requested',a.isClient);
      await this.tasks.status(tx,a,id,[script?'SCRIPT':team.editor?'EDIT':'DESIGN'],'CHANGES_REQUIRED');
      await this.tasks.status(tx,a,id,['SMM_REVIEW'],'COMPLETED');
-     await notice([assignee,team.smm],'revision.created','Changes requested on '+code);stage=null;break;
+     await notice([assignee,team.smm],'revision.created','Changes requested on '+(c.title?(a.name?`${c.title}/${a.name}`:c.title):code));stage=null;break;
     }
     case 'APPROVE':{
      const script=c.status.includes('SCRIPT'),client=c.status==='CLIENT_SCRIPT_REVIEW'||c.status==='CLIENT_REVIEW';
