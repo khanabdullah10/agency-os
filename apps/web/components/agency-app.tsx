@@ -544,7 +544,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unlock = () => {
       try {
-        const audio = new Audio('/mado-notification.mp3?v=2');
+        const audio = new Audio('/mado-notification.mp3?v=3');
         audio.load();
       } catch {}
       window.removeEventListener('click', unlock);
