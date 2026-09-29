@@ -241,6 +241,54 @@ const PASTEL_BG_PALETTE = [
   { name: 'Soft Teal', color: '#ccfbf1' },
 ];
 
+const THEME_COLOR_MAP: Record<
+  string,
+  {
+    lightBg: string;
+    lightText: string;
+    darkBg: string;
+    darkText: string;
+  }
+> = {
+  // Amber / Yellow Statuses (e.g. In Progress, Pending)
+  '#fef3c7': { lightBg: '#fef3c7', lightText: '#92400e', darkBg: 'rgba(245, 158, 11, 0.22)', darkText: '#fbbf24' },
+  '#fff2cc': { lightBg: '#fff2cc', lightText: '#92400e', darkBg: 'rgba(245, 158, 11, 0.22)', darkText: '#fbbf24' },
+  '#ffe599': { lightBg: '#ffe599', lightText: '#92400e', darkBg: 'rgba(245, 158, 11, 0.25)', darkText: '#fbbf24' },
+  '#f9cb9c': { lightBg: '#f9cb9c', lightText: '#9a3412', darkBg: 'rgba(249, 115, 22, 0.22)', darkText: '#fdba74' },
+
+  // Green Statuses (e.g. Approved, Paid, Ready)
+  '#dcfce7': { lightBg: '#dcfce7', lightText: '#166534', darkBg: 'rgba(16, 185, 129, 0.22)', darkText: '#34d399' },
+  '#d9ead3': { lightBg: '#d9ead3', lightText: '#166534', darkBg: 'rgba(16, 185, 129, 0.22)', darkText: '#34d399' },
+  '#b6d7a8': { lightBg: '#b6d7a8', lightText: '#166534', darkBg: 'rgba(16, 185, 129, 0.25)', darkText: '#34d399' },
+
+  // Purple / Violet Statuses (e.g. Review, Under Admin Review)
+  '#ede9fe': { lightBg: '#ede9fe', lightText: '#5b21b6', darkBg: 'rgba(168, 85, 247, 0.22)', darkText: '#c084fc' },
+  '#d9d2e9': { lightBg: '#d9d2e9', lightText: '#5b21b6', darkBg: 'rgba(168, 85, 247, 0.22)', darkText: '#c084fc' },
+  '#b4a7d6': { lightBg: '#b4a7d6', lightText: '#5b21b6', darkBg: 'rgba(168, 85, 247, 0.25)', darkText: '#c084fc' },
+
+  // Blue / Cyan / Sky Statuses (e.g. Planned, Scheduled, Active)
+  '#e0f2fe': { lightBg: '#e0f2fe', lightText: '#075985', darkBg: 'rgba(0, 180, 255, 0.20)', darkText: '#38bdf8' },
+  '#cfe2f3': { lightBg: '#cfe2f3', lightText: '#075985', darkBg: 'rgba(0, 180, 255, 0.20)', darkText: '#38bdf8' },
+  '#c9daf8': { lightBg: '#c9daf8', lightText: '#1e40af', darkBg: 'rgba(59, 130, 246, 0.22)', darkText: '#60a5fa' },
+  '#d0e0e3': { lightBg: '#d0e0e3', lightText: '#155e75', darkBg: 'rgba(6, 182, 212, 0.20)', darkText: '#22d3ee' },
+
+  // Rose / Red / Pink Statuses (e.g. Overdue, Cancelled, Urgent)
+  '#ffe4e6': { lightBg: '#ffe4e6', lightText: '#9f1239', darkBg: 'rgba(225, 29, 72, 0.22)', darkText: '#fb7185' },
+  '#f4cccc': { lightBg: '#f4cccc', lightText: '#991b1b', darkBg: 'rgba(239, 68, 68, 0.22)', darkText: '#f87171' },
+  '#ea9999': { lightBg: '#ea9999', lightText: '#991b1b', darkBg: 'rgba(239, 68, 68, 0.25)', darkText: '#f87171' },
+  '#ead1dc': { lightBg: '#ead1dc', lightText: '#831843', darkBg: 'rgba(236, 72, 153, 0.22)', darkText: '#f472b6' },
+
+  // Teal
+  '#ccfbf1': { lightBg: '#ccfbf1', lightText: '#115e59', darkBg: 'rgba(20, 184, 166, 0.22)', darkText: '#2dd4bf' },
+
+  // Neutral / Gray / Surface Headers
+  '#f1f5f9': { lightBg: '#f1f5f9', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+  '#f8fafc': { lightBg: '#f8fafc', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+  '#ffffff': { lightBg: '#ffffff', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+  '#f3f3f3': { lightBg: '#f3f3f3', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+  '#efefef': { lightBg: '#efefef', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+};
+
 export function SpreadsheetView() {
   const { isDark } = useTheme();
   const [docId, setDocId] = useState<string>('sheet_master');
@@ -532,25 +580,45 @@ export function SpreadsheetView() {
       let bg = cell?.bg;
       let color = cell?.color;
 
-      const isLightNeutral =
-        bg === '#f1f5f9' || bg === '#f8fafc' || bg === '#ffffff' || bg === '#f3f3f3' || bg === '#efefef';
-      const isDarkNeutral =
-        bg === '#1c2029' || bg === '#181b22' || bg === '#14171d' || bg === '#0f1115';
-
-      if (isDark) {
-        if (isLightNeutral) {
-          bg = '#1c2029'; // dark surface tint for headers/neutral cells
-          if (!color) color = '#f4f4f5';
-        } else if (bg && bg !== 'transparent') {
-          // If a light pastel color is applied (e.g. #fef3c7, #dcfce7), make sure text is high-contrast dark
-          if (!color) color = '#09090b';
+      const normBg = (bg || '').toLowerCase();
+      if (normBg && THEME_COLOR_MAP[normBg]) {
+        const mapped = THEME_COLOR_MAP[normBg];
+        if (isDark) {
+          bg = mapped.darkBg;
+          color = mapped.darkText;
+        } else {
+          bg = mapped.lightBg;
+          color = mapped.lightText;
         }
-      } else {
-        if (isDarkNeutral) {
-          bg = '#f1f5f9';
-          if (!color) color = '#09090b';
-        } else if (isLightNeutral) {
-          if (!color) color = '#09090b';
+      } else if (bg && bg !== 'transparent') {
+        // Fallback for custom colors: calculate luminance to guarantee high contrast
+        const clean = bg.replace('#', '');
+        if (clean.length === 6) {
+          const r = parseInt(clean.substring(0, 2), 16);
+          const g = parseInt(clean.substring(2, 4), 16);
+          const b = parseInt(clean.substring(4, 6), 16);
+          const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+          if (isDark) {
+            // Bright background in dark mode:
+            // Never allow white/bright text on bright background!
+            if (lum > 130) {
+              if (!color || color === '#ffffff' || color === '#f4f4f5' || color === 'white') {
+                color = '#09090b';
+              }
+            }
+          } else {
+            // Light mode: if dark background, ensure text is light
+            if (lum < 100) {
+              if (!color || color === '#000000' || color === '#09090b' || color === 'black') {
+                color = '#ffffff';
+              }
+            } else {
+              if (!color || color === '#ffffff' || color === 'white') {
+                color = '#09090b';
+              }
+            }
+          }
         }
       }
 
