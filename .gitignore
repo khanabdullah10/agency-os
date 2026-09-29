@@ -24,4 +24,5 @@ playwright-report/
 # OS files
 .DS_Store
 Thumbs.db
+.sheets_cache/
 

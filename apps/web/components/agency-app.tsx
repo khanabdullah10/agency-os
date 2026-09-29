@@ -35,6 +35,7 @@ import {
   Sun,
   Moon,
   User as UserIcon,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { api, Actor, AppContext, useApp, useResource, useMutation, csrf } from '@/lib/api';
 import { initials, label, playNotificationTone } from '@/lib/utils';
@@ -46,6 +47,7 @@ import { ContentDetail } from './content-detail';
 import { ClientsView, ClientDetail, TeamView } from './people';
 import { TasksView, ApprovalsView, PublishingView, DriveView, ActivityView, NotificationsView, SettingsView, ReportsView } from './operations';
 import { ChatView } from './chat';
+import { SpreadsheetView } from './sheets';
 import { CreateForm } from './forms';
 import MadOMediaLogo from './MadOMediaLogo';
 import { useTheme } from './ThemeProvider';
@@ -57,6 +59,7 @@ const nav = [
   { href: '/calendar', name: 'Calendar', icon: CalendarDays, permission: 'content.view', group: 'Workspace', color: '#f59e0b' }, // Amber
   { href: '/content', name: 'Content', icon: Layers3, permission: 'content.view', group: 'Workspace', color: '#10b981' }, // Emerald
   { href: '/tasks', name: 'Tasks', icon: CheckSquare2, permission: 'task.view', group: 'Workspace', color: '#6366f1' }, // Indigo
+  { href: '/records', name: 'Master Records', icon: FileSpreadsheet, permission: 'content.view', group: 'Workspace', color: '#0f9d58' }, // Sheets Green
   { href: '/approvals', name: 'Approvals', icon: CircleCheck, permission: 'content.view', group: 'Workspace', color: '#f43f5e' }, // Rose
   { href: '/chat', name: 'Messages', icon: MessageSquare, permission: 'chat.view', group: 'Studio', color: '#06b6d4' }, // Cyan
   { href: '/team', name: 'Team', icon: Users, permission: 'employee.view', group: 'Studio', color: '#f97316' }, // Orange
@@ -148,6 +151,7 @@ export function AgencyApp() {
               '/content': <ContentList />,
               '/clients': actor.isClient ? <Dashboard /> : <ClientsView />,
               '/tasks': actor.isClient ? <Dashboard /> : <TasksView />,
+              '/records': actor.isClient ? <Dashboard /> : <SpreadsheetView />,
               '/approvals': <ApprovalsView />,
               '/chat': actor.isClient ? <Dashboard /> : <ChatView />,
               '/team': actor.isClient ? <Dashboard /> : <TeamView />,

@@ -13,11 +13,12 @@ import { ChatModule } from './chat/chat.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
 import { JobsModule } from './jobs/jobs.module';
+import { SheetsModule } from './sheets/sheets.module';
 @Controller('health')
 class HealthController {
  constructor(private db:Database){}
  @Public() @Get() async health(){await this.db.$queryRaw`SELECT 1`;return {ok:true,service:'Agency OS'};}
 }
-@Module({imports:[DatabaseModule,AccessModule,NotificationsModule,AuthModule,UsersModule,ClientsModule,TasksModule,ContentModule,DriveLinksModule,ChatModule,ReportsModule,SettingsModule,JobsModule],controllers:[HealthController],providers:[{provide:APP_GUARD,useClass:AuthGuard}]})
+@Module({imports:[DatabaseModule,AccessModule,NotificationsModule,AuthModule,UsersModule,ClientsModule,TasksModule,ContentModule,DriveLinksModule,ChatModule,ReportsModule,SettingsModule,JobsModule,SheetsModule],controllers:[HealthController],providers:[{provide:APP_GUARD,useClass:AuthGuard}]})
 export class AppModule {}
 
