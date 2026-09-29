@@ -9,16 +9,11 @@ export type Notice={event:string;title:string;body:string;href:string;key:string
 @Injectable()
 export class NotificationsService {
  constructor(private db:Database){}
- async emit(tx:Prisma.TransactionClient,userIds:string[],notice:Notice,agencyId?:string,actorId?:string) {
-  let allUserIds=[...userIds];
-  if(agencyId) {
-   const superAdmins=await tx.user.findMany({where:{agencyId,active:true,role:{isSuperAdmin:true}},select:{id:true}});
-   for(const sa of superAdmins) {
-    if(sa.id!==actorId&&!allUserIds.includes(sa.id)) allUserIds.push(sa.id);
-   }
-  }
+ async emit(tx:Prisma.TransactionClient,userIds:string[],notice:Notice,_agencyId?:string,actorId?:string) {
+  const recipients=[...new Set(userIds.filter(Boolean))].filter(id=>!actorId||id!==actorId);
+  if(!recipients.length) return;
   const p=this.pusher();
-  for(const userId of [...new Set(allUserIds.filter(Boolean))]) {
+  for(const userId of recipients) {
    const user=await tx.user.findUnique({where:{id:userId},include:{preferences:true}});
    if(!user?.active) continue;
    const pref=user.preferences.find(pr=>pr.category===notice.event.split('.')[0]);

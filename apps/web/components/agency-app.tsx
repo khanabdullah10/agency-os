@@ -450,6 +450,29 @@ function PasswordGate({ onDone }: { onDone: () => void }) {
   );
 }
 
+const sessionToastedNoticeIds = new Set<string>();
+
+const getSessionToastedIds = (): Set<string> => {
+  if (typeof window === 'undefined') return sessionToastedNoticeIds;
+  try {
+    const raw = sessionStorage.getItem('mado_toasted_ids');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) arr.forEach((id: string) => sessionToastedNoticeIds.add(id));
+    }
+  } catch {}
+  return sessionToastedNoticeIds;
+};
+
+const recordToastedNoticeId = (id: string) => {
+  sessionToastedNoticeIds.add(id);
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('mado_toasted_ids', JSON.stringify([...sessionToastedNoticeIds].slice(-300)));
+    } catch {}
+  }
+};
+
 function Shell({ children }: { children: React.ReactNode }) {
   const { actor, can, logout, refresh, openForm, epoch } = useApp();
   const path = usePathname();
@@ -458,8 +481,6 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [search, setSearch] = useState(false);
   const router = useRouter();
   const [notices, setNotices] = useState<any[]>([]);
-  const knownNoticeIds = useRef<Set<string>>(new Set());
-  const initialLoadDone = useRef(false);
 
   const cleanNoticeBody = (body: string = '') => body.replace(/^CNT-\d+\s*·\s*/i, '');
 
@@ -467,53 +488,39 @@ function Shell({ children }: { children: React.ReactNode }) {
     try {
       const data = await api<any[]>('/notifications');
       if (Array.isArray(data)) {
-        if (!initialLoadDone.current) {
-          // Instant unattended notification popups right after login
-          const unreadNotices = data.filter((n: any) => !n.readAt);
-          if (unreadNotices.length > 0) {
+        const toasted = getSessionToastedIds();
+        const isFirstLoadOfSession = typeof window !== 'undefined' && !sessionStorage.getItem('mado_session_started');
+
+        if (isFirstLoadOfSession) {
+          sessionStorage.setItem('mado_session_started', '1');
+          // On fresh login / brand new session: pre-mark all existing notifications so they don't flood the screen
+          data.forEach((n: any) => recordToastedNoticeId(n.id));
+
+          // Only toast if there's a fresh unattended notification created in the last 2 hours (max 1 toast)
+          const recentCutoff = Date.now() - 2 * 3600000;
+          const freshUnread = data.filter((n: any) => !n.readAt && new Date(n.createdAt).getTime() > recentCutoff);
+          if (freshUnread.length > 0) {
+            const first = freshUnread[0];
             setTimeout(() => {
-              unreadNotices.slice(0, 5).forEach((n: any, idx: number) => {
-                setTimeout(() => {
-                  toast.info(n.title, {
-                    description: cleanNoticeBody(n.body),
-                    duration: 8000,
-                    action: n.href
-                      ? {
-                          label: 'Open',
-                          onClick: () => {
-                            router.push(n.href);
-                          },
-                        }
-                      : undefined,
-                  });
-                }, idx * 300);
+              toast.info(first.title, {
+                description: cleanNoticeBody(first.body),
+                duration: 6000,
+                action: first.href ? { label: 'Open', onClick: () => router.push(first.href) } : undefined,
               });
-              if (unreadNotices.length > 5) {
-                setTimeout(() => {
-                  toast.info(`${unreadNotices.length - 5} more unattended notifications in Inbox`, {
-                    action: { label: 'View all', onClick: () => router.push('/notifications') }
-                  });
-                }, 5 * 300 + 200);
-              }
               playNotificationTone();
             }, 600);
           }
         } else if (isPolling) {
+          // During live polling / realtime: ONLY toast genuinely new, incoming notices
           let hasNew = false;
           for (const n of data) {
-            if (!knownNoticeIds.current.has(n.id) && !n.readAt) {
+            if (!toasted.has(n.id) && !n.readAt) {
+              recordToastedNoticeId(n.id);
               hasNew = true;
               toast.info(n.title, {
                 description: cleanNoticeBody(n.body),
                 duration: 6000,
-                action: n.href
-                  ? {
-                      label: 'Open',
-                      onClick: () => {
-                        router.push(n.href);
-                      },
-                    }
-                  : undefined,
+                action: n.href ? { label: 'Open', onClick: () => router.push(n.href) } : undefined,
               });
             }
           }
@@ -521,9 +528,10 @@ function Shell({ children }: { children: React.ReactNode }) {
             playNotificationTone();
           }
         }
-        knownNoticeIds.current = new Set(data.map((n: any) => n.id));
+
+        // Always ensure all known notification IDs are recorded so they never fire on navigation
+        data.forEach((n: any) => toasted.add(n.id));
         setNotices(data);
-        initialLoadDone.current = true;
       }
     } catch {}
   }, [router]);

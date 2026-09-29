@@ -75,7 +75,8 @@ export class ClientsService {
     }
     if(socialAccounts){await tx.socialAccount.deleteMany({where:{clientId:id}});await tx.socialAccount.createMany({data:socialAccounts.map(t=>({...t,clientId:id}))});}
     const updated=await tx.client.update({where:{id},data:{...data,...(d.active!==undefined?{archivedAt:d.active?null:new Date()}:{})}});
-    await this.notices.emit(tx,[],{event:'client.updated',title:'Client Updated',body:updated.name+' was updated',href:'/clients/'+id,key:'client:updated:'+id+':'+Date.now()},a.agencyId,a.id);
+    const superAdmins=await tx.user.findMany({where:{agencyId:a.agencyId,active:true,role:{isSuperAdmin:true}},select:{id:true}});
+    await this.notices.emit(tx,superAdmins.map(s=>s.id),{event:'client.updated',title:'Client Updated',body:updated.name+' was updated',href:'/clients/'+id,key:'client:updated:'+id+':'+Date.now()},a.agencyId,a.id);
     await audit(tx,a,'client.updated','client',id,{clientId:id,previous:{name:old.name,active:old.active},next:{name:updated.name,active:updated.active,changedFields:Object.keys(d)}});
     return updated;
    });
