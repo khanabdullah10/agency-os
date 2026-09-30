@@ -1,9 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowUpRight, CalendarDays, Clock3, FileText, Plus, Check, Send, Pencil, Film, FolderOpen, MessageSquare, ExternalLink, Copy, Link2, ShieldCheck, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, CalendarDays, Clock3, FileText, Plus, Check, Send, Pencil, Film, FolderOpen, MessageSquare, ExternalLink, Copy, Link2, ShieldCheck, ChevronRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { useApp, useResource, useMutation } from '@/lib/api';
+import { useApp, useResource, useMutation, api } from '@/lib/api';
 import { code, dateLabel, timeLabel, label, inputDate } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
@@ -52,13 +52,347 @@ export function ContentDetail({id}:{id:number}){
  </>;
 }
 function TeamPanel({c}:{c:any}){const {data:users}=useResource<any[]>('/users');return <Panel title="The people behind it"><div className="content-team">{Object.entries(c.assignees||{}).map(([role,id])=>{const user=users?.find(u=>u.id===id);return <div key={role}><Avatar name={user?.name||'?'} color={user?.avatarColor} src={user?.avatarUrl} size="small"/><span><strong>{user?.name||'Team member'}</strong><small>{role==='smm'?'Social media manager':label(role)}</small></span></div>;})}</div></Panel>;}
+function AiScriptModal({
+ open,
+ onOpenChange,
+ c,
+ currentValues,
+ onApply
+}:{
+ open:boolean;
+ onOpenChange:(open:boolean)=>void;
+ c:any;
+ currentValues:{hook:string;body:string;cta:string;caption:string;hashtags:string};
+ onApply:(data:Partial<{hook:string;body:string;cta:string;caption:string;hashtags:string}>)=>void;
+}){
+ const [mode,setMode]=useState<'hooks'|'full_script'|'improve'|'caption'>('hooks');
+ const [instruction,setInstruction]=useState('');
+ const [loading,setLoading]=useState(false);
+ const [data,setData]=useState<any>(null);
+
+ const brand=c?.client?.brand||{};
+
+ const handleGenerate=async(targetMode=mode)=>{
+  setLoading(true);
+  setData(null);
+  try{
+   const res=await api('/content/'+c.id+'/script/ai-assist',{
+    method:'POST',
+    body:JSON.stringify({
+     mode:targetMode,
+     currentHook:currentValues.hook,
+     currentBody:currentValues.body,
+     currentCta:currentValues.cta,
+     currentCaption:currentValues.caption,
+     customInstruction:instruction.trim()||undefined
+    })
+   });
+   setData(res);
+  }catch(err:any){
+   toast.error(err.message||'Failed to generate AI suggestions.');
+  }finally{
+   setLoading(false);
+  }
+ };
+
+ return (
+  <Modal
+   open={open}
+   onOpenChange={onOpenChange}
+   title="✨ AI Script Co-Pilot"
+   description={`Powered by AI (Gemini / GPT) · Tailored for ${c?.client?.name||'Brand'} (${c?.platform||'Social'} · ${c?.type||'Post'})`}
+   wide
+  >
+   <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+    <div style={{padding:'9px 12px',borderRadius:'8px',background:'var(--accent-soft, rgba(2, 132, 199, 0.08))',border:'1px solid var(--border-color)',display:'flex',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:'8px',fontSize:'12px'}}>
+     <div>
+      <span style={{fontWeight:600,color:'var(--ink)'}}>{c?.client?.name}: </span>
+      <span style={{color:'var(--muted)'}}>Tone: {brand.tone||'Brand tone'} · Audience: {brand.audience||'Target audience'}</span>
+     </div>
+     <span style={{fontSize:'11px',color:'var(--accent)',fontWeight:600}}>{c?.type} · {c?.pillar||'Topic'}</span>
+    </div>
+
+    <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+     {[
+      {id:'hooks',label:'💡 Hook Ideas'},
+      {id:'full_script',label:'📝 Full Script Draft'},
+      {id:'improve',label:'🪄 Polish Draft & Tone'},
+      {id:'caption',label:'🏷️ Captions & Hashtags'}
+     ].map(tab=>{
+      const isSelected=mode===tab.id;
+      return (
+       <button
+        key={tab.id}
+        type="button"
+        onClick={()=>{setMode(tab.id as any);setData(null);}}
+        style={{
+         padding:'7px 12px',
+         borderRadius:'7px',
+         border:isSelected?'1px solid var(--accent, #0284c7)':'1px solid var(--border-color)',
+         background:isSelected?'var(--accent-soft, rgba(2, 132, 199, 0.12))':'transparent',
+         color:isSelected?'var(--accent, #0284c7)':'var(--muted)',
+         cursor:'pointer',
+         fontWeight:isSelected?600:400,
+         fontSize:'12px',
+         transition:'all 0.15s ease'
+        }}
+       >
+        {tab.label}
+       </button>
+      );
+     })}
+    </div>
+
+    <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+     <input
+      style={{flex:1,padding:'8px 12px',borderRadius:'8px',border:'1px solid var(--border-color)',background:'var(--surface)',color:'var(--ink)',fontSize:'12.5px'}}
+      placeholder={
+       mode==='hooks'?'Optional direction (e.g. "make it witty", "focus on morning routine")...'
+       :mode==='improve'?'Optional feedback (e.g. "make the CTA stronger", "shorten dialogue")...'
+       :'Optional instruction or special angle...'
+      }
+      value={instruction}
+      onChange={e=>setInstruction(e.target.value)}
+      onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();handleGenerate();}}}
+     />
+     <Button
+      type="button"
+      disabled={loading}
+      onClick={()=>handleGenerate()}
+      style={{display:'inline-flex',alignItems:'center',gap:'6px',whiteSpace:'nowrap'}}
+     >
+      <Sparkles size={14} />
+      <span>{loading?'Generating…':'Generate with AI'}</span>
+     </Button>
+    </div>
+
+    {loading && (
+     <div style={{padding:'32px',textAlign:'center',color:'var(--muted)'}}>
+      <Sparkles size={24} style={{margin:'0 auto 8px auto',display:'block',color:'var(--accent)'}} />
+      <span>Generating on-brand suggestions with AI…</span>
+     </div>
+    )}
+
+    {!loading && !data && (
+     <div style={{padding:'24px',textAlign:'center',border:'1px dashed var(--border-color)',borderRadius:'8px',color:'var(--muted)',fontSize:'12px'}}>
+      Click <strong>Generate with AI</strong> to generate tailored options based on your brief and {c?.client?.name} brand guidelines.
+     </div>
+    )}
+
+    {!loading && data && mode==='hooks' && data.hooks && (
+     <div style={{display:'flex',flexDirection:'column',gap:'10px',maxHeight:'380px',overflowY:'auto'}}>
+      {data.hooks.map((h:any,i:number)=>(
+       <div key={i} style={{padding:'12px',borderRadius:'8px',border:'1px solid var(--border-color)',background:'var(--surface)',display:'flex',flexDirection:'column',gap:'6px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
+         <span style={{fontSize:'11px',fontWeight:600,padding:'2px 8px',borderRadius:'4px',background:'var(--accent-soft)',color:'var(--accent)'}}>{h.label}</span>
+         <Button type="button" size="sm" variant="outline" onClick={()=>{onApply({hook:h.text});onOpenChange(false);}} style={{fontSize:'11px',height:'24px'}}>Apply Hook</Button>
+        </div>
+        <div style={{fontSize:'13px',fontWeight:500,color:'var(--ink)'}}>"{h.text}"</div>
+        {h.reason && <div style={{fontSize:'11px',color:'var(--muted)'}}>💡 {h.reason}</div>}
+       </div>
+      ))}
+     </div>
+    )}
+
+    {!loading && data && mode==='full_script' && (
+     <div style={{display:'flex',flexDirection:'column',gap:'10px',maxHeight:'400px',overflowY:'auto'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+       <span style={{fontSize:'12px',color:'var(--muted)'}}>{data.creativeAngle && `Angle: ${data.creativeAngle}`}</span>
+       <Button type="button" size="sm" onClick={()=>{onApply({hook:data.hook,body:data.body,cta:data.cta,caption:data.caption,hashtags:data.hashtags});onOpenChange(false);}} style={{display:'inline-flex',alignItems:'center',gap:'5px'}}>
+        <Check size={13} /><span>Apply Entire Script</span>
+       </Button>
+      </div>
+
+      <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+       <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
+        <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)'}}>THE HOOK</span>
+        <button type="button" onClick={()=>onApply({hook:data.hook})} style={{fontSize:'11px',color:'var(--accent)',background:'none',border:'none',cursor:'pointer'}}>Use hook only</button>
+       </div>
+       <p style={{margin:0,fontSize:'12.5px',fontWeight:500}}>"{data.hook}"</p>
+      </div>
+
+      <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+       <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
+        <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)'}}>SCRIPT BODY (SCENES & BEATS)</span>
+        <button type="button" onClick={()=>onApply({body:data.body})} style={{fontSize:'11px',color:'var(--accent)',background:'none',border:'none',cursor:'pointer'}}>Use body only</button>
+       </div>
+       <pre style={{margin:0,fontSize:'12px',whiteSpace:'pre-wrap',fontFamily:'inherit'}}>{data.body}</pre>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+       <div style={{padding:'10px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+        <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)',display:'block',marginBottom:'3px'}}>CALL TO ACTION</span>
+        <p style={{margin:0,fontSize:'12px'}}>{data.cta}</p>
+       </div>
+       <div style={{padding:'10px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+        <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)',display:'block',marginBottom:'3px'}}>HASHTAGS</span>
+        <p style={{margin:0,fontSize:'12px',color:'var(--accent)'}}>{data.hashtags}</p>
+       </div>
+      </div>
+
+      {data.caption && (
+       <div style={{padding:'10px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+        <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)',display:'block',marginBottom:'3px'}}>CAPTION</span>
+        <p style={{margin:0,fontSize:'12px'}}>{data.caption}</p>
+       </div>
+      )}
+     </div>
+    )}
+
+    {!loading && data && mode==='improve' && (
+     <div style={{display:'flex',flexDirection:'column',gap:'10px',maxHeight:'400px',overflowY:'auto'}}>
+      {data.critique && (
+       <div style={{padding:'10px 12px',borderRadius:'8px',background:'rgba(234, 107, 54, 0.08)',border:'1px solid rgba(234, 107, 54, 0.25)',fontSize:'12px',color:'var(--ink)'}}>
+        <strong style={{display:'block',marginBottom:'2px'}}>AI Editorial Review:</strong>
+        {data.critique}
+       </div>
+      )}
+
+      <div style={{display:'flex',justifyContent:'flex-end'}}>
+       <Button type="button" size="sm" onClick={()=>{onApply({hook:data.hook,body:data.body,cta:data.cta,caption:data.caption,hashtags:data.hashtags});onOpenChange(false);}} style={{display:'inline-flex',alignItems:'center',gap:'5px'}}>
+        <Check size={13} /><span>Apply Polished Script</span>
+       </Button>
+      </div>
+
+      <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+       <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)',display:'block',marginBottom:'4px'}}>IMPROVED HOOK</span>
+       <p style={{margin:0,fontSize:'12.5px',fontWeight:500}}>"{data.hook}"</p>
+      </div>
+
+      <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+       <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)',display:'block',marginBottom:'4px'}}>IMPROVED BODY</span>
+       <pre style={{margin:0,fontSize:'12px',whiteSpace:'pre-wrap',fontFamily:'inherit'}}>{data.body}</pre>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+       <div style={{padding:'10px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+        <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)',display:'block',marginBottom:'3px'}}>IMPROVED CTA</span>
+        <p style={{margin:0,fontSize:'12px'}}>{data.cta}</p>
+       </div>
+       <div style={{padding:'10px',borderRadius:'8px',background:'var(--surface)',border:'1px solid var(--border-color)'}}>
+        <span style={{fontSize:'11px',fontWeight:600,color:'var(--muted)',display:'block',marginBottom:'3px'}}>CAPTION & HASHTAGS</span>
+        <p style={{margin:0,fontSize:'12px'}}>{data.caption} <span style={{color:'var(--accent)'}}>{data.hashtags}</span></p>
+       </div>
+      </div>
+     </div>
+    )}
+
+    {!loading && data && mode==='caption' && data.captions && (
+     <div style={{display:'flex',flexDirection:'column',gap:'10px',maxHeight:'380px',overflowY:'auto'}}>
+      {data.captions.map((item:any,i:number)=>(
+       <div key={i} style={{padding:'12px',borderRadius:'8px',border:'1px solid var(--border-color)',background:'var(--surface)',display:'flex',flexDirection:'column',gap:'6px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
+         <span style={{fontSize:'11px',fontWeight:600,padding:'2px 8px',borderRadius:'4px',background:'var(--accent-soft)',color:'var(--accent)'}}>{item.style}</span>
+         <Button type="button" size="sm" variant="outline" onClick={()=>{onApply({caption:item.caption,hashtags:item.hashtags});onOpenChange(false);}} style={{fontSize:'11px',height:'24px'}}>Apply Caption</Button>
+        </div>
+        <div style={{fontSize:'12.5px',color:'var(--ink)'}}>{item.caption}</div>
+        {item.hashtags && <div style={{fontSize:'11.5px',color:'var(--accent)'}}>{item.hashtags}</div>}
+       </div>
+      ))}
+     </div>
+    )}
+   </div>
+  </Modal>
+ );
+}
+
 function ScriptTab({c}:{c:any}){
  const {actor,can}=useApp(),{mutate,pending}=useMutation();
  const editable=!actor.isClient&&can('script.write')&&(can('content.edit_all')||c.assignees?.writer===actor.id)&&['PLANNING','SCRIPT_WRITING'].includes(c.status);
  const s=c.script||{};
- return <Panel title={editable?'Shape the story':'The script'} subtitle={editable?'Save your draft, then submit it for review when you’re ready.':actor.isClient?'The latest script shared by your agency.':'A single brief for everyone creating this content.'}>
- {!c.script&&!editable?<Empty title="The story is taking shape" body="Your script will appear here when it’s ready to share."/>:<form className="script-form" key={s.updatedAt||'script'} onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await mutate('/content/'+c.id+'/script',{hook:f.get('hook'),body:f.get('body'),cta:f.get('cta'),caption:f.get('caption'),hashtags:f.get('hashtags'),references:String(f.get('references')||'').split('\n').map(s=>s.trim()).filter(Boolean),notes:f.get('notes')||'',revision:c.revision},'POST','Draft saved');}catch{}}}>{[['hook','The hook','One line to make them stop scrolling.',3],['body','Main script','The story, beat by beat.',10],['cta','Call to action','What should they do next?',2],['caption','Caption','The words that go with the content.',4],['hashtags','Hashtags','',2]].map(([key,title,hint,rows])=><Field key={key} label={title as string} hint={editable?hint as string:undefined}><textarea name={key as string} rows={rows as number} defaultValue={s[key as string]||''} readOnly={!editable} className={!editable?'read-only':''}/></Field>)}{editable?<><Field label="Reference URLs" hint="One URL per line."><textarea name="references" rows={2} defaultValue={s.references?.join('\n')} placeholder="https://…"/></Field><Field label="Internal notes"><textarea name="notes" rows={2} defaultValue={s.notes}/></Field><FormFooter pending={pending} submit="Save draft"/></>:<div className="reference-links">{s.references?.map((r:string,i:number)=><External href={r} key={r}>Reference {i+1}</External>)}</div>}</form>}
- </Panel>;
+
+ const [hook,setHook]=useState(s.hook||'');
+ const [body,setBody]=useState(s.body||'');
+ const [cta,setCta]=useState(s.cta||'');
+ const [caption,setCaption]=useState(s.caption||'');
+ const [hashtags,setHashtags]=useState(s.hashtags||'');
+ const [references,setReferences]=useState(s.references?.join('\n')||'');
+ const [notes,setNotes]=useState(s.notes||'');
+ const [aiOpen,setAiOpen]=useState(false);
+
+ useEffect(()=>{
+  if(c.script){
+   setHook(c.script.hook||'');
+   setBody(c.script.body||'');
+   setCta(c.script.cta||'');
+   setCaption(c.script.caption||'');
+   setHashtags(c.script.hashtags||'');
+   setReferences(c.script.references?.join('\n')||'');
+   setNotes(c.script.notes||'');
+  }
+ },[c.script]);
+
+ const handleApply=(data:Partial<{hook:string;body:string;cta:string;caption:string;hashtags:string}>)=>{
+  if(data.hook!==undefined)setHook(data.hook);
+  if(data.body!==undefined)setBody(data.body);
+  if(data.cta!==undefined)setCta(data.cta);
+  if(data.caption!==undefined)setCaption(data.caption);
+  if(data.hashtags!==undefined)setHashtags(data.hashtags);
+  toast.success('Applied to script draft!');
+ };
+
+ return (
+  <>
+   <Panel
+    title={editable?'Shape the story':'The script'}
+    subtitle={editable?'Save your draft, then submit it for review when you’re ready.':actor.isClient?'The latest script shared by your agency.':'A single brief for everyone creating this content.'}
+    action={editable&&(
+     <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={()=>setAiOpen(true)}
+      style={{display:'inline-flex',alignItems:'center',gap:'6px',borderColor:'var(--accent, #ea6b36)',color:'var(--accent, #ea6b36)',fontWeight:600}}
+     >
+      <Sparkles size={14} />
+      <span>AI Script Co-Pilot</span>
+     </Button>
+    )}
+   >
+    {!c.script&&!editable?<Empty title="The story is taking shape" body="Your script will appear here when it’s ready to share."/>:
+     <form className="script-form" key={s.updatedAt||'script'} onSubmit={async e=>{
+      e.preventDefault();
+      try{
+       await mutate('/content/'+c.id+'/script',{
+        hook,
+        body,
+        cta,
+        caption,
+        hashtags,
+        references:references.split('\n').map((str: string)=>str.trim()).filter(Boolean),
+        notes:notes||'',
+        revision:c.revision
+       },'POST','Draft saved');
+      }catch{}
+     }}>
+      <Field label="The hook" hint={editable?"One line to make them stop scrolling.":undefined}>
+       <textarea name="hook" rows={3} value={hook} onChange={e=>setHook(e.target.value)} readOnly={!editable} className={!editable?'read-only':''}/>
+      </Field>
+      <Field label="Main script" hint={editable?"The story, beat by beat.":undefined}>
+       <textarea name="body" rows={10} value={body} onChange={e=>setBody(e.target.value)} readOnly={!editable} className={!editable?'read-only':''}/>
+      </Field>
+      <Field label="Call to action" hint={editable?"What should they do next?":undefined}>
+       <textarea name="cta" rows={2} value={cta} onChange={e=>setCta(e.target.value)} readOnly={!editable} className={!editable?'read-only':''}/>
+      </Field>
+      <Field label="Caption" hint={editable?"The words that go with the content.":undefined}>
+       <textarea name="caption" rows={4} value={caption} onChange={e=>setCaption(e.target.value)} readOnly={!editable} className={!editable?'read-only':''}/>
+      </Field>
+      <Field label="Hashtags">
+       <textarea name="hashtags" rows={2} value={hashtags} onChange={e=>setHashtags(e.target.value)} readOnly={!editable} className={!editable?'read-only':''}/>
+      </Field>
+      {editable?<><Field label="Reference URLs" hint="One URL per line."><textarea name="references" rows={2} value={references} onChange={e=>setReferences(e.target.value)} placeholder="https://…"/></Field><Field label="Internal notes"><textarea name="notes" rows={2} value={notes} onChange={e=>setNotes(e.target.value)}/></Field><FormFooter pending={pending} submit="Save draft"/></>:<div className="reference-links">{s.references?.map((r:string,i:number)=><External href={r} key={r}>Reference {i+1}</External>)}</div>}
+     </form>
+    }
+   </Panel>
+   <AiScriptModal
+    open={aiOpen}
+    onOpenChange={setAiOpen}
+    c={c}
+    currentValues={{hook,body,cta,caption,hashtags}}
+    onApply={handleApply}
+   />
+  </>
+ );
 }
 function ShootTab({c}:{c:any}){
  const {actor,can}=useApp(),{mutate,pending}=useMutation(),s=c.shoot||{};

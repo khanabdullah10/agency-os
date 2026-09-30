@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, ForbiddenException 
 import { Database } from '../core/database';
 import { Access } from '../core/security';
 import { Actor, TeamAssignments, has, safeUser, contentCode } from '../core/types';
-import { contentDto, contentUpdateDto, scriptDto, shootDto, versionDto, commentDto } from '../core/schemas';
+import { contentDto, contentUpdateDto, scriptDto, aiAssistDto, shootDto, versionDto, commentDto } from '../core/schemas';
 import { suggestDeadlines, clientStatus, assertAssignment } from '../core/workflow';
 import { audit } from '../core/audit';
 import { TasksService } from '../tasks/tasks.module';
@@ -122,6 +122,206 @@ export class ContentService {
    await audit(tx,a,'script.draft_saved','content',String(id),{clientId:c.clientId,contentId:id,previous:old?{hook:old.hook,body:old.body,cta:old.cta,caption:old.caption,hashtags:old.hashtags}:undefined,next:{hook:data.hook,body:data.body,cta:data.cta,caption:data.caption,hashtags:data.hashtags}});
    return {ok:true};
   });
+ }
+ async aiAssist(a:Actor,id:number,raw:unknown) {
+  const c=await this.access.content(a,id);
+  this.responsible(a,c,'writer','script.write');
+  const d=aiAssistDto.parse(raw);
+  const geminiKey=process.env.GEMINI_API_KEY;
+  const openAiKey=process.env.OPENAI_API_KEY;
+  if(!geminiKey && !openAiKey) throw new BadRequestException('No AI API key found. Please set GEMINI_API_KEY or OPENAI_API_KEY in .env');
+
+  const client=await this.db.client.findUnique({where:{id:c.clientId},select:{name:true,industry:true,brand:true}});
+  const brand=(client?.brand as Record<string,any>)||{};
+
+  const systemPrompt=`You are an elite creative director and social media copywriter for an agency.
+Your task is to craft high-retention, on-brand content scripts and hooks.
+
+BRAND IDENTITY & GUIDELINES:
+- Client Name: ${client?.name || 'Brand'}
+- Industry: ${client?.industry || 'Unknown'}
+- Target Audience: ${brand.audience || 'General'}
+- Brand Tone: ${brand.tone || 'Professional & engaging'}
+- Brand Pillars: ${brand.pillars || 'N/A'}
+- Guidelines / Dos: ${brand.dos || 'Keep it authentic and clear'}
+- Avoid / Don'ts: ${brand.donts || 'Avoid generic corporate cliches'}
+
+CONTENT CONTEXT:
+- Post Title / Concept: "${c.title}"
+- Format: ${c.type || 'Video / Reel'}
+- Target Platform: ${c.platform || 'Instagram'}
+- Content Pillar: ${c.pillar || 'General'}
+- Creative Notes / Brief: ${c.notes || 'None provided'}
+${d.customInstruction ? `- Specific Guidance: ${d.customInstruction}` : ''}
+
+You MUST return pure, valid JSON ONLY without any markdown wrapping (no \`\`\`json).`;
+
+  let userPrompt = '';
+  if (d.mode === 'hooks') {
+    userPrompt = `Generate 4 distinct, magnetic hook options (the first 1-3 seconds of the video/post) to stop the user from scrolling.
+Current Draft Hook (if any): "${d.currentHook || ''}"
+
+Return JSON matching:
+{
+  "hooks": [
+    {
+      "label": "Curiosity / Open Loop",
+      "text": "The exact hook sentence.",
+      "reason": "Why this works for the audience."
+    },
+    {
+      "label": "Contrarian / Pattern Interrupt",
+      "text": "The exact hook sentence.",
+      "reason": "Why this works for the audience."
+    },
+    {
+      "label": "Relatable Problem",
+      "text": "The exact hook sentence.",
+      "reason": "Why this works for the audience."
+    },
+    {
+      "label": "Story / BTS",
+      "text": "The exact hook sentence.",
+      "reason": "Why this works for the audience."
+    }
+  ]
+}`;
+  } else if (d.mode === 'full_script') {
+    userPrompt = `Draft a complete, production-ready script for this ${c.type} on ${c.platform}.
+Format the body with clear scenes or visual/dialogue cues (e.g. [Visual: ...] Dialogue: ...).
+Strictly match the brand tone: "${brand.tone || 'engaging'}".
+
+Return JSON matching:
+{
+  "hook": "Magnetic opening line (0-3 sec)",
+  "body": "Complete script body with beat-by-beat visual & dialogue directions.",
+  "cta": "Clear call to action.",
+  "caption": "Platform caption with engaging copy.",
+  "hashtags": "3-8 targeted hashtags.",
+  "creativeAngle": "Short explanation of the creative direction."
+}`;
+  } else if (d.mode === 'improve') {
+    userPrompt = `Review and enhance the writer's current script draft to maximize retention and ensure brand alignment.
+
+WRITER'S CURRENT DRAFT:
+- Hook: "${d.currentHook || ''}"
+- Body: "${d.currentBody || ''}"
+- CTA: "${d.currentCta || ''}"
+- Caption: "${d.currentCaption || ''}"
+
+Return JSON matching:
+{
+  "hook": "Punchier, higher-retention hook",
+  "body": "Polished, well-paced script body",
+  "cta": "Stronger call to action",
+  "caption": "Refined caption",
+  "hashtags": "Optimized hashtags",
+  "critique": "Constructive feedback on what was changed and improved."
+}`;
+  } else if (d.mode === 'caption') {
+    userPrompt = `Generate 3 diverse caption options and relevant hashtags for this ${c.platform} post.
+Current Hook/Topic: "${d.currentHook || c.title}"
+
+Return JSON matching:
+{
+  "captions": [
+    {
+      "style": "Short & Punchy",
+      "caption": "...",
+      "hashtags": "..."
+    },
+    {
+      "style": "Storytelling & Relatable",
+      "caption": "...",
+      "hashtags": "..."
+    },
+    {
+      "style": "Value-packed & Educational",
+      "caption": "...",
+      "hashtags": "..."
+    }
+  ]
+}`;
+  }
+
+  if (geminiKey) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${geminiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ parts: [{ text: userPrompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.7
+          }
+        })
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          try {
+            const parsed = JSON.parse(text);
+            if (Array.isArray(parsed.hashtags)) parsed.hashtags = parsed.hashtags.join(' ');
+            return parsed;
+          } catch { return { raw: text }; }
+        }
+      } else {
+        const err = await res.text();
+        console.warn('Gemini request failed, checking OpenAI fallback:', err);
+      }
+    } catch (e) {
+      console.warn('Gemini network error, checking OpenAI fallback:', e);
+    }
+  }
+
+  if (openAiKey) {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + openAiKey
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let msg = 'AI service failed to generate suggestions.';
+      try {
+        const errJson = JSON.parse(errText);
+        if (errJson.error?.code === 'credit_balance_exhausted' || errJson.error?.type === 'insufficient_quota') {
+          msg = 'OpenAI credit balance is $0. Please add credits at platform.openai.com/settings/organization/billing';
+        } else if (errJson.error?.message) {
+          msg = `OpenAI: ${errJson.error.message}`;
+        }
+      } catch {}
+      throw new BadRequestException(msg);
+    }
+
+    const result: any = await response.json();
+    const rawText = result.choices?.[0]?.message?.content || '{}';
+    try {
+      const parsed = JSON.parse(rawText);
+      if (Array.isArray(parsed.hashtags)) parsed.hashtags = parsed.hashtags.join(' ');
+      return parsed;
+    } catch {
+      return { raw: rawText };
+    }
+  }
+
+  throw new BadRequestException('AI generation failed. Please verify your API key in .env');
  }
  async saveShoot(a:Actor,id:number,raw:unknown) {
   const c=await this.access.content(a,id);this.access.internal(a);
