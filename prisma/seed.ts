@@ -31,6 +31,7 @@ async function main(){
   {key:'EDITOR',name:'Video Editor',permissions:[...employee,'edit.submit']},
   {key:'VIDEOGRAPHER',name:'Videographer',permissions:[...employee,'shoot.manage']},
   {key:'EMPLOYEE',name:'Employee',permissions:employee},
+  {key:'DEVELOPER',name:'Developer',permissions:[...employee,'task.view_team']},
   {key:'CLIENT',name:'Client',permissions:['client.view','content.view','content.approve_client','drive.view','report.view','activity.view'],isClient:true}
  ];
  const roles:Record<string,string>={};
