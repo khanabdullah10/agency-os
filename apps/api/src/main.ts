@@ -32,6 +32,7 @@ async function bootstrap() {
   skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  validate: { keyGeneratorIpFallback: false },
   keyGenerator: (req) => {
     const email = String((req as any).body?.email || '').toLowerCase().trim();
     const ip = (req as any).ip || (req as any).socket?.remoteAddress || 'unknown';
