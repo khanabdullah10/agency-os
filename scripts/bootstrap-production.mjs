@@ -159,6 +159,35 @@ function getOptimizedDatabaseUrl() {
       } else {
         console.log('Database tables verified in MySQL.');
       }
+      try {
+        await db.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS \`Attendance\` (
+            \`id\` VARCHAR(191) NOT NULL PRIMARY KEY,
+            \`agencyId\` VARCHAR(191) NOT NULL,
+            \`userId\` VARCHAR(191) NOT NULL,
+            \`date\` VARCHAR(191) NOT NULL,
+            \`checkInAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`checkOutAt\` DATETIME(3) NULL,
+            \`status\` VARCHAR(191) NOT NULL DEFAULT 'PRESENT',
+            \`latitude\` DOUBLE NULL,
+            \`longitude\` DOUBLE NULL,
+            \`accuracy\` DOUBLE NULL,
+            \`address\` TEXT NULL,
+            \`ipAddress\` VARCHAR(191) NULL,
+            \`deviceInfo\` TEXT NULL,
+            \`notes\` TEXT NULL,
+            \`outLatitude\` DOUBLE NULL,
+            \`outLongitude\` DOUBLE NULL,
+            \`outAddress\` TEXT NULL,
+            \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+            UNIQUE KEY \`Attendance_userId_date_key\` (\`userId\`, \`date\`),
+            INDEX \`Attendance_agencyId_date_idx\` (\`agencyId\`, \`date\`),
+            INDEX \`Attendance_checkInAt_idx\` (\`checkInAt\`),
+            INDEX \`Attendance_userId_checkInAt_idx\` (\`userId\`, \`checkInAt\`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+      } catch {}
     } catch (sErr) {
       console.warn('Direct schema check notice:', sErr.message);
     }

@@ -36,6 +36,7 @@ import {
   Moon,
   User as UserIcon,
   FileSpreadsheet,
+  CalendarCheck,
 } from 'lucide-react';
 import { api, Actor, AppContext, useApp, useResource, useMutation, csrf } from '@/lib/api';
 import { initials, label, playNotificationTone } from '@/lib/utils';
@@ -48,6 +49,7 @@ import { ClientsView, ClientDetail, TeamView } from './people';
 import { TasksView, ApprovalsView, PublishingView, DriveView, ActivityView, NotificationsView, SettingsView, ReportsView } from './operations';
 import { ChatView } from './chat';
 import { SpreadsheetView } from './sheets';
+import { AttendanceView } from './attendance';
 import { CreateForm } from './forms';
 import MadOMediaLogo from './MadOMediaLogo';
 import { useTheme } from './ThemeProvider';
@@ -62,6 +64,7 @@ const nav = [
   { href: '/records', name: 'Master Records', icon: FileSpreadsheet, permission: 'content.view', group: 'Workspace', color: '#0f9d58' }, // Sheets Green
   { href: '/approvals', name: 'Approvals', icon: CircleCheck, permission: 'content.view', group: 'Workspace', color: '#f43f5e' }, // Rose
   { href: '/chat', name: 'Messages', icon: MessageSquare, permission: 'chat.view', group: 'Studio', color: '#06b6d4' }, // Cyan
+  { href: '/attendance', name: 'Attendance', icon: CalendarCheck, permission: 'content.view', group: 'Studio', color: '#10b981' }, // Emerald
   { href: '/team', name: 'Team', icon: Users, permission: 'employee.view', group: 'Studio', color: '#f97316' }, // Orange
   { href: '/drive', name: 'Drive links', icon: FolderOpen, permission: 'drive.view', group: 'Studio', color: '#eab308' }, // Yellow
   { href: '/publishing', name: 'Publishing', icon: Send, permission: 'publish.view', group: 'Studio', color: '#ec4899' }, // Pink
@@ -152,6 +155,7 @@ export function AgencyApp() {
               '/clients': actor.isClient ? <Dashboard /> : <ClientsView />,
               '/tasks': actor.isClient ? <Dashboard /> : <TasksView />,
               '/records': actor.isClient ? <Dashboard /> : <SpreadsheetView />,
+              '/attendance': actor.isClient ? <Dashboard /> : <AttendanceView />,
               '/approvals': <ApprovalsView />,
               '/chat': actor.isClient ? <Dashboard /> : <ChatView />,
               '/team': actor.isClient ? <Dashboard /> : <TeamView />,
@@ -543,6 +547,30 @@ function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchNotices(false);
   }, [fetchNotices, epoch]);
+
+  // Super Admin 3-month attendance archive notification check
+  const archiveCheckedRef = useRef(false);
+  useEffect(() => {
+    if (!actor?.isSuperAdmin || archiveCheckedRef.current) return;
+    archiveCheckedRef.current = true;
+    api('/attendance/archive-status')
+      .then((data: any) => {
+        if (data?.hasArchive && data.olderThan90DaysCount > 0) {
+          setTimeout(() => {
+            toast.warning('3 Months of Attendance Data Stored', {
+              description: `${data.olderThan90DaysCount} employee attendance records are older than 3 months. Please download the archive and flush the data.`,
+              duration: 10000,
+              action: {
+                label: 'Download & Flush',
+                onClick: () => router.push('/attendance'),
+              },
+            });
+            playNotificationTone();
+          }, 1500);
+        }
+      })
+      .catch(() => {});
+  }, [actor, router]);
 
   // Unlock browser audio context on first user interaction so notification tones never get missed
   useEffect(() => {

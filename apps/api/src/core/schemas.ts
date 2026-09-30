@@ -55,4 +55,19 @@ export const messageDto=z.object({body:z.string().trim().min(1).max(5000),replyT
 export const metricsDto=z.object({date,reach:z.number().int().min(0),impressions:z.number().int().min(0),views:z.number().int().min(0),likes:z.number().int().min(0),comments:z.number().int().min(0),shares:z.number().int().min(0),saves:z.number().int().min(0),followerGrowth:z.number().int()}).strict();
 export const reportDto=z.object({clientId:id,title:short.min(2),periodStart:date,periodEnd:date,summary:text,driveUrl:drive.optional(),clientVisible:z.boolean()}).strict().refine(v=>v.periodEnd>=v.periodStart,'End date must follow start date.');
 export const preferenceDto=z.object({category:z.enum(['task','script','shoot','edit','approval','revision','content','chat']),email:z.boolean(),whatsapp:z.boolean(),inApp:z.boolean()}).strict();
+export const checkInDto = z.object({
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  accuracy: z.number().optional().nullable(),
+  address: z.string().max(2000).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  deviceInfo: z.string().max(1000).optional().nullable(),
+  status: z.enum(['PRESENT', 'LATE', 'HALF_DAY']).optional(),
+}).strict();
+export const checkOutDto = z.object({
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  address: z.string().max(2000).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+}).strict();
 

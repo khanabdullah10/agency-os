@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "Mad O Media's connected agency operating system",
-  "engines": { "node": ">=22.12.0" },
-  "workspaces": ["apps/*"],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev": "ts-node --project apps/api/tsconfig.json --transpile-only apps/api/src/main.ts",
     "build": "prisma generate && npm run build -w @agency-os/web && npm run build -w @agency-os/api && node scripts/postbuild.mjs",
@@ -34,6 +38,7 @@
     "@types/node": "^22.19.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.6.1",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
@@ -48,10 +53,14 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "tsx": "^4.20.6",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "vitest": "^5.0.1"
   },
-  "overrides": { "deepmerge-ts": "^8.0.0" },
-  "prisma": { "seed": "tsx prisma/seed.ts" }
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
 }

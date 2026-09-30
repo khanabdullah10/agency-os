@@ -11,6 +11,8 @@ import {
   Building2,
   Clock3,
   ChevronRight,
+  MapPin,
+  Navigation,
 } from 'lucide-react';
 import { useApp, useResource } from '@/lib/api';
 import { dateLabel, timeLabel, label } from '@/lib/utils';
@@ -122,6 +124,11 @@ export function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Employee Attendance Prompt Banner */}
+      {!actor.isClient && !actor.isSuperAdmin && actor.roleName !== 'Super Admin' && actor.roleName !== 'Admin' && (
+        <DashboardAttendanceBanner />
+      )}
 
       {/* KPI Overview Stats Row */}
       <div className="overview-stats bg-transparent border-0 shadow-none">
@@ -464,3 +471,62 @@ function Stat({
     </Link>
   );
 }
+
+function DashboardAttendanceBanner() {
+  const { data: today } = useResource<any>('/attendance/today');
+
+  if (!today || today.isExempt) return null;
+
+  if (!today.checkedIn) {
+    return (
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-emerald-600 text-white shrink-0 shadow-xs">
+            <MapPin size={20} />
+          </div>
+          <div>
+            <div className="font-bold text-sm sm:text-base">Daily Attendance Required</div>
+            <div className="text-xs text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+              Please geotag your live location and mark check-in for today ({today.today}).
+            </div>
+          </div>
+        </div>
+        <Link
+          href="/attendance"
+          className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shrink-0 shadow-xs"
+        >
+          <Navigation size={14} />
+          <span>Mark Attendance Now</span>
+          <ArrowRight size={13} />
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border border-stone-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-2xs text-xs sm:text-sm">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
+          <CircleCheck size={18} />
+        </div>
+        <div>
+          <span className="font-semibold text-stone-900 dark:text-zinc-100">
+            Attendance Marked Today ({today.attendance?.status || 'PRESENT'})
+          </span>
+          <span className="text-stone-400 dark:text-zinc-500 mx-1.5">·</span>
+          <span className="text-stone-600 dark:text-zinc-400 truncate max-w-xs sm:max-w-md inline-block align-bottom">
+            {today.attendance?.address || 'Location verified'}
+          </span>
+        </div>
+      </div>
+      <Link
+        href="/attendance"
+        className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 shrink-0"
+      >
+        <span>{!today.checkedOut ? 'Check Out / View Log' : 'Shift Complete · View Log'}</span>
+        <ChevronRight size={13} />
+      </Link>
+    </div>
+  );
+}
+

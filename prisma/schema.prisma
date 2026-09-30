@@ -23,6 +23,7 @@ model Agency {
   packages    Package[]
   threads     ChatThread[]
   activities  ActivityLog[]
+  attendances Attendance[]
 }
 model Role {
   id          String @id @default(cuid())
@@ -97,6 +98,7 @@ model User {
   preferences  NotificationPreference[]
   activities   ActivityLog[]
   comments     ContentComment[]
+  attendances  Attendance[]
   @@index([agencyId, active])
 }
 model Session {
@@ -542,4 +544,32 @@ model ActivityLog {
   createdAt DateTime @default(now())
   @@index([agencyId, createdAt])
   @@index([clientId, clientVisible, createdAt])
+}
+model Attendance {
+  id           String    @id @default(cuid())
+  agencyId     String
+  agency       Agency    @relation(fields: [agencyId], references: [id])
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         String
+  checkInAt    DateTime  @default(now())
+  checkOutAt   DateTime?
+  status       String    @default("PRESENT")
+  latitude     Float?
+  longitude    Float?
+  accuracy     Float?
+  address      String?   @db.Text
+  ipAddress    String?
+  deviceInfo   String?   @db.Text
+  notes        String?   @db.Text
+  outLatitude  Float?
+  outLongitude Float?
+  outAddress   String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, date])
+  @@index([agencyId, date])
+  @@index([checkInAt])
+  @@index([userId, checkInAt])
 }

@@ -24,8 +24,30 @@ class JobsController {
    const due=await this.db.contentItem.findMany({where:{deletedAt:null,status:{in:['READY_TO_PUBLISH','SCHEDULED','FINAL_CLIENT_APPROVED']},publishAt:{lte:new Date(Date.now()+86400000)},client:{active:true}},take:500});
    for(const c of due)await this.db.atomic(tx=>this.notices.emit(tx,[(c.assignees as any).smm],{event:'content.publish_due',title:'Publishing deadline approaching',body:c.title,href:'/content/'+c.id,key:'publish-due:'+c.id+':'+now.toISOString().slice(0,10)}));
    await this.db.session.deleteMany({where:{expiresAt:{lt:now}}});
+   const cutoff90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+   const oldAttendanceCount = await this.db.attendance.count({ where: { checkInAt: { lt: cutoff90 } } });
+   if (oldAttendanceCount > 0) {
+    const superAdmins = await this.db.user.findMany({ where: { active: true, role: { isSuperAdmin: true } }, select: { id: true, agencyId: true } });
+    for (const sa of superAdmins) {
+     await this.db.atomic(tx =>
+      this.notices.emit(
+       tx,
+       [sa.id],
+       {
+        event: 'attendance.archive_ready',
+        title: '3-Month Attendance Stored',
+        body: `${oldAttendanceCount} attendance records are older than 3 months. Please download the Excel file and flush the data.`,
+        href: '/attendance',
+        key: 'attendance:archive:' + now.toISOString().slice(0, 7)
+       },
+       sa.agencyId,
+       sa.id
+      )
+     );
+    }
+   }
    const delivery=await this.notices.dispatch();
-   return {ok:true,overdue:tasks.length,reminders:due.length,...delivery};
+   return {ok:true,overdue:tasks.length,reminders:due.length,attendanceArchive:oldAttendanceCount,...delivery};
   }finally{await this.db.jobLease.update({where:{key:lease},data:{lockedUntil:new Date(0)}});}
  }
 }
