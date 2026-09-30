@@ -211,6 +211,7 @@ export function AttendanceView() {
   const totalRecords = records?.length || 0;
   const presentCount = records?.filter((r) => r.status === 'PRESENT').length || 0;
   const lateCount = records?.filter((r) => r.status === 'LATE').length || 0;
+  const halfDayCount = records?.filter((r) => r.status === 'HALF_DAY').length || 0;
 
   return (
     <div className="attendance-view space-y-6 animate-fade-in max-w-7xl mx-auto px-1 sm:px-2">
@@ -289,37 +290,52 @@ export function AttendanceView() {
 
       {/* TODAY'S LIVE ATTENDANCE CARD (For employees) */}
       {!todayData?.isExempt && (
-        <div className="rounded-2xl border border-stone-200/80 bg-white dark:bg-zinc-900/80 p-5 shadow-xs dark:border-zinc-800">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
-            <div className="flex items-start gap-4">
+        <div
+          className={`relative overflow-hidden rounded-2xl p-5 sm:p-6 transition-all ${
+            !todayData?.checkedIn
+              ? 'border-2 border-emerald-500/60 dark:border-emerald-500/50 bg-gradient-to-br from-emerald-500/10 via-emerald-500/[0.04] to-teal-500/10 dark:from-emerald-950/40 dark:via-zinc-900 dark:to-teal-950/40 shadow-lg shadow-emerald-500/10 ring-4 ring-emerald-500/10'
+              : !todayData?.checkedOut
+              ? 'border-2 border-amber-500/50 dark:border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-amber-500/[0.03] to-orange-500/10 dark:from-amber-950/40 dark:via-zinc-900 dark:to-orange-950/40 shadow-md shadow-amber-500/10 ring-2 ring-amber-500/10'
+              : 'border border-stone-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-xs'
+          }`}
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div className="flex items-start gap-4 min-w-0">
               <div
                 className={`p-3 rounded-2xl shrink-0 ${
                   todayData?.checkedIn
-                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                    : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+                    ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                 }`}
               >
                 {todayData?.checkedIn ? <CheckCircle2 size={26} /> : <MapPin size={26} />}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-zinc-500">
+              <div className="min-w-0">
+                <div className="flex items-center flex-wrap gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-zinc-400">
                     Today: {todayData?.today}
                   </span>
-                  {todayData?.attendance?.status && (
+                  {!todayData?.checkedIn ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 ring-1 ring-emerald-500/40 animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      Action Required
+                    </span>
+                  ) : todayData?.attendance?.status ? (
                     <span
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                         todayData.attendance.status === 'PRESENT'
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/30'
+                          : todayData.attendance.status === 'LATE'
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
+                          : 'bg-purple-500/15 text-purple-700 dark:text-purple-400 ring-1 ring-purple-500/30'
                       }`}
                     >
-                      {todayData.attendance.status}
+                      {todayData.attendance.status === 'HALF_DAY' ? 'HALF DAY' : todayData.attendance.status}
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
-                <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-zinc-100 mt-0.5">
+                <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-zinc-100 mt-1">
                   {!todayData?.checkedIn
                     ? 'You have not marked attendance yet today'
                     : !todayData?.checkedOut
@@ -330,44 +346,51 @@ export function AttendanceView() {
                 <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs sm:text-sm text-stone-500 dark:text-zinc-400 mt-1.5">
                   {todayData?.attendance?.checkInAt && (
                     <span className="flex items-center gap-1">
-                      <Clock size={13} className="text-stone-400" />
+                      <Clock size={13} className="text-stone-400 shrink-0" />
                       In: <strong>{new Date(todayData.attendance.checkInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
                     </span>
                   )}
                   {todayData?.attendance?.checkOutAt && (
                     <span className="flex items-center gap-1">
-                      <Clock size={13} className="text-stone-400" />
+                      <Clock size={13} className="text-stone-400 shrink-0" />
                       Out: <strong>{new Date(todayData.attendance.checkOutAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
                     </span>
                   )}
                   {todayData?.attendance?.address && (
-                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                      <MapPin size={13} />
-                      {todayData.attendance.address}
+                    <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium truncate max-w-sm sm:max-w-md">
+                      <MapPin size={13} className="shrink-0" />
+                      <span className="truncate">{todayData.attendance.address}</span>
                     </span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Check-In / Check-Out Action Buttons */}
-            <div className="flex items-center gap-3 shrink-0">
+            {/* Check-In / Check-Out Action Buttons (Prominently Highlighted) */}
+            <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
               {!todayData?.checkedIn ? (
                 <button
                   type="button"
                   onClick={handleCheckIn}
                   disabled={checkingIn}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl font-semibold text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white shadow-xs transition-all"
+                  className="relative group overflow-hidden flex items-center justify-center gap-2.5 w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] shadow-lg shadow-emerald-600/35 hover:shadow-xl hover:shadow-emerald-500/50 ring-2 ring-emerald-400/80 hover:ring-white transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
+                  <span className="absolute inset-0 w-full h-full bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
                   {checkingIn ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
-                      <span>Geotagging & Checking In...</span>
+                      <Loader2 size={18} className="animate-spin text-white shrink-0" />
+                      <span className="tracking-wide">Geotagging & Checking In...</span>
                     </>
                   ) : (
                     <>
-                      <Navigation size={16} />
-                      <span>Mark Today's Attendance (Check In)</span>
+                      <span className="relative flex h-3 w-3 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-80" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+                      </span>
+                      <Navigation size={18} className="text-white transform group-hover:rotate-45 transition-transform shrink-0" />
+                      <span className="tracking-wide font-extrabold drop-shadow-sm whitespace-nowrap">
+                        Mark Today's Attendance (Check In)
+                      </span>
                     </>
                   )}
                 </button>
@@ -376,24 +399,27 @@ export function AttendanceView() {
                   type="button"
                   onClick={handleCheckOut}
                   disabled={checkingOut}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white shadow-xs transition-all"
+                  className="relative group overflow-hidden flex items-center justify-center gap-2.5 w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 hover:from-amber-500 hover:to-orange-500 active:scale-[0.98] shadow-lg shadow-orange-500/35 hover:shadow-xl hover:shadow-orange-500/50 ring-2 ring-amber-400/80 hover:ring-white transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
+                  <span className="absolute inset-0 w-full h-full bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
                   {checkingOut ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
-                      <span>Checking Out...</span>
+                      <Loader2 size={18} className="animate-spin text-white shrink-0" />
+                      <span className="tracking-wide">Checking Out...</span>
                     </>
                   ) : (
                     <>
-                      <Clock size={16} />
-                      <span>Check Out for Today</span>
+                      <Clock size={18} className="text-white transform group-hover:scale-110 transition-transform shrink-0" />
+                      <span className="tracking-wide font-extrabold drop-shadow-sm whitespace-nowrap">
+                        Check Out for Today
+                      </span>
                     </>
                   )}
                 </button>
               ) : (
-                <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
-                  <Check size={16} />
-                  <span>Day Completed</span>
+                <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/15 border-2 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 font-bold text-sm sm:text-base shadow-xs">
+                  <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="whitespace-nowrap">Shift Completed · Attendance Recorded</span>
                 </div>
               )}
             </div>
@@ -403,18 +429,20 @@ export function AttendanceView() {
 
       {/* ADMIN EXEMPTION NOTICE (When viewed by Admin / Super Admin) */}
       {isAdminOrSuperAdmin && (
-        <div className="flex items-center justify-between gap-3 p-3 sm:p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs sm:text-sm text-indigo-700 dark:text-indigo-300">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-4 p-3.5 sm:p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs sm:text-sm text-indigo-700 dark:text-indigo-300">
+          <div className="flex items-center gap-2.5 min-w-0">
             <ShieldCheck size={18} className="shrink-0 text-indigo-600 dark:text-indigo-400" />
-            <span>
+            <span className="leading-relaxed">
               <strong>Admin Exemption Policy:</strong> Admins and Super Admins are exempt from daily attendance check-ins. You have complete oversight of all employee geotagged check-ins and archive flushing below.
             </span>
           </div>
           <button
+            type="button"
             onClick={() => handleExportExcel('all')}
-            className="hidden sm:inline-flex items-center gap-1 font-semibold underline text-indigo-800 dark:text-indigo-200"
+            className="hidden sm:inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-900 dark:text-indigo-200 hover:text-indigo-950 dark:hover:text-white transition-colors cursor-pointer"
           >
-            Export All
+            <Download size={14} className="shrink-0" />
+            <span className="whitespace-nowrap">Export All</span>
           </button>
         </div>
       )}
@@ -432,6 +460,11 @@ export function AttendanceView() {
           {lateCount > 0 && (
             <span className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium">
               Late Check-ins: <strong>{lateCount}</strong>
+            </span>
+          )}
+          {halfDayCount > 0 && (
+            <span className="px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-700 dark:text-purple-400 font-medium">
+              Half Day: <strong>{halfDayCount}</strong>
             </span>
           )}
         </div>
@@ -567,16 +600,16 @@ export function AttendanceView() {
                       {/* Status */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold text-[10px] tracking-wide uppercase ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] tracking-wide uppercase ${
                             r.status === 'PRESENT'
                               ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                               : r.status === 'LATE'
                               ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
-                              : 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400'
+                              : 'bg-purple-500/15 text-purple-700 dark:text-purple-400'
                           }`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          {r.status}
+                          {r.status === 'HALF_DAY' ? 'HALF DAY' : r.status}
                         </span>
                       </td>
 

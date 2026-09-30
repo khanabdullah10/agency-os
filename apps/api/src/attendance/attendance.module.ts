@@ -19,6 +19,76 @@ function getTodayDateString(timeZone = 'Asia/Kolkata'): string {
   }
 }
 
+function getAgencyLocalTime(timeZone = 'Asia/Kolkata', d: Date = new Date()): { hour: number; minute: number; second: number } {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(d);
+    const hour = Number(parts.find(p => p.type === 'hour')?.value || 0);
+    const minute = Number(parts.find(p => p.type === 'minute')?.value || 0);
+    const second = Number(parts.find(p => p.type === 'second')?.value || 0);
+    return { hour, minute, second };
+  } catch {
+    return { hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds() };
+  }
+}
+
+function isSpecialDeveloperUser(user?: {
+  name?: string | null;
+  email?: string | null;
+  roleName?: string | null;
+  role?: { name?: string | null; systemKey?: string | null } | null;
+} | null): boolean {
+  if (!user) return false;
+  const email = (user.email || '').toLowerCase().trim();
+  const name = (user.name || '').toLowerCase().trim();
+  const roleName = (user.roleName || user.role?.name || user.role?.systemKey || '').toLowerCase().trim();
+
+  return (
+    email.includes('khanabdullah7862') ||
+    name.includes('khan abdullah') ||
+    roleName === 'developer' ||
+    roleName.includes('developer')
+  );
+}
+
+function determineAttendanceStatus(
+  user?: {
+    name?: string | null;
+    email?: string | null;
+    roleName?: string | null;
+    role?: { name?: string | null; systemKey?: string | null } | null;
+  } | null,
+  checkInDate: Date = new Date(),
+  timeZone = 'Asia/Kolkata'
+): 'PRESENT' | 'LATE' | 'HALF_DAY' {
+  // Developer Khan Abdullah is always marked as PRESENT unconditionally
+  if (isSpecialDeveloperUser(user)) {
+    return 'PRESENT';
+  }
+
+  const { hour, minute, second } = getAgencyLocalTime(timeZone, checkInDate);
+  const totalSeconds = hour * 3600 + minute * 60 + second;
+
+  // Indian Standard Time (IST) Cutoffs:
+  // 11:00:00 AM = 11 * 3600 = 39,600 seconds
+  // 02:00:00 PM (14:00) = 14 * 3600 = 50,400 seconds
+  // After 2:00 PM (14:00) -> HALF_DAY
+  // After 11:00 AM up to 2:00 PM -> LATE
+  // At or before 11:00 AM -> PRESENT
+  if (totalSeconds > 50400) {
+    return 'HALF_DAY';
+  } else if (totalSeconds > 39600) {
+    return 'LATE';
+  } else {
+    return 'PRESENT';
+  }
+}
+
 function formatTime(d?: Date | null, timeZone = 'Asia/Kolkata'): string {
   if (!d) return '-';
   try {
@@ -92,9 +162,13 @@ export class AttendanceController implements OnModuleInit {
     const isExempt = isAdminOrSuperAdmin(a) || a.isClient;
     const today = getTodayDateString();
 
-    const record = await this.db.attendance.findUnique({
+    let record = await this.db.attendance.findUnique({
       where: { userId_date: { userId: a.id, date: today } }
     });
+
+    if (record && isSpecialDeveloperUser(a) && record.status !== 'PRESENT') {
+      record = { ...record, status: 'PRESENT' };
+    }
 
     return {
       today,
@@ -122,13 +196,10 @@ export class AttendanceController implements OnModuleInit {
       'unknown'
     );
 
-    // Calculate if late: after 10:30 AM local time default
-    let calculatedStatus = d.status || 'PRESENT';
-    const currentHour = new Date().getHours();
-    const currentMinute = new Date().getMinutes();
-    if (!d.status && (currentHour > 10 || (currentHour === 10 && currentMinute > 30))) {
-      calculatedStatus = 'LATE';
-    }
+    const checkInTime = new Date();
+    // Timing Rule: After 11:00 AM IST is LATE, after 2:00 PM IST is HALF_DAY.
+    // Developer Khan Abdullah is always marked PRESENT unconditionally.
+    const calculatedStatus = determineAttendanceStatus(a, checkInTime);
 
     const record = await this.db.attendance.upsert({
       where: { userId_date: { userId: a.id, date: today } },
@@ -136,7 +207,7 @@ export class AttendanceController implements OnModuleInit {
         agencyId: a.agencyId,
         userId: a.id,
         date: today,
-        checkInAt: new Date(),
+        checkInAt: checkInTime,
         status: calculatedStatus,
         latitude: d.latitude ?? null,
         longitude: d.longitude ?? null,
@@ -271,12 +342,17 @@ export class AttendanceController implements OnModuleInit {
       take: 1000
     });
 
-    return records.map(r => ({
-      ...r,
-      workingHours: calculateWorkingHours(r.checkInAt, r.checkOutAt),
-      formattedCheckIn: formatTime(r.checkInAt),
-      formattedCheckOut: formatTime(r.checkOutAt),
-    }));
+    return records.map(r => {
+      const isDev = isSpecialDeveloperUser(r.user);
+      const displayStatus = isDev ? 'PRESENT' : r.status;
+      return {
+        ...r,
+        status: displayStatus,
+        workingHours: calculateWorkingHours(r.checkInAt, r.checkOutAt),
+        formattedCheckIn: formatTime(r.checkInAt),
+        formattedCheckOut: formatTime(r.checkOutAt),
+      };
+    });
   }
 
   @Get('archive-status')
@@ -435,6 +511,8 @@ export class AttendanceController implements OnModuleInit {
     // Add rows
     records.forEach((r, idx) => {
       const isEven = idx % 2 === 0;
+      const isDev = isSpecialDeveloperUser(r.user);
+      const effectiveStatus = isDev ? 'PRESENT' : r.status;
       const coords = r.latitude && r.longitude ? `${r.latitude.toFixed(6)}, ${r.longitude.toFixed(6)}` : '-';
       const outCoords = r.outLatitude && r.outLongitude ? `${r.outLatitude.toFixed(6)}, ${r.outLongitude.toFixed(6)}` : '-';
       const workHours = calculateWorkingHours(r.checkInAt, r.checkOutAt);
@@ -444,7 +522,7 @@ export class AttendanceController implements OnModuleInit {
         name: r.user.name,
         email: r.user.email,
         role: r.user.role?.name || 'Employee',
-        status: r.status,
+        status: effectiveStatus,
         checkInTime: formatTime(r.checkInAt),
         checkOutTime: formatTime(r.checkOutAt),
         workingHours: workHours,
@@ -479,11 +557,11 @@ export class AttendanceController implements OnModuleInit {
 
         // Color badge for status
         if (colNumber === 5) {
-          if (r.status === 'PRESENT') {
+          if (effectiveStatus === 'PRESENT') {
             cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF15803D' } };
-          } else if (r.status === 'LATE') {
+          } else if (effectiveStatus === 'LATE') {
             cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFB45309' } };
-          } else if (r.status === 'HALF_DAY') {
+          } else if (effectiveStatus === 'HALF_DAY') {
             cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF4338CA' } };
           }
         }
