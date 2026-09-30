@@ -106,8 +106,31 @@ async function main() {
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'MLjxodYKYAHY86fT!aA9';
   const adminName = (process.env.SEED_ADMIN_NAME || 'Rahil Lakhdawala').trim();
 
+function getOptimizedDatabaseUrl() {
+  const rawUrl = process.env.DATABASE_URL;
+  if (!rawUrl) return undefined;
+  try {
+    const url = new URL(rawUrl);
+    if (!url.searchParams.has('connection_limit')) {
+      url.searchParams.set('connection_limit', '3');
+    }
+    if (!url.searchParams.has('pool_timeout')) {
+      url.searchParams.set('pool_timeout', '20');
+    }
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
   console.log('Step 1: Deploying database migrations to Hostinger MySQL...');
-  const db = new PrismaClient();
+  const db = new PrismaClient({
+    datasources: {
+      db: {
+        url: getOptimizedDatabaseUrl()
+      }
+    }
+  });
 
   try {
     console.log('Step 1: Checking and verifying database schema in MySQL...');
@@ -181,6 +204,7 @@ async function main() {
       { key: 'DESIGNER', name: 'Graphic Designer', permissions: [...employee, 'edit.submit'] },
       { key: 'EDITOR', name: 'Video Editor', permissions: [...employee, 'edit.submit'] },
       { key: 'VIDEOGRAPHER', name: 'Videographer', permissions: [...employee, 'shoot.manage'] },
+      { key: 'DEVELOPER', name: 'Developer', permissions: [...employee, 'task.view_team'] },
       { key: 'EMPLOYEE', name: 'Employee', permissions: employee },
       { key: 'CLIENT', name: 'Client', permissions: ['client.view', 'content.view', 'content.approve_client', 'drive.view', 'report.view', 'activity.view'], isClient: true }
     ];

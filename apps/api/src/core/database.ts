@@ -4,21 +4,79 @@ import { hashPassword } from '../auth/password';
 import fs from 'node:fs';
 import path from 'node:path';
 
+function getOptimizedDatabaseUrl(): string | undefined {
+  const rawUrl = process.env.DATABASE_URL;
+  if (!rawUrl) return undefined;
+  try {
+    const url = new URL(rawUrl);
+    if (!url.searchParams.has('connection_limit')) {
+      url.searchParams.set('connection_limit', '5');
+    }
+    if (!url.searchParams.has('pool_timeout')) {
+      url.searchParams.set('pool_timeout', '20');
+    }
+    if (!url.searchParams.has('connect_timeout')) {
+      url.searchParams.set('connect_timeout', '10');
+    }
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 @Injectable()
 export class Database extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private keepAliveTimer?: NodeJS.Timeout;
+
+  constructor() {
+    const optimizedUrl = getOptimizedDatabaseUrl();
+    super(optimizedUrl ? { datasources: { db: { url: optimizedUrl } } } : undefined);
+  }
+
   async onModuleInit() {
     await this.$connect();
     await this.ensureSchemaAndAdmin();
+    this.startKeepAlive();
   }
 
   async onModuleDestroy() {
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer);
+    }
     await this.$disconnect();
+  }
+
+  startKeepAlive() {
+    if (this.keepAliveTimer) return;
+    this.keepAliveTimer = setInterval(async () => {
+      try {
+        await this.$queryRawUnsafe('SELECT 1');
+      } catch (err: any) {
+        console.warn('[Agency OS] DB keepalive notice, attempting reconnect:', err?.message || err);
+        try {
+          await this.$disconnect();
+          await this.$connect();
+        } catch {}
+      }
+    }, 25000);
+    if (this.keepAliveTimer.unref) {
+      this.keepAliveTimer.unref();
+    }
   }
 
   async atomic<T>(fn:(tx:Prisma.TransactionClient)=>Promise<T>):Promise<T> {
     for(let attempt=0; ; attempt++) {
       try { return await this.$transaction(fn,{ isolationLevel:Prisma.TransactionIsolationLevel.Serializable,maxWait:10000,timeout:20000 }); }
-      catch(e:any) { if(e.code!=='P2034'||attempt>=2) throw e; }
+      catch(e:any) {
+        const isConn = e.message?.includes('Response from the Engine was empty') || e.code === 'P1001' || e.code === 'P1017';
+        if ((e.code === 'P2034' || isConn) && attempt < 2) {
+          if (isConn) {
+            try { await this.$disconnect(); await this.$connect(); } catch {}
+          }
+          continue;
+        }
+        throw e;
+      }
     }
   }
 

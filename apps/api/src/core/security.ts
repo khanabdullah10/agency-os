@@ -34,18 +34,67 @@ export class Access {
 @Injectable()
 export class AuthGuard implements CanActivate {
  constructor(private db:Database,private reflector:Reflector){}
+
+ private async getSessionWithRetry(id: string) {
+  const query = () => this.db.session.findUnique({
+   where: { id },
+   include: {
+    user: {
+     include: {
+      role: { include: { permissions: true } },
+      permissions: true,
+      clientUsers: true,
+      teams: true
+     }
+    }
+   }
+  });
+
+  try {
+   return await query();
+  } catch (err: any) {
+   const msg = String(err?.message || '');
+   const isConnectionIssue =
+    msg.includes('Response from the Engine was empty') ||
+    msg.includes('Engine is not running') ||
+    msg.includes('Can\'t reach database server') ||
+    msg.includes('Server has closed the connection') ||
+    msg.includes('Connection pool') ||
+    err?.code === 'P1001' ||
+    err?.code === 'P1017' ||
+    err?.code === 'P2024';
+
+   if (isConnectionIssue) {
+    console.warn('[Agency OS AuthGuard] Database connection reset detected. Reconnecting and retrying...');
+    try {
+     await this.db.$disconnect();
+     await this.db.$connect();
+     return await query();
+    } catch (retryErr: any) {
+     console.error('[Agency OS AuthGuard] Session retry failed after reconnect:', retryErr?.message || retryErr);
+     throw retryErr;
+    }
+   }
+   throw err;
+  }
+ }
+
  async canActivate(ctx:ExecutionContext) {
   if(this.reflector.getAllAndOverride('public',[ctx.getHandler(),ctx.getClass()])) return true;
   const req=ctx.switchToHttp().getRequest();
   let token:any;
   try {token=verify(req.cookies?.agency_session||'',process.env.JWT_SECRET!,{algorithms:['HS256'],issuer:'agency-os',audience:'agency-os-web'});}
   catch {throw new UnauthorizedException('Please sign in to continue.');}
-  const session=await this.db.session.findUnique({where:{id:token.sid},include:{user:{include:{role:{include:{permissions:true}},permissions:true,clientUsers:true,teams:true}}}});
+  const session = await this.getSessionWithRetry(token.sid).catch((err: any) => {
+   console.error('[Agency OS AuthGuard] Session lookup error:', err?.message || err);
+   throw new UnauthorizedException('Your session could not be verified. Please sign in again.');
+  });
   if(!session||session.expiresAt<new Date()||session.userId!==token.sub||!session.user.active||session.user.deletedAt) throw new UnauthorizedException('Your session has expired.');
   const u=session.user;
-  const permissions=new Set(u.role.permissions.map(p=>p.permissionKey));
-  u.permissions.forEach(p=>p.allowed?permissions.add(p.permissionKey):permissions.delete(p.permissionKey));
-  const actor:Actor={id:u.id,agencyId:u.agencyId,name:u.name,email:u.email,roleId:u.roleId,roleName:u.role.name,isSuperAdmin:u.role.isSuperAdmin,isClient:u.role.isClient,permissions:[...permissions],clientIds:(u.role.isClient?u.clientUsers:u.teams).map(c=>c.clientId),sessionId:session.id,mustChangePassword:u.mustChangePassword,avatarUrl:u.avatarUrl};
+  const permissions=new Set<string>(u.role.permissions.map((p: { permissionKey: string })=>p.permissionKey));
+  u.permissions.forEach((p: { allowed: boolean; permissionKey: string })=>p.allowed?permissions.add(p.permissionKey):permissions.delete(p.permissionKey));
+  const clientIds: string[] = (u.role.isClient ? u.clientUsers : u.teams).map((c: { clientId: string }) => c.clientId);
+  const actor:Actor={id:u.id,agencyId:u.agencyId,name:u.name,email:u.email,roleId:u.roleId,roleName:u.role.name,isSuperAdmin:u.role.isSuperAdmin,isClient:u.role.isClient,permissions:[...permissions],clientIds,sessionId:session.id,mustChangePassword:u.mustChangePassword,avatarUrl:u.avatarUrl};
   if(!['GET','HEAD','OPTIONS'].includes(req.method)) {
    if(!secureEqual(digest(req.headers['x-csrf-token']||''),session.csrfHash)) throw new ForbiddenException('Security token expired. Refresh the page and try again.');
   }
