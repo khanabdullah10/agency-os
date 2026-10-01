@@ -22,8 +22,8 @@ async function bootstrap() {
  const api=express();
  api.set('trust proxy', trustProxySetting);
  api.use(cookieParser());
- api.use(express.json({limit:'10mb'}));
- api.use(express.urlencoded({extended:false,limit:'10mb'}));
+ api.use(express.json({limit:'25mb'}));
+ api.use(express.urlencoded({extended:false,limit:'25mb'}));
  api.use((_req: any, res: any, next: any)=>{res.setHeader('Cache-Control','no-store');next();});
  api.use(rateLimit({windowMs:60000,limit:Number(process.env.RATE_LIMIT_MAX||1000),standardHeaders:'draft-8',legacyHeaders:false}));
  api.use('/auth/login',rateLimit({

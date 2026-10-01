@@ -71,3 +71,32 @@ export const checkOutDto = z.object({
   notes: z.string().max(1000).optional().nullable(),
 }).strict();
 
+export const creativeGenerateDto = z.object({
+  clientId: id.optional().nullable(),
+  title: z.string().trim().min(1).max(200),
+  conceptType: z.string().default('POST'),
+  prompt: z.string().trim().min(1).max(4000),
+  aspectRatio: z.enum(['1:1', '9:16', '16:9', '4:5']).default('1:1'),
+  stylePreset: z.string().default('Hyper-realistic Studio'),
+  lighting: z.string().optional().nullable(),
+  camera: z.string().optional().nullable(),
+  negativePrompt: z.string().optional().nullable(),
+  contentId: z.number().int().positive().optional().nullable(),
+  referenceImage: z.string().max(15000000).optional().nullable(),
+}).strict();
+
+export const creativeChangeRequestDto = z.object({
+  assetId: z.string().min(1),
+  instruction: z.string().trim().min(1).max(2000),
+  presetTweak: z.string().optional().nullable(),
+  aspectRatio: z.enum(['1:1', '9:16', '16:9', '4:5']).optional(),
+  referenceImage: z.string().max(15000000).optional().nullable(),
+}).strict();
+
+export const creativeAttachDto = z.object({
+  assetId: z.string().min(1),
+  contentId: z.number().int().positive(),
+  note: z.string().optional(),
+}).strict();
+
+

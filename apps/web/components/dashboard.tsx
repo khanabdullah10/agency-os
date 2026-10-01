@@ -493,15 +493,20 @@ function DashboardAttendanceBanner() {
         </div>
         <Link
           href="/attendance"
-          className="relative group overflow-hidden flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/80 hover:ring-white transition-all shrink-0 whitespace-nowrap cursor-pointer active:scale-95"
+          className="btn-emerald relative overflow-hidden flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/80 hover:ring-white transition-all shrink-0 whitespace-nowrap cursor-pointer active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #0d9488 100%)',
+            backgroundColor: '#059669',
+            color: '#ffffff',
+          }}
         >
           <span className="relative flex h-2 w-2 shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-80" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
           </span>
-          <Navigation size={14} className="transform group-hover:rotate-45 transition-transform" />
-          <span className="tracking-wide font-extrabold drop-shadow-xs">Mark Attendance Now</span>
-          <ArrowRight size={13} />
+          <Navigation size={14} className="text-white transform group-hover:rotate-45 transition-transform" />
+          <span className="tracking-wide font-extrabold drop-shadow-xs text-white">Mark Attendance Now</span>
+          <ArrowRight size={13} className="text-white" />
         </Link>
       </div>
     );

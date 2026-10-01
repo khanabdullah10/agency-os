@@ -373,9 +373,13 @@ export function AttendanceView() {
                   type="button"
                   onClick={handleCheckIn}
                   disabled={checkingIn}
-                  className="relative group overflow-hidden flex items-center justify-center gap-2.5 w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] shadow-lg shadow-emerald-600/35 hover:shadow-xl hover:shadow-emerald-500/50 ring-2 ring-emerald-400/80 hover:ring-white transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="btn-emerald relative overflow-hidden flex items-center justify-center gap-2.5 w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] shadow-lg shadow-emerald-600/35 hover:shadow-xl hover:shadow-emerald-500/50 ring-2 ring-emerald-400/80 hover:ring-white transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #0d9488 100%)',
+                    backgroundColor: '#059669',
+                    color: '#ffffff',
+                  }}
                 >
-                  <span className="absolute inset-0 w-full h-full bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
                   {checkingIn ? (
                     <>
                       <Loader2 size={18} className="animate-spin text-white shrink-0" />
@@ -388,7 +392,7 @@ export function AttendanceView() {
                         <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
                       </span>
                       <Navigation size={18} className="text-white transform group-hover:rotate-45 transition-transform shrink-0" />
-                      <span className="tracking-wide font-extrabold drop-shadow-sm whitespace-nowrap">
+                      <span className="tracking-wide font-extrabold drop-shadow-sm whitespace-nowrap text-white">
                         Mark Today's Attendance (Check In)
                       </span>
                     </>
@@ -399,9 +403,13 @@ export function AttendanceView() {
                   type="button"
                   onClick={handleCheckOut}
                   disabled={checkingOut}
-                  className="relative group overflow-hidden flex items-center justify-center gap-2.5 w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 hover:from-amber-500 hover:to-orange-500 active:scale-[0.98] shadow-lg shadow-orange-500/35 hover:shadow-xl hover:shadow-orange-500/50 ring-2 ring-amber-400/80 hover:ring-white transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="btn-amber relative overflow-hidden flex items-center justify-center gap-2.5 w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base text-white bg-amber-600 hover:bg-amber-700 active:scale-[0.98] shadow-lg shadow-orange-500/35 hover:shadow-xl hover:shadow-orange-500/50 ring-2 ring-amber-400/80 hover:ring-white transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'linear-gradient(135deg, #d97706 0%, #f97316 50%, #ea580c 100%)',
+                    backgroundColor: '#d97706',
+                    color: '#ffffff',
+                  }}
                 >
-                  <span className="absolute inset-0 w-full h-full bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
                   {checkingOut ? (
                     <>
                       <Loader2 size={18} className="animate-spin text-white shrink-0" />
@@ -410,7 +418,7 @@ export function AttendanceView() {
                   ) : (
                     <>
                       <Clock size={18} className="text-white transform group-hover:scale-110 transition-transform shrink-0" />
-                      <span className="tracking-wide font-extrabold drop-shadow-sm whitespace-nowrap">
+                      <span className="tracking-wide font-extrabold drop-shadow-sm whitespace-nowrap text-white">
                         Check Out for Today
                       </span>
                     </>

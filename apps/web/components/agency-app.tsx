@@ -50,6 +50,7 @@ import { TasksView, ApprovalsView, PublishingView, DriveView, ActivityView, Noti
 import { ChatView } from './chat';
 import { SpreadsheetView } from './sheets';
 import { AttendanceView } from './attendance';
+import { CreativeStudioView } from './creative-studio';
 import { CreateForm } from './forms';
 import MadOMediaLogo from './MadOMediaLogo';
 import { useTheme } from './ThemeProvider';
@@ -64,6 +65,7 @@ const nav = [
   { href: '/records', name: 'Master Records', icon: FileSpreadsheet, permission: 'content.view', group: 'Workspace', color: '#0f9d58' }, // Sheets Green
   { href: '/approvals', name: 'Approvals', icon: CircleCheck, permission: 'content.view', group: 'Workspace', color: '#f43f5e' }, // Rose
   { href: '/chat', name: 'Messages', icon: MessageSquare, permission: 'chat.view', group: 'Studio', color: '#06b6d4' }, // Cyan
+  { href: '/creative-studio', name: 'Creative Studio', icon: Sparkles, permission: 'content.view', group: 'Studio', color: '#ec4899' }, // Pink
   { href: '/attendance', name: 'Attendance', icon: CalendarCheck, permission: 'content.view', group: 'Studio', color: '#10b981' }, // Emerald
   { href: '/team', name: 'Team', icon: Users, permission: 'employee.view', group: 'Studio', color: '#f97316' }, // Orange
   { href: '/drive', name: 'Drive links', icon: FolderOpen, permission: 'drive.view', group: 'Studio', color: '#eab308' }, // Yellow
@@ -158,6 +160,7 @@ export function AgencyApp() {
               '/attendance': actor.isClient ? <Dashboard /> : <AttendanceView />,
               '/approvals': <ApprovalsView />,
               '/chat': actor.isClient ? <Dashboard /> : <ChatView />,
+              '/creative-studio': actor.isClient ? <Dashboard /> : <CreativeStudioView />,
               '/team': actor.isClient ? <Dashboard /> : <TeamView />,
               '/drive': <DriveView />,
               '/publishing': actor.isClient ? <Dashboard /> : <PublishingView />,
@@ -755,7 +758,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                   (n) =>
                     n.group === group &&
                     can(n.permission) &&
-                    (!actor.isClient || !['/clients', '/team', '/tasks', '/publishing', '/activity', '/chat'].includes(n.href))
+                    (!actor.isClient || !['/clients', '/team', '/tasks', '/publishing', '/activity', '/chat', '/attendance', '/creative-studio'].includes(n.href))
                 )
                 .map((n) => {
                   const isActive = path.startsWith(n.href);

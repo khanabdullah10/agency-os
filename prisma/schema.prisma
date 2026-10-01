@@ -24,6 +24,7 @@ model Agency {
   threads     ChatThread[]
   activities  ActivityLog[]
   attendances Attendance[]
+  creativeAssets CreativeAsset[]
 }
 model Role {
   id          String @id @default(cuid())
@@ -99,6 +100,7 @@ model User {
   activities   ActivityLog[]
   comments     ContentComment[]
   attendances  Attendance[]
+  creativeAssets CreativeAsset[]
   @@index([agencyId, active])
 }
 model Session {
@@ -156,6 +158,7 @@ model Client {
   accounts        SocialAccount[]
   reports         Report[]
   activities      ActivityLog[]
+  creativeAssets  CreativeAsset[]
   @@index([agencyId, active])
 }
 model ClientUser {
@@ -219,6 +222,7 @@ model ContentItem {
   publishing   PublishingRecord?
   metrics      AnalyticsEntry[]
   activities   ActivityLog[]
+  creativeAssets CreativeAsset[]
   @@index([clientId, publishAt])
   @@index([status, publishAt])
 }
@@ -572,4 +576,31 @@ model Attendance {
   @@index([agencyId, date])
   @@index([checkInAt])
   @@index([userId, checkInAt])
+}
+
+model CreativeAsset {
+  id              String       @id @default(cuid())
+  agencyId        String
+  agency          Agency       @relation(fields: [agencyId], references: [id])
+  clientId        String?
+  client          Client?      @relation(fields: [clientId], references: [id])
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  conceptType     String       @default("POST")
+  prompt          String       @db.Text
+  enhancedPrompt  String?      @db.Text
+  imageUrl        String       @db.LongText
+  aspectRatio     String       @default("1:1")
+  stylePreset     String       @default("Hyper-realistic Studio")
+  lighting        String?
+  revisions       Json?
+  contentId       Int?
+  content         ContentItem? @relation(fields: [contentId], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([agencyId, createdAt])
+  @@index([clientId, createdAt])
+  @@index([userId, createdAt])
 }
