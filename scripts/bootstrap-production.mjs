@@ -188,6 +188,43 @@ function getOptimizedDatabaseUrl() {
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
       } catch {}
+      const socialCols = [
+        "ALTER TABLE `SocialAccount` ADD COLUMN `platformAccountId` VARCHAR(191) NULL",
+        "ALTER TABLE `SocialAccount` ADD COLUMN `accountName` VARCHAR(191) NULL",
+        "ALTER TABLE `SocialAccount` ADD COLUMN `accessToken` TEXT NULL",
+        "ALTER TABLE `SocialAccount` ADD COLUMN `refreshToken` TEXT NULL",
+        "ALTER TABLE `SocialAccount` ADD COLUMN `tokenExpiresAt` DATETIME(3) NULL",
+        "ALTER TABLE `SocialAccount` ADD COLUMN `isConnected` TINYINT(1) NOT NULL DEFAULT 0",
+        "ALTER TABLE `SocialAccount` ADD COLUMN `metadata` JSON NULL"
+      ];
+      for (const colSql of socialCols) {
+        try { await db.$executeRawUnsafe(colSql); } catch {}
+      }
+      try {
+        await db.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS \`CreativeAsset\` (
+            \`id\` VARCHAR(191) NOT NULL PRIMARY KEY,
+            \`agencyId\` VARCHAR(191) NOT NULL,
+            \`clientId\` VARCHAR(191) NULL,
+            \`userId\` VARCHAR(191) NOT NULL,
+            \`title\` VARCHAR(191) NOT NULL,
+            \`conceptType\` VARCHAR(191) NOT NULL DEFAULT 'POST',
+            \`prompt\` TEXT NOT NULL,
+            \`enhancedPrompt\` TEXT NULL,
+            \`imageUrl\` LONGTEXT NOT NULL,
+            \`aspectRatio\` VARCHAR(191) NOT NULL DEFAULT '1:1',
+            \`stylePreset\` VARCHAR(191) NOT NULL DEFAULT 'Hyper-realistic Studio',
+            \`lighting\` VARCHAR(191) NULL,
+            \`revisions\` JSON NULL,
+            \`contentId\` INT NULL,
+            \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+            INDEX \`CreativeAsset_agencyId_createdAt_idx\` (\`agencyId\`, \`createdAt\`),
+            INDEX \`CreativeAsset_clientId_createdAt_idx\` (\`clientId\`, \`createdAt\`),
+            INDEX \`CreativeAsset_userId_createdAt_idx\` (\`userId\`, \`createdAt\`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+      } catch {}
     } catch (sErr) {
       console.warn('Direct schema check notice:', sErr.message);
     }

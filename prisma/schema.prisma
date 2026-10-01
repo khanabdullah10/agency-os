@@ -178,14 +178,23 @@ model ClientTeamMember {
   @@index([userId])
 }
 model SocialAccount {
-  id       String @id @default(cuid())
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id])
-  platform String
-  handle   String
-  url      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String    @id @default(cuid())
+  clientId          String
+  client            Client    @relation(fields: [clientId], references: [id])
+  platform          String    // INSTAGRAM, FACEBOOK, LINKEDIN, YOUTUBE, X
+  handle            String
+  url               String?
+  platformAccountId String?   // e.g. Instagram Business Account ID or Facebook Page ID
+  accountName       String?   // e.g. "Hayati Hopp Official"
+  accessToken       String?   @db.Text
+  refreshToken      String?   @db.Text
+  tokenExpiresAt    DateTime?
+  isConnected       Boolean   @default(false)
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([clientId, platform])
 }
 model ContentItem {
   id           Int @id @default(autoincrement())

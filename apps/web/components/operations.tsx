@@ -38,9 +38,201 @@ export function ApprovalsView(){
  return <><PageHeader eyebrow="A FRESH PAIR OF EYES" title={actor.isClient?'Ready for your review':'Approvals'} description={actor.isClient?'Your team has done the groundwork. Tell us what you think.':'Thoughtful feedback keeps good work moving.'}/><div className="approval-summary"><div><span className="summary-icon amber"><Clock3 size={21}/></span><span><strong>{items.length}</strong> waiting for a decision</span></div><p>Every revision returns through internal review before it reaches the client.</p></div>{!actor.isClient&&<div className="tabs-list">{[['all','All reviews'],['internal','Internal review'],['client','Client review']].map(([k,t])=><button className={'tabs-trigger '+(stage===k?'selected':'')} onClick={()=>setStage(k)} key={k}>{t}</button>)}</div>}{loading?<Loading/>:error?<ErrorState message={error}/>:filtered.length?<div className="approval-grid">{filtered.map(c=><Link href={'/content/'+c.id} className="approval-card" key={c.id}><div><ClientMark name={c.client.name} color={c.client.color}/><span>{c.client.name}<small>{c.code}</small></span><Badge status={c.status}/></div><h2>{c.title}</h2><p>{c.type} · {c.platform}</p><div className="approval-card-bottom"><span>Publishing {dateLabel(c.publishAt)}</span><strong>Open review <ArrowUpRight size={15}/></strong></div></Link>)}</div>:<Empty title="You’re all caught up" body="Content ready for review will appear here."/>}</>;
 }
 export function PublishingView(){
+ const {can,refresh}=useApp();
  const {data,loading,error}=useResource<any[]>('/content'),[filter,setFilter]=useState('upcoming');
+ const [publishingId,setPublishingId]=useState<number|null>(null);
+ const [confirmModalItem,setConfirmModalItem]=useState<any|null>(null);
+ const {mutate}=useMutation();
+
  const items=(data||[]).filter(c=>filter==='published'?['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status):['FINAL_CLIENT_APPROVED','READY_TO_PUBLISH','SCHEDULED'].includes(c.status));
- return <><PageHeader eyebrow="GOOD WORK, OUT IN THE WORLD" title="Publishing" description="Approved, prepared, and ready for the right moment."/><div className="tabs-list">{[['upcoming','Ready & scheduled'],['published','Published']].map(([k,t])=><button key={k} onClick={()=>setFilter(k)} className={'tabs-trigger '+(filter===k?'selected':'')}>{t}</button>)}</div><div className="info-note">Publish directly on the social platform, then open the content item to record the live post URL. Scheduled items remind your team when it’s time.</div>{loading?<Loading/>:error?<ErrorState message={error}/>:<ContentTable items={items}/>}</>;
+
+ const handleOneClickPublish=async(item:any)=>{
+  setPublishingId(item.id);
+  try{
+   const res=await mutate(`/social-publishing/publish/${item.id}`,{},'POST',`Publishing ${item.title} to ${item.platform}...`);
+   if(res?.liveUrl){
+    toast.success(`Published live to ${res.platform}!`,{
+     action:{
+      label:'View Post',
+      onClick:()=>window.open(res.liveUrl,'_blank'),
+     },
+    });
+   } else {
+    toast.success(`Successfully published to ${item.platform}!`);
+   }
+   setConfirmModalItem(null);
+   refresh();
+  }catch(err:any){
+   toast.error(err?.message||'Failed to auto-publish');
+  }finally{
+   setPublishingId(null);
+  }
+ };
+
+ return (
+  <>
+   <PageHeader eyebrow="GOOD WORK, OUT IN THE WORLD" title="Publishing" description="Approved, prepared, and ready for the right moment with 1-Click Auto-Publishing."/>
+   <div className="tabs-list">{[['upcoming','Ready & scheduled'],['published','Published']].map(([k,t])=><button key={k} onClick={()=>setFilter(k)} className={'tabs-trigger '+(filter===k?'selected':'')}>{t}</button>)}</div>
+   <div className="info-note">
+    1-Click Auto-Publish directly to Instagram, Facebook, and LinkedIn using native platform APIs. Scheduled items notify your team when it’s time.
+   </div>
+   {loading?<Loading/>:error?<ErrorState message={error}/>:(
+    <div className="table-panel">
+     <div className="table-caption">
+      <strong>{items.length} content items</strong>
+      <span>{filter==='published'?'Live on social platforms':'Approved & ready for 1-click publishing'}</span>
+     </div>
+     {!items.length?(
+      <Empty title="Room for a new story" body={filter==='published'?'Published posts will appear here with live permalinks.':'Content approved by clients will queue here for direct publishing.'}/>
+     ):(
+      <div className="table-scroll">
+       <table>
+        <thead>
+         <tr>
+          <th>Content</th>
+          <th>Client</th>
+          <th>Platform</th>
+          <th>Publish Date</th>
+          <th>Status</th>
+          <th style={{textAlign:'right'}}>Action</th>
+         </tr>
+        </thead>
+        <tbody>
+         {items.map((c:any)=>{
+          const isReadyToPublish=['FINAL_CLIENT_APPROVED','READY_TO_PUBLISH','SCHEDULED'].includes(c.status);
+          const isLive=['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status);
+          const isPublishingThis=publishingId===c.id;
+
+          return (
+           <tr key={c.id}>
+            <td>
+             <Link className="content-title-cell" href={'/content/'+c.id}>
+              <small>{c.code||code(c.id)}</small>
+              <strong>{c.title}</strong>
+             </Link>
+            </td>
+            <td>
+             <span className="inline-client">
+              <ClientMark name={c.client.name} color={c.client.color} size="tiny"/>
+              {c.client.name}
+             </span>
+            </td>
+            <td>
+             <span>{c.type}</span>
+             <small className="font-semibold text-pink-600 dark:text-pink-400">{c.platform}</small>
+            </td>
+            <td>
+             {dateLabel(c.publishAt)}
+             <small>{timeLabel(c.publishAt)}</small>
+            </td>
+            <td>
+             <Badge status={c.status}/>
+             {c.overdue&&<span className="overdue-text">Deadline needs attention</span>}
+            </td>
+            <td style={{textAlign:'right'}}>
+             <div className="flex items-center justify-end gap-2">
+              {isReadyToPublish&&can('publish.manage')&&(
+               <Button
+                size="sm"
+                className="btn-gradient text-xs font-bold text-white shadow-sm h-8 px-3 flex items-center gap-1.5 cursor-pointer"
+                disabled={isPublishingThis}
+                onClick={()=>setConfirmModalItem(c)}
+               >
+                {isPublishingThis?(
+                 <>
+                  <span className="animate-spin text-white">◌</span>
+                  <span>Posting...</span>
+                 </>
+                ):(
+                 <>
+                  <Send size={12}/>
+                  <span>Publish</span>
+                 </>
+                )}
+               </Button>
+              )}
+              {isLive&&c.publishing?.publishedUrl&&(
+               <External
+                href={c.publishing.publishedUrl}
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1 hover:underline"
+               >
+                View Post ↗
+               </External>
+              )}
+              <Link aria-label={'Open '+c.title} className="icon-button" href={'/content/'+c.id}>
+               <ArrowUpRight size={17}/>
+              </Link>
+             </div>
+            </td>
+           </tr>
+          );
+         })}
+        </tbody>
+       </table>
+      </div>
+     )}
+    </div>
+   )}
+
+   {/* Confirmation Modal */}
+   <Modal
+    open={Boolean(confirmModalItem)}
+    onOpenChange={(open)=>!open&&setConfirmModalItem(null)}
+    title={`Publish directly to ${confirmModalItem?.platform}?`}
+    description={`This will immediately dispatch this post to ${confirmModalItem?.client?.name}'s live ${confirmModalItem?.platform} account in 1-click.`}
+   >
+    {confirmModalItem&&(
+     <div className="space-y-4 py-2">
+      <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-zinc-800/80 border border-stone-200 dark:border-zinc-700 text-xs space-y-2">
+       <div>
+        <span className="font-semibold text-stone-500">Post Title:</span>{' '}
+        <strong className="text-stone-800 dark:text-zinc-200">{confirmModalItem.title}</strong>
+       </div>
+       <div>
+        <span className="font-semibold text-stone-500">Target Channel:</span>{' '}
+        <span className="font-bold text-pink-600 dark:text-pink-400">{confirmModalItem.platform}</span>
+        <span className="text-stone-500 dark:text-zinc-400"> ({confirmModalItem.client?.name})</span>
+       </div>
+       <div>
+        <span className="font-semibold text-stone-500">Caption Preview:</span>
+        <p className="mt-1 text-stone-700 dark:text-zinc-300 line-clamp-3 italic">
+         "{confirmModalItem.publishing?.caption||confirmModalItem.script?.caption||confirmModalItem.title}"
+        </p>
+       </div>
+      </div>
+      <div className="flex items-center justify-end gap-2 pt-2">
+       <Button
+        type="button"
+        variant="outline"
+        disabled={publishingId===confirmModalItem.id}
+        onClick={()=>setConfirmModalItem(null)}
+       >
+        Cancel
+       </Button>
+       <Button
+        type="button"
+        className="btn-gradient font-bold text-white shadow-md flex items-center gap-1.5 cursor-pointer"
+        disabled={publishingId===confirmModalItem.id}
+        onClick={()=>handleOneClickPublish(confirmModalItem)}
+       >
+        {publishingId===confirmModalItem.id?(
+         <>
+          <span className="animate-spin text-white">◌</span>
+          <span>Publishing live...</span>
+         </>
+        ):(
+         <>
+          <Send size={14}/>
+          <span>Confirm & Publish Now</span>
+         </>
+        )}
+       </Button>
+      </div>
+     </div>
+    )}
+   </Modal>
+  </>
+ );
 }
 export function DriveView(){
  const {can,openForm,actor}=useApp(),params=useSearchParams(),{data,loading,error}=useResource<any[]>('/drive'),{data:clients}=useResource<any[]>('/clients');

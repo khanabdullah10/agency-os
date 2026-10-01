@@ -244,9 +244,9 @@ export function Field({
   );
 }
 
-export function External({ href, children }: { href: string; children: ReactNode }) {
+export function External({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
   return (
-    <a className="text-link" href={href} target="_blank" rel="noopener noreferrer">
+    <a className={className || "text-link"} href={href} target="_blank" rel="noopener noreferrer">
       {children}
       <ExternalLink size={13} />
     </a>

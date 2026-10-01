@@ -428,8 +428,258 @@ function Comments({c}:{c:any}){
   </Panel>;
 }
 function ContentChat({c}:{c:any}){const {data}=useResource<any[]>('/chat');const thread=data?.find(t=>t.clientId===c.clientId&&t.kind==='CLIENT_INTERNAL')||data?.find(t=>t.clientId===c.clientId)||data?.find(t=>t.contentId===c.id);return <Panel title="Client conversation" subtitle="Team conversations for this client are kept unified in the client thread."><div className="next-step"><MessageSquare size={32}/><div><h3>{thread?.title||c.client?.name+' · internal'}</h3><p>{thread?'All discussion and updates for this content flow directly into the client conversation thread.':'Open the conversation to keep the team aligned.'}</p><Link href={thread?'/chat?thread='+thread.id:'/chat'}><Button>Open conversation <ArrowUpRight size={15}/></Button></Link></div></div></Panel>;}
-function PublishingTab({c}:{c:any}){
- const {can}=useApp();return <><Panel title="Ready for the world" subtitle="Publish on your chosen platform, then record the live URL here.">{c.publishing?<div className="padded-form"><dl className="detail-grid"><div><dt>Status</dt><dd><Badge status={c.publishing.status}/></dd></div><div><dt>Platform</dt><dd>{c.platform}</dd></div><div><dt>Scheduled for</dt><dd>{dateLabel(c.publishing.scheduledAt||c.publishAt)} · {timeLabel(c.publishing.scheduledAt||c.publishAt)}</dd></div><div><dt>Final file</dt><dd><External href={c.publishing.finalDriveUrl}>Open in Drive</External></dd></div></dl><Field label="Caption"><textarea rows={4} readOnly value={c.publishing.caption}/></Field><Field label="Hashtags"><textarea rows={2} readOnly value={c.publishing.hashtags}/></Field><Button variant="outline" onClick={()=>navigator.clipboard.writeText(c.publishing.caption+'\n\n'+c.publishing.hashtags).then(()=>toast.success('Caption copied')).catch(()=>toast.error('Select the caption and copy it manually.'))}><Copy size={14}/> Copy caption & hashtags</Button>{c.publishing.publishedUrl&&<p className="published-url"><External href={c.publishing.publishedUrl}>View published post</External></p>}</div>:<Empty title="A few steps before the spotlight" body="Publishing details become available after the required approvals are complete."/>}</Panel>{can('report.manage')&&<MetricsForm c={c}/>}</>;
+function PublishingTab({ c }: { c: any }) {
+  const { can, refresh } = useApp();
+  const [publishingDirect, setPublishingDirect] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const { data: accounts } = useResource<any[]>(`/social-publishing/accounts/${c.clientId}`);
+
+  const targetPlatform = (c.platform || 'INSTAGRAM').toUpperCase().trim();
+  const connectedAccount = accounts?.find((a: any) => {
+    const plat = (a.platform || '').toUpperCase();
+    return (
+      plat === targetPlatform ||
+      (targetPlatform.includes('INSTAGRAM') && plat === 'INSTAGRAM') ||
+      (targetPlatform.includes('FACEBOOK') && plat === 'FACEBOOK') ||
+      (targetPlatform.includes('LINKEDIN') && plat === 'LINKEDIN')
+    );
+  });
+
+  const handleDirectPublish = async () => {
+    try {
+      setPublishingDirect(true);
+      toast.info(`Publishing directly to ${c.platform}...`, { duration: 6000 });
+      const res: any = await api(`/social-publishing/publish/${c.id}`, { method: 'POST' });
+      toast.success(`Published to ${c.platform}!`, {
+        description: res.liveUrl ? `Live at ${res.liveUrl}` : 'Post created successfully.',
+        duration: 8000,
+      });
+      setConfirmModalOpen(false);
+      refresh();
+    } catch (err: any) {
+      toast.error('Publishing failed', {
+        description: err.message || 'Could not post to social media API.',
+        duration: 8000,
+      });
+    } finally {
+      setPublishingDirect(false);
+    }
+  };
+
+  const isPublished = c.publishing?.status === 'PUBLISHED';
+
+  return (
+    <>
+      <Panel
+        title="Ready for the world"
+        subtitle="Publish directly on the client's platform in one click, or record the live URL."
+      >
+        {c.publishing ? (
+          <div className="padded-form space-y-4">
+            {/* Status & Platform Banner */}
+            <dl className="detail-grid">
+              <div>
+                <dt>Status</dt>
+                <dd>
+                  <Badge status={c.publishing.status} />
+                </dd>
+              </div>
+              <div>
+                <dt>Platform</dt>
+                <dd className="font-semibold">{c.platform}</dd>
+              </div>
+              <div>
+                <dt>Scheduled for</dt>
+                <dd>
+                  {dateLabel(c.publishing.scheduledAt || c.publishAt)} ·{' '}
+                  {timeLabel(c.publishing.scheduledAt || c.publishAt)}
+                </dd>
+              </div>
+              <div>
+                <dt>Final file</dt>
+                <dd>
+                  {c.publishing.finalDriveUrl ? (
+                    <External href={c.publishing.finalDriveUrl}>Open asset link</External>
+                  ) : (
+                    <span className="text-stone-400">Attached to story</span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+
+            {/* LIVE POST SUCCESS BANNER */}
+            {isPublished && (
+              <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <Check size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-emerald-950 dark:text-emerald-200">
+                      Live on {c.platform}
+                    </h4>
+                    {c.publishing.publishedAt && (
+                      <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                        Published {dateLabel(c.publishing.publishedAt)} at{' '}
+                        {timeLabel(c.publishing.publishedAt)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {c.publishing.publishedUrl && (
+                  <External
+                    href={c.publishing.publishedUrl}
+                    className="btn-emerald inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs shrink-0"
+                  >
+                    <span>View Live Post</span>
+                    <ExternalLink size={13} />
+                  </External>
+                )}
+              </div>
+            )}
+
+            {/* ONE-CLICK DIRECT PUBLISH CARD (If not yet published) */}
+            {!isPublished && can('publish.manage') && (
+              <div className="p-4 sm:p-5 rounded-2xl border-2 border-pink-500/30 bg-pink-500/5 dark:bg-pink-950/20 space-y-3.5">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-pink-600 dark:text-pink-400 flex items-center gap-1.5">
+                      <Sparkles size={13} /> Direct Platform Publishing
+                    </span>
+                    <h4 className="font-bold text-sm text-stone-900 dark:text-zinc-100 mt-0.5">
+                      Publish to {c.platform} in One Click
+                    </h4>
+                  </div>
+
+                  {connectedAccount?.isConnected ? (
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 rounded-full flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Connected: @{connectedAccount.handle}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded-full">
+                      Account not connected
+                    </span>
+                  )}
+                </div>
+
+                {connectedAccount?.isConnected ? (
+                  <Button
+                    type="button"
+                    className="btn-gradient w-full py-3.5 rounded-xl font-extrabold text-sm text-white shadow-lg shadow-pink-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                    disabled={publishingDirect}
+                    onClick={() => setConfirmModalOpen(true)}
+                  >
+                    <Send size={16} />
+                    <span>⚡ Publish Directly to {c.platform} Now</span>
+                  </Button>
+                ) : (
+                  <div className="text-xs text-stone-600 dark:text-zinc-400 bg-white dark:bg-zinc-800/80 p-3.5 rounded-xl border border-stone-200 dark:border-zinc-700 space-y-1.5">
+                    <p>
+                      Client <strong>{c.client?.name}</strong> has not linked active credentials for{' '}
+                      <strong>{c.platform}</strong>.
+                    </p>
+                    <Link
+                      href={`/clients/${c.clientId}`}
+                      className="text-pink-600 dark:text-pink-400 font-bold inline-flex items-center gap-1 hover:underline"
+                    >
+                      Connect {c.platform} in Client Settings →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Caption & Hashtags Content */}
+            <Field label="Approved Caption">
+              <textarea rows={4} readOnly value={c.publishing.caption} className="text-xs leading-relaxed" />
+            </Field>
+
+            <Field label="Approved Hashtags">
+              <textarea rows={2} readOnly value={c.publishing.hashtags} className="text-xs leading-relaxed" />
+            </Field>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  navigator.clipboard
+                    .writeText(c.publishing.caption + '\n\n' + c.publishing.hashtags)
+                    .then(() => toast.success('Caption & hashtags copied to clipboard'))
+                    .catch(() => toast.error('Select the caption and copy it manually.'))
+                }
+              >
+                <Copy size={13} />
+                <span>Copy caption & hashtags</span>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Empty
+            title="A few steps before the spotlight"
+            body="Publishing details become available after client approvals are complete."
+          />
+        )}
+      </Panel>
+
+      {/* CONFIRMATION MODAL FOR 1-CLICK PUBLISH */}
+      <Modal
+        open={confirmModalOpen}
+        onOpenChange={setConfirmModalOpen}
+        title={`Publish to ${c.platform}?`}
+        description={`This will immediately dispatch this post to ${c.client?.name}'s live ${c.platform} account (@${connectedAccount?.handle || 'connected'}).`}
+      >
+        <div className="space-y-4 py-2">
+          <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-zinc-800/80 border border-stone-200 dark:border-zinc-700 text-xs space-y-2">
+            <div>
+              <span className="font-semibold text-stone-500">Target Channel:</span>{' '}
+              <strong className="text-stone-800 dark:text-zinc-200">
+                {c.platform} (@{connectedAccount?.handle})
+              </strong>
+            </div>
+            <div>
+              <span className="font-semibold text-stone-500">Caption Preview:</span>
+              <p className="mt-1 text-stone-700 dark:text-zinc-300 line-clamp-3 italic">
+                "{c.publishing?.caption}"
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={publishingDirect}
+              onClick={() => setConfirmModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="btn-gradient font-bold text-white shadow-md flex items-center gap-1.5"
+              disabled={publishingDirect}
+              onClick={handleDirectPublish}
+            >
+              {publishingDirect ? (
+                <>
+                  <span className="animate-spin text-white">◌</span>
+                  <span>Posting to {c.platform}...</span>
+                </>
+              ) : (
+                <>
+                  <Send size={14} />
+                  <span>Confirm & Publish Now</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {can('report.manage') && <MetricsForm c={c} />}
+    </>
+  );
 }
 export function MetricsForm({c}:{c:any}){const {mutate,pending}=useMutation();return <Panel title="How did it do?" subtitle="Record cumulative metrics for this post. Reports use its latest snapshot."><form className="padded-form" onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget),d:any={};for(const [k,v]of f)d[k]=k==='date'?new Date(String(v)).toISOString():Number(v);try{await mutate('/content/'+c.id+'/metrics',d,'POST','Metrics saved');}catch{}}}><Field label="Snapshot date"><input type="date" name="date" defaultValue={new Date().toISOString().slice(0,10)} required/></Field><div className="form-grid three">{['reach','impressions','views','likes','comments','shares','saves','followerGrowth'].map(k=><Field key={k} label={label(k.replace(/([A-Z])/g,' $1'))}><input type="number" name={k} min={k==='followerGrowth'?undefined:0} defaultValue={c.metrics?.[0]?.[k]||0} required/></Field>)}</div><FormFooter pending={pending} submit="Save metrics"/></form></Panel>;}
 export function Timeline({items}:{items:any[]}){if(!items.length)return <Empty title="A clean page" body="Important updates will be recorded here."/>;return <div className="timeline">{items.map((a:any)=><div key={a.id}><span className="timeline-point"/><div><strong>{label(a.action.replaceAll('.',' '))}</strong><p>{a.actor?.name||'Agency OS'}{a.client?.name&&' · '+a.client.name}</p><time>{dateLabel(a.createdAt)} · {timeLabel(a.createdAt)}</time></div></div>)}</div>;}
