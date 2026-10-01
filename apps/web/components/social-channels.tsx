@@ -114,6 +114,14 @@ const SUPPORTED_PLATFORMS = [
   },
 ];
 
+function cleanHandle(raw?: string | null) {
+  if (!raw) return '';
+  let str = raw.trim();
+  str = str.replace(/^https?:\/\/(?:www\.)?(?:instagram\.com|facebook\.com|linkedin\.com\/in|twitter\.com|x\.com)\//i, '');
+  str = str.replace(/\/.*$/, '').replace(/[@]/g, '');
+  return str ? `@${str}` : raw;
+}
+
 export function ClientSocialChannels({
   clientId,
   client,
@@ -145,10 +153,12 @@ export function ClientSocialChannels({
 
   const handleOpenConnect = (platformKey: string, existing?: SocialAccountData) => {
     setSelectedPlatform(platformKey);
-    setHandle(existing?.handle || '');
+    const initialHandle = existing?.handle ? cleanHandle(existing.handle).replace(/^@/, '') : '';
+    const initialUrl = existing?.url || (existing?.handle?.startsWith('http') ? existing.handle : '');
+    setHandle(initialHandle);
     setPlatformAccountId(existing?.platformAccountId || '');
     setAccessToken('');
-    setUrl(existing?.url || '');
+    setUrl(initialUrl);
     setShowGuide(false);
     setConnectModalOpen(true);
   };
@@ -310,7 +320,7 @@ export function ClientSocialChannels({
                         Handle:
                       </span>
                       <strong className="text-stone-800 dark:text-zinc-200">
-                        {acc.handle.startsWith('@') ? acc.handle : `@${acc.handle}`}
+                        {cleanHandle(acc.handle)}
                       </strong>
                     </div>
                     {acc.accountName && (
