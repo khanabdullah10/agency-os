@@ -65,8 +65,9 @@ export class ContentService {
   await this.assignments(a,d.clientId,d.assignees);
   const deadlines={...suggestDeadlines(new Date(d.publishAt),client.deadlineOffsets as any),...d.deadlines};
   return this.db.atomic(async tx=>{
-   const c=await tx.contentItem.create({data:{...d,publishAt:new Date(d.publishAt),deadlines,status:d.assignees.writer?'SCRIPT_WRITING':'PLANNING'}});
-   if(d.assignees.writer)await this.tasks.system(tx,a,c,'SCRIPT',d.assignees.writer,deadlines.script);
+   const initialStatus = d.requiresShoot && d.assignees.writer ? 'SCRIPT_WRITING' : 'PLANNING';
+   const c=await tx.contentItem.create({data:{...d,publishAt:new Date(d.publishAt),deadlines,status:initialStatus}});
+   if(d.requiresShoot && d.assignees.writer)await this.tasks.system(tx,a,c,'SCRIPT',d.assignees.writer,deadlines.script);
    const superAdmins = await tx.user.findMany({ where: { agencyId: a.agencyId, active: true, role: { isSuperAdmin: true } }, select: { id: true } });
    const superAdminIds = superAdmins.map(s => s.id);
    let defaultThread = await tx.chatThread.findFirst({ where: { agencyId: a.agencyId, clientId: c.clientId, kind: 'CLIENT_INTERNAL' } });
@@ -83,7 +84,7 @@ export class ContentService {
    const code = contentCode(c.id);
    await tx.chatMessage.create({ data: { threadId: defaultThread.id, authorId: a.id, body: '🎬 New content planned: **' + code + ' · ' + c.title + '** (' + c.platform + ' · ' + c.type + ') · View at /content/' + c.id } });
    await tx.chatThread.update({ where: { id: defaultThread.id }, data: { updatedAt: new Date() } });
-   await this.notices.emit(tx, [d.assignees.writer, d.assignees.smm].filter(Boolean) as string[], { event: 'content.created', title: 'Content Created', body: code + ' · ' + c.title + ' for ' + client.name, href: '/content/' + c.id, key: 'content:created:' + c.id }, a.agencyId, a.id);
+   await this.notices.emit(tx, [d.requiresShoot ? d.assignees.writer : undefined, d.assignees.smm].filter(Boolean) as string[], { event: 'content.created', title: 'Content Created', body: code + ' · ' + c.title + ' for ' + client.name, href: '/content/' + c.id, key: 'content:created:' + c.id }, a.agencyId, a.id);
    await tx.contentStatusHistory.create({data:{contentId:c.id,actorId:a.id,previous:'',next:c.status,event:'content.created'}});
    await audit(tx,a,'content.created','content',String(c.id),{clientId:c.clientId,contentId:c.id,next:{title:c.title,status:c.status}});
    return {id:c.id};
@@ -112,7 +113,9 @@ export class ContentService {
   if(!has(a,'content.edit_all')&&c.assignees[field]!==a.id)throw new ForbiddenException('Only the assigned team member can make this submission.');
  }
  async saveScript(a:Actor,id:number,raw:unknown) {
-  const c=await this.access.content(a,id);this.responsible(a,c,'writer','script.write');const d=scriptDto.parse(raw);
+  const c=await this.access.content(a,id);
+  if(!c.requiresShoot)throw new BadRequestException('Scripts are only enabled for content items that require a shoot.');
+  this.responsible(a,c,'writer','script.write');const d=scriptDto.parse(raw);
   if(!['PLANNING','SCRIPT_WRITING'].includes(c.status))throw new BadRequestException('Request changes before editing a submitted script.');
   const {revision,...data}=d;
   return this.db.atomic(async tx=>{

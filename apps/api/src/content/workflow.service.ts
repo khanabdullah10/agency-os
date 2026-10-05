@@ -39,10 +39,10 @@ export class WorkflowService {
  async run(a:Actor,id:number,raw:unknown) {
   const d=actionDto.parse(raw);await this.access.content(a,id);
   return this.db.atomic(async tx=>{
-   const c=await tx.contentItem.findUniqueOrThrow({where:{id},include:{client:{include:{users:true}},script:true,shoot:true,versions:{orderBy:{number:'desc'}},revisions:{where:{status:'OPEN'}}}});
+   const c=await tx.contentItem.findUniqueOrThrow({where:{id},include:{client:{include:{users:true}},script:true,shoot:true,publishing:true,versions:{orderBy:{number:'desc'}},revisions:{where:{status:'OPEN'}}}});
    if(!c.client.active)throw new BadRequestException('This client workspace is archived.');
    if(c.revision!==d.revision)throw new ConflictException('This content changed. Refresh before continuing.');
-   if(!allowedActions(c.status).includes(d.action))throw new BadRequestException('This action is not allowed at the current workflow stage.');
+   if(!allowedActions(c.status, c.requiresShoot).includes(d.action))throw new BadRequestException('This action is not allowed at the current workflow stage.');
    this.authorize(a,c,d.action);
    if(!(await tx.contentItem.updateMany({where:{id,revision:d.revision},data:{revision:{increment:1}}})).count)throw new ConflictException('Another team member already changed this item.');
    const team=c.assignees as TeamAssignments,deadlines=c.deadlines as Record<string,string>,rules={...defaultRules,...c.client.approvalRules as object} as Rules;
@@ -57,24 +57,29 @@ export class WorkflowService {
    const clients=c.client.users.map(x=>x.userId);
    const production=async()=>{
     if(c.requiresShoot){if(!team.videographer)throw new BadRequestException('Assign a videographer before approving the production plan.');await update('READY_FOR_SHOOT','shoot.assigned');await this.tasks.system(tx,a,c,'SHOOT',team.videographer,deadlines.shoot);}
-    else {const employee=team.editor||team.designer;if(!employee)throw new BadRequestException('Assign an editor or designer before starting production.');await update('EDITING','edit.assigned');await this.tasks.system(tx,a,c,team.editor?'EDIT':'DESIGN',employee,deadlines.edit);}
+    else {const employee=team.editor||team.designer;if(!employee)throw new BadRequestException('Assign an editor or designer before starting production.');await update('EDITING','edit.assigned');await this.tasks.system(tx,a,c,team.editor?'EDIT':'DESIGN',employee,deadlines.edit);await notice([employee,team.smm],'edit.assigned','Design / editing assigned');}
    };
    const final=async()=>{
     const latest=c.versions[0];if(!latest)throw new BadRequestException('A final version is required.');
-    await tx.publishingRecord.upsert({where:{contentId:id},create:{contentId:id,finalDriveUrl:latest.driveUrl,caption:c.script?.caption||'',hashtags:c.script?.hashtags||'',status:'READY'},update:{finalDriveUrl:latest.driveUrl,caption:c.script?.caption||'',hashtags:c.script?.hashtags||'',status:'READY'}});
+    const caption=c.publishing?.caption||c.script?.caption||c.sharedCaption||c.notes||c.title||'';
+    const hashtags=c.publishing?.hashtags||c.script?.hashtags||c.sharedHashtags||'';
+    await tx.publishingRecord.upsert({where:{contentId:id},create:{contentId:id,finalDriveUrl:latest.driveUrl,caption,hashtags,status:'READY'},update:{finalDriveUrl:latest.driveUrl,caption,hashtags,status:'READY'}});
     await this.tasks.status(tx,a,id,['EDIT','DESIGN','SMM_REVIEW'],'COMPLETED');
     await this.tasks.system(tx,a,c,'PUBLISH',team.smm!,deadlines.ready);
     await notice([team.smm],'content.client_approved','Content approved · ready for publishing');
    };
    const shareEdit=async()=>{
     const latest=c.versions[0];if(!latest)throw new BadRequestException('Add an edit version before approval.');
+    const caption=c.publishing?.caption||c.script?.caption||c.sharedCaption||c.notes||c.title||'';
+    const hashtags=c.publishing?.hashtags||c.script?.hashtags||c.sharedHashtags||'';
     await tx.contentVersion.update({where:{id:latest.id},data:{clientVisible:true}});
-    await tx.contentItem.update({where:{id},data:{sharedCaption:c.script?.caption||'',sharedHashtags:c.script?.hashtags||''}});
+    await tx.contentItem.update({where:{id},data:{sharedCaption:caption,sharedHashtags:hashtags}});
     if(rules.client){stage='CLIENT';await update('CLIENT_REVIEW','content.client_review_required',true);await notice(clients,'content.client_review_required','Your content is ready for review');}
     else {stage=null;await update('FINAL_CLIENT_APPROVED','content.approved_under_client_rules');await final();}
    };
    switch(d.action) {
     case 'START_SCRIPT':
+     if(!c.requiresShoot)throw new BadRequestException('Scriptwriting is not required for content that does not need a shoot.');
      if(!team.writer)throw new BadRequestException('Assign a writer first.');
      await update('SCRIPT_WRITING','script.assigned');
      await this.tasks.system(tx,a,c,'SCRIPT',team.writer,deadlines.script);await notice([team.writer],'script.assigned','Script writing assigned');break;

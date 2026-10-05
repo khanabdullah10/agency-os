@@ -39,7 +39,7 @@ export const clientDto = z.object({
  login:z.object({name:short.min(2),email:z.string().email(),password:z.string().min(12).max(128),avatarUrl:z.string().max(7000000).optional().nullable()}).strict().optional()
 }).strict();
 export const clientUpdateDto=clientDto.omit({login:true}).partial().extend({active:z.boolean().optional()}).strict();
-export const contentDto = z.object({ clientId:id,title:short.min(3),platform:short.min(1),type:short.min(1),pillar:short.optional(),publishAt:date,requiresShoot:z.boolean(),assignees:assignments,notes:text.optional(),deadlines:z.record(date).optional() }).strict();
+export const contentDto = z.object({ clientId:id,title:short.min(3),platform:short.min(1),type:short.min(1),pillar:short.optional(),publishAt:date,requiresShoot:z.boolean(),assignees:assignments,notes:text.optional(),deadlines:z.record(date).optional(),sharedCaption:text.optional().nullable(),sharedHashtags:text.optional().nullable() }).strict();
 export const contentUpdateDto = contentDto.omit({clientId:true}).partial().extend({revision:z.number().int().min(0)}).strict();
 export const scriptDto = z.object({hook:text,body:z.string().max(100000),cta:text,caption:text,hashtags:text,references:z.array(webUrl).max(30),notes:text.optional(),revision:z.number().int().min(0)}).strict();
 export const aiAssistDto = z.object({mode:z.enum(['hooks','full_script','improve','caption']),currentHook:z.string().optional(),currentBody:z.string().optional(),currentCta:z.string().optional(),currentCaption:z.string().optional(),customInstruction:z.string().max(1000).optional()}).strict();

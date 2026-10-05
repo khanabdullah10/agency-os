@@ -22,7 +22,7 @@ export function CreateForm({kind,initial,onDone}:{kind:string;initial?:any;onDon
 export function ContentForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  const {mutate,pending}=useMutation(),router=useRouter();
  const {data:clients,loading,error}=useResource<any[]>('/clients');
- const [d,setD]=useState<any>({clientId:'',title:'',platform:'Instagram',type:'Instagram Reel',pillar:'',publishAt:new Date(Date.now()+8*86400000).toISOString(),requiresShoot:false,assignees:{},notes:'',...initial});
+ const [d,setD]=useState<any>({clientId:'',title:'',platform:'Instagram',type:'Instagram Reel',pillar:'',publishAt:new Date(Date.now()+8*86400000).toISOString(),requiresShoot:false,assignees:{},notes:'',sharedCaption:'',sharedHashtags:'',...initial});
  const {data:client}=useResource(d.clientId?'/clients/'+d.clientId:null);
  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(() => {
   if (initial?.platform) {
@@ -61,8 +61,25 @@ export function ContentForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  return <form onSubmit={async e=>{
   e.preventDefault();
   const finalPlatform = selectedPlatforms.join(', ') || 'Instagram';
-  const cleanDates = Object.fromEntries(Object.entries(dates).filter(([k]) => k !== 'clientScript'));
-  const payload={title:d.title,platform:finalPlatform,type:d.type,pillar:d.pillar||'',publishAt:d.publishAt,requiresShoot:d.requiresShoot,assignees:Object.fromEntries(Object.entries(d.assignees).filter(([,v])=>v)),notes:d.notes||'',deadlines:cleanDates};
+  const cleanDates = Object.fromEntries(
+   Object.entries(dates).filter(([k]) => k !== 'clientScript' && (d.requiresShoot || (k !== 'script' && k !== 'shoot')))
+  );
+  const cleanAssignees = Object.fromEntries(
+   Object.entries(d.assignees).filter(([k, v]) => Boolean(v) && (d.requiresShoot || (k !== 'writer' && k !== 'videographer')))
+  );
+  const payload={
+   title:d.title,
+   platform:finalPlatform,
+   type:d.type,
+   pillar:d.pillar||'',
+   publishAt:d.publishAt,
+   requiresShoot:d.requiresShoot,
+   assignees:cleanAssignees,
+   notes:d.notes||'',
+   deadlines:cleanDates,
+   sharedCaption:d.sharedCaption||'',
+   sharedHashtags:d.sharedHashtags||''
+  };
   try{
    const result=await mutate(initial?.id?'/content/'+initial.id:'/content',initial?.id?{...payload,revision:initial.revision}:{...payload,clientId:d.clientId},initial?.id?'PATCH':'POST',initial?.id?'Content plan updated':'Your new content is ready');
    onDone();
@@ -102,8 +119,35 @@ export function ContentForm({initial,onDone}:{initial?:any;onDone:()=>void}){
    })}
   </div>
  </div>
- <div className="form-section-title">The team behind it</div><div className="form-grid three">{responsibilities.map(r=><Field key={r} label={r==='smm'?'Social media manager':label(r)}><select value={d.assignees?.[r]||''} required={r==='smm'} onChange={e=>set('assignees',{...d.assignees,[r]:e.target.value})}><option value="">{r==='smm'?'Choose your SMM':'Assign later'}</option>{client?.team?.filter((t:any,i:number,arr:any[])=>arr.findIndex(x=>x.userId===t.userId)===i).map((t:any)=><option key={t.userId} value={t.userId}>{t.user.name}</option>)}</select></Field>)}</div><label className="checkbox-label" style={{margin:'8px 0',boxSizing:'border-box',width:'100%',border:d.requiresShoot?'1px solid var(--accent, #0284c7)':'1px solid var(--border-color)',background:d.requiresShoot?'rgba(2, 132, 199, 0.08)':'transparent'}}><input type="checkbox" checked={d.requiresShoot} onChange={e=>set('requiresShoot',e.target.checked)}/> This content needs a shoot</label>
- <div className="form-section-title" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'8px'}}><span>Work backwards from publish day</span><Button type="button" variant="ghost" size="sm" onClick={()=>setDates(deadlines(d.publishAt,client?.deadlineOffsets||offsets))}><CalendarDays size={13}/> Suggest deadlines</Button></div><div className="form-grid three">{Object.entries(dates).filter(([key])=>key!=='clientScript').map(([key,value])=><Field label={label(key.replace(/([A-Z])/g,' $1'))} key={key}><input type="datetime-local" required value={inputDate(value as string)} onChange={e=>e.target.value&&setDates({...dates,[key]:new Date(e.target.value).toISOString()})}/></Field>)}</div><Field label="Internal brief & notes"><textarea value={d.notes||''} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="What should the team know?"/></Field><FormFooter pending={pending} onCancel={onDone} submit={initial?.id?'Save content plan':'Create content'}/></form>;
+ <label className="checkbox-label" style={{margin:'8px 0 16px 0',boxSizing:'border-box',width:'100%',padding:'10px 14px',borderRadius:'10px',border:d.requiresShoot?'1px solid var(--accent, #0284c7)':'1px solid var(--border-color)',background:d.requiresShoot?'rgba(2, 132, 199, 0.08)':'transparent',display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}}>
+  <input type="checkbox" checked={d.requiresShoot} onChange={e=>set('requiresShoot',e.target.checked)}/>
+  <span>
+   <strong style={{display:'block',fontSize:'13px'}}>This content requires an on-location shoot</strong>
+   <small className="muted" style={{fontSize:'11.5px'}}>{d.requiresShoot ? 'Requires scriptwriting, videographer, raw footage & shoot scheduling' : 'Direct digital design / editing workflow (no video script or shoot needed)'}</small>
+  </span>
+ </label>
+
+ <div className="form-section-title">The team behind it</div>
+ <div className="form-grid three">{(d.requiresShoot ? ['smm','writer','videographer','editor','designer'] : ['smm','designer','editor']).map(r=><Field key={r} label={r==='smm'?'Social media manager':label(r)}><select value={d.assignees?.[r]||''} required={r==='smm'} onChange={e=>set('assignees',{...d.assignees,[r]:e.target.value})}><option value="">{r==='smm'?'Choose your SMM':'Assign later'}</option>{client?.team?.filter((t:any,i:number,arr:any[])=>arr.findIndex(x=>x.userId===t.userId)===i).map((t:any)=><option key={t.userId} value={t.userId}>{t.user.name}</option>)}</select></Field>)}</div>
+
+ <div className="form-section-title" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'8px'}}>
+  <span>Work backwards from publish day</span>
+  <Button type="button" variant="ghost" size="sm" onClick={()=>setDates(deadlines(d.publishAt,client?.deadlineOffsets||offsets))}><CalendarDays size={13}/> Suggest deadlines</Button>
+ </div>
+ <div className="form-grid three">{Object.entries(dates).filter(([key])=>key!=='clientScript' && (d.requiresShoot || (key !== 'script' && key !== 'shoot'))).map(([key,value])=><Field label={label(key.replace(/([A-Z])/g,' $1'))} key={key}><input type="datetime-local" required value={inputDate(value as string)} onChange={e=>e.target.value&&setDates({...dates,[key]:new Date(e.target.value).toISOString()})}/></Field>)}</div>
+
+ {!d.requiresShoot && (
+  <div className="form-grid two" style={{marginTop:'8px'}}>
+   <Field label="Post caption (optional)" hint="The copy and message to accompany the graphic">
+    <textarea rows={3} value={d.sharedCaption||''} onChange={e=>set('sharedCaption',e.target.value)} placeholder="Write the post caption here..."/>
+   </Field>
+   <Field label="Hashtags (optional)" hint="Relevant tags for discovery">
+    <textarea rows={3} value={d.sharedHashtags||''} onChange={e=>set('sharedHashtags',e.target.value)} placeholder="#branding #agency #growth"/>
+   </Field>
+  </div>
+ )}
+
+ <Field label="Internal brief & notes"><textarea value={d.notes||''} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="What should the team know?"/></Field><FormFooter pending={pending} onCancel={onDone} submit={initial?.id?'Save content plan':'Create content'}/></form>;
 }
 function ClientForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  const {mutate,pending}=useMutation(),{data:users}=useResource<any[]>('/users'),router=useRouter();
