@@ -429,7 +429,7 @@ function Comments({c}:{c:any}){
 }
 function ContentChat({c}:{c:any}){const {data}=useResource<any[]>('/chat');const thread=data?.find(t=>t.clientId===c.clientId&&t.kind==='CLIENT_INTERNAL')||data?.find(t=>t.clientId===c.clientId)||data?.find(t=>t.contentId===c.id);return <Panel title="Client conversation" subtitle="Team conversations for this client are kept unified in the client thread."><div className="next-step"><MessageSquare size={32}/><div><h3>{thread?.title||c.client?.name+' · internal'}</h3><p>{thread?'All discussion and updates for this content flow directly into the client conversation thread.':'Open the conversation to keep the team aligned.'}</p><Link href={thread?'/chat?thread='+thread.id:'/chat'}><Button>Open conversation <ArrowUpRight size={15}/></Button></Link></div></div></Panel>;}
 function PublishingTab({ c }: { c: any }) {
-  const { can, refresh } = useApp();
+  const { can, refresh, openForm } = useApp();
   const [publishingDirect, setPublishingDirect] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const { data: accounts } = useResource<any[]>(`/social-publishing/accounts/${c.clientId}`);
@@ -444,6 +444,14 @@ function PublishingTab({ c }: { c: any }) {
       (targetPlatform.includes('LINKEDIN') && plat === 'LINKEDIN')
     );
   });
+
+  const carouselSlides = (c.driveLinks || []).filter(
+    (l: any) =>
+      l.category === 'Carousel Slide' ||
+      /slide/i.test(l.title) ||
+      (c.type.toUpperCase().includes('CAROUSEL') && l.category === 'Graphic')
+  );
+  const isCarousel = c.type.toUpperCase().includes('CAROUSEL') || carouselSlides.length >= 2;
 
   const handleDirectPublish = async () => {
     try {
@@ -507,6 +515,63 @@ function PublishingTab({ c }: { c: any }) {
               </div>
             </dl>
 
+            {/* CAROUSEL SLIDES OVERVIEW CARD */}
+            {isCarousel && (
+              <div className="p-4 rounded-2xl border border-sky-500/30 bg-sky-500/5 dark:bg-sky-950/20 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
+                      <FolderOpen size={13} /> Carousel Slide Deck ({carouselSlides.length} slides)
+                    </span>
+                    <h4 className="font-bold text-sm text-stone-900 dark:text-zinc-100 mt-0.5">
+                      Instagram Carousel Slide Sequence
+                    </h4>
+                  </div>
+                  {can('drive.manage') && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openForm('drive', { clientId: c.clientId, contentId: c.id, category: 'Carousel Slide', title: `Slide ${carouselSlides.length + 1}` })}
+                      className="text-xs"
+                    >
+                      <Plus size={13} /> Add Slide Link
+                    </Button>
+                  )}
+                </div>
+
+                {carouselSlides.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+                    {carouselSlides.map((slide: any, idx: number) => (
+                      <div
+                        key={slide.id || idx}
+                        className="p-2.5 rounded-xl bg-white dark:bg-zinc-800/80 border border-stone-200 dark:border-zinc-700 text-xs flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <strong className="block truncate text-stone-800 dark:text-zinc-200">
+                            #{idx + 1} · {slide.title}
+                          </strong>
+                          <span className="text-[11px] text-stone-500 dark:text-zinc-400 block truncate">
+                            {slide.url}
+                          </span>
+                        </div>
+                        <External href={slide.url} className="text-sky-600 text-xs font-semibold shrink-0">
+                          View
+                        </External>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-white dark:bg-zinc-800/80 border border-amber-300 dark:border-amber-700/50 text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                    <p className="font-semibold">⚠️ No individual slide links attached yet.</p>
+                    <p className="text-stone-600 dark:text-zinc-400">
+                      To publish a carousel directly to Instagram, attach at least 2 slide Google Drive links using <strong>"Add Slide Link"</strong> above.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* LIVE POST SUCCESS BANNER */}
             {isPublished && (
               <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -567,11 +632,13 @@ function PublishingTab({ c }: { c: any }) {
                   <Button
                     type="button"
                     className="btn-gradient w-full py-3.5 rounded-xl font-extrabold text-sm text-white shadow-lg shadow-pink-500/25 flex items-center justify-center gap-2 cursor-pointer"
-                    disabled={publishingDirect}
+                    disabled={publishingDirect || (isCarousel && carouselSlides.length < 2 && !c.publishing?.finalDriveUrl?.includes('\n'))}
                     onClick={() => setConfirmModalOpen(true)}
                   >
                     <Send size={16} />
-                    <span>⚡ Publish Directly to {c.platform} Now</span>
+                    <span>
+                      ⚡ {isCarousel && carouselSlides.length >= 2 ? `Publish Carousel (${carouselSlides.length} Slides) to ${c.platform} Now` : `Publish Directly to ${c.platform} Now`}
+                    </span>
                   </Button>
                 ) : (
                   <div className="text-xs text-stone-600 dark:text-zinc-400 bg-white dark:bg-zinc-800/80 p-3.5 rounded-xl border border-stone-200 dark:border-zinc-700 space-y-1.5">
@@ -638,6 +705,14 @@ function PublishingTab({ c }: { c: any }) {
                 {c.platform} (@{connectedAccount?.handle})
               </strong>
             </div>
+            {isCarousel && (
+              <div>
+                <span className="font-semibold text-stone-500">Post Type:</span>{' '}
+                <strong className="text-pink-600 dark:text-pink-400">
+                  Multi-Slide Carousel ({carouselSlides.length || 'Multi'} slides in deck)
+                </strong>
+              </div>
+            )}
             <div>
               <span className="font-semibold text-stone-500">Caption Preview:</span>
               <p className="mt-1 text-stone-700 dark:text-zinc-300 line-clamp-3 italic">

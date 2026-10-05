@@ -152,6 +152,101 @@ export class SocialPublishingService {
   }
 
   /**
+   * Publish a multi-image carousel to Instagram Business via Meta Graph API v21.0
+   * 1. Create Media Container for each slide: POST /{ig-user-id}/media?image_url={url}&is_carousel_item=true
+   * 2. Create Carousel Container: POST /{ig-user-id}/media?media_type=CAROUSEL&children={id1,id2...}&caption={caption}
+   * 3. Publish Container: POST /{ig-user-id}/media_publish?creation_id={carousel_id}
+   * 4. Fetch Permalink: GET /{media-id}?fields=permalink
+   */
+  async publishToInstagramCarousel(params: {
+    igUserId: string;
+    accessToken: string;
+    imageUrls: string[];
+    caption: string;
+  }): Promise<{ postId: string; liveUrl: string }> {
+    const { igUserId, accessToken, imageUrls, caption } = params;
+
+    if (!imageUrls || imageUrls.length < 2) {
+      throw new BadRequestException('An Instagram Carousel post requires at least 2 slide images.');
+    }
+    if (imageUrls.length > 10) {
+      throw new BadRequestException('Instagram allows a maximum of 10 slides per carousel post.');
+    }
+
+    const slideContainerIds: string[] = [];
+
+    // Step 1: Create individual slide containers
+    for (let i = 0; i < imageUrls.length; i++) {
+      const slideUrl = imageUrls[i];
+      const containerUrl = new URL(`https://graph.facebook.com/v21.0/${igUserId}/media`);
+      containerUrl.searchParams.set('image_url', slideUrl);
+      containerUrl.searchParams.set('is_carousel_item', 'true');
+      containerUrl.searchParams.set('access_token', accessToken);
+
+      const res = await httpsRequest(containerUrl.toString(), 'POST', {});
+      if (res.statusCode >= 400 || !res.data?.id) {
+        const errorMsg =
+          res.data?.error?.message ||
+          `Carousel slide #${i + 1} container creation failed (HTTP ${res.statusCode}).`;
+        throw new BadRequestException(`Meta Graph API Carousel Error (Slide ${i + 1}): ${errorMsg}`);
+      }
+      slideContainerIds.push(res.data.id);
+
+      // Brief delay between slide ingestion
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    // Step 2: Create parent Carousel container
+    const carouselUrl = new URL(`https://graph.facebook.com/v21.0/${igUserId}/media`);
+    carouselUrl.searchParams.set('media_type', 'CAROUSEL');
+    carouselUrl.searchParams.set('children', slideContainerIds.join(','));
+    carouselUrl.searchParams.set('caption', caption);
+    carouselUrl.searchParams.set('access_token', accessToken);
+
+    const carouselRes = await httpsRequest(carouselUrl.toString(), 'POST', {});
+    if (carouselRes.statusCode >= 400 || !carouselRes.data?.id) {
+      const errorMsg =
+        carouselRes.data?.error?.message ||
+        `Instagram carousel container creation failed (HTTP ${carouselRes.statusCode}).`;
+      throw new BadRequestException(`Meta Graph API Carousel Error: ${errorMsg}`);
+    }
+
+    const creationId = carouselRes.data.id;
+
+    // Brief delay to allow Meta CDN to assemble carousel
+    await new Promise((r) => setTimeout(r, 2500));
+
+    // Step 3: Publish the carousel container
+    const publishUrl = new URL(`https://graph.facebook.com/v21.0/${igUserId}/media_publish`);
+    publishUrl.searchParams.set('creation_id', creationId);
+    publishUrl.searchParams.set('access_token', accessToken);
+
+    const publishRes = await httpsRequest(publishUrl.toString(), 'POST', {});
+    if (publishRes.statusCode >= 400 || !publishRes.data?.id) {
+      const errorMsg =
+        publishRes.data?.error?.message ||
+        `Instagram carousel publishing failed (HTTP ${publishRes.statusCode}).`;
+      throw new BadRequestException(`Meta Graph API Carousel Publish Error: ${errorMsg}`);
+    }
+
+    const mediaId = publishRes.data.id;
+
+    // Step 4: Fetch live permalink
+    let liveUrl = `https://www.instagram.com/p/${mediaId}/`;
+    try {
+      const infoUrl = new URL(`https://graph.facebook.com/v21.0/${mediaId}`);
+      infoUrl.searchParams.set('fields', 'permalink');
+      infoUrl.searchParams.set('access_token', accessToken);
+      const infoRes = await httpsRequest(infoUrl.toString(), 'GET', {});
+      if (infoRes.data?.permalink) {
+        liveUrl = infoRes.data.permalink;
+      }
+    } catch {}
+
+    return { postId: mediaId, liveUrl };
+  }
+
+  /**
    * Publish a photo or post to Facebook Page via Meta Graph API v21.0
    * POST /{page-id}/photos
    */
@@ -281,9 +376,12 @@ export class SocialPublishingService {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
+        driveLinks: {
+          orderBy: { createdAt: 'asc' },
+        },
         creativeAssets: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
+          take: 10,
         },
       },
     });
@@ -317,8 +415,47 @@ export class SocialPublishingService {
       );
     }
 
-    // Determine the final media URL
+    // Determine slide URLs for Carousels or multi-image assets
+    let slideUrls: string[] = [];
+
+    // 1. From Drive links tagged as Carousel Slide, Graphic, or Slide
+    const carouselDriveLinks = (content.driveLinks || []).filter(
+      (l: any) =>
+        l.category === 'Carousel Slide' ||
+        l.category === 'Graphic' ||
+        /slide/i.test(l.title) ||
+        /carousel/i.test(l.title),
+    );
+
+    if (carouselDriveLinks.length >= 2) {
+      slideUrls = carouselDriveLinks.map((l: any) => normalizePublicMediaUrl(l.url));
+    }
+
+    // 2. From rawDrive if separated by newlines
+    const rawDrive =
+      content.publishing?.finalDriveUrl ||
+      content.versions[0]?.driveUrl ||
+      '';
+
+    if (slideUrls.length < 2 && rawDrive.includes('\n')) {
+      slideUrls = rawDrive
+        .split('\n')
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+        .map(normalizePublicMediaUrl);
+    }
+
+    // 3. From creativeAssets if multiple
+    if (slideUrls.length < 2 && content.creativeAssets?.length >= 2) {
+      slideUrls = content.creativeAssets.map((a: any) => a.imageUrl).filter(Boolean);
+    }
+
+    const isCarousel =
+      (content.type || '').toUpperCase().includes('CAROUSEL') || slideUrls.length >= 2;
+
+    // Determine the single media URL fallback
     let mediaUrl =
+      slideUrls[0] ||
       content.publishing?.finalDriveUrl ||
       content.creativeAssets[0]?.imageUrl ||
       content.versions[0]?.driveUrl ||
@@ -327,7 +464,7 @@ export class SocialPublishingService {
     mediaUrl = normalizePublicMediaUrl(mediaUrl);
 
     // Instagram & Facebook photo posts require an accessible media URL
-    if (['INSTAGRAM', 'FACEBOOK'].includes(targetPlatform) && !mediaUrl) {
+    if (['INSTAGRAM', 'FACEBOOK'].includes(targetPlatform) && !mediaUrl && !slideUrls.length) {
       throw new BadRequestException(
         `Cannot publish to ${targetPlatform} without a media asset. Please ensure an approved visual or drive link is attached.`,
       );
@@ -343,7 +480,7 @@ export class SocialPublishingService {
     let publishResult: { postId: string; liveUrl: string };
 
     console.log(
-      `[Social Publishing] Triggering One-Click Publish for CNT-${content.id} on ${targetPlatform} (${connectedAccount.handle})...`,
+      `[Social Publishing] Triggering One-Click Publish for CNT-${content.id} on ${targetPlatform} (${connectedAccount.handle}) [Format: ${isCarousel ? 'Carousel' : 'Single'} - Slides: ${slideUrls.length}]...`,
     );
 
     if (targetPlatform === 'INSTAGRAM') {
@@ -352,12 +489,32 @@ export class SocialPublishingService {
           'Instagram Business Account ID is missing on the connected account.',
         );
       }
-      publishResult = await this.publishToInstagram({
-        igUserId: connectedAccount.platformAccountId,
-        accessToken: connectedAccount.accessToken,
-        imageUrl: mediaUrl,
-        caption: finalCaption,
-      });
+
+      if (isCarousel) {
+        if (rawDrive.includes('/folders/') && slideUrls.length < 2) {
+          throw new BadRequestException(
+            'This post is marked as a Carousel, but the provided Drive link is a folder URL. Google Drive folders cannot be crawled by Meta API directly. Please attach individual slide links (Slide 1, Slide 2...) under Drive Links with category "Carousel Slide".',
+          );
+        }
+        if (slideUrls.length < 2) {
+          throw new BadRequestException(
+            'Instagram Carousel posts require at least 2 slide images. Please attach slide links under Drive Links (category "Carousel Slide") or in the Version link.',
+          );
+        }
+        publishResult = await this.publishToInstagramCarousel({
+          igUserId: connectedAccount.platformAccountId,
+          accessToken: connectedAccount.accessToken,
+          imageUrls: slideUrls.slice(0, 10),
+          caption: finalCaption,
+        });
+      } else {
+        publishResult = await this.publishToInstagram({
+          igUserId: connectedAccount.platformAccountId,
+          accessToken: connectedAccount.accessToken,
+          imageUrl: mediaUrl,
+          caption: finalCaption,
+        });
+      }
     } else if (targetPlatform === 'FACEBOOK') {
       const pageId = connectedAccount.platformAccountId || 'me';
       publishResult = await this.publishToFacebook({
