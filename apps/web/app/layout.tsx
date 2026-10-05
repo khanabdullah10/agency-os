@@ -6,7 +6,17 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'MAD O MEDIA • Agency OS',
   description: 'Connected Operating System for Creative Agencies — Mad O Media',
-  icons: { icon: '/mad-o-media-mark.png' },
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Agency OS',
+  },
+  applicationName: 'Agency OS',
 };
 
 export const viewport: Viewport = {
@@ -28,6 +38,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Agency OS" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <Script
           id="theme-init"
           strategy="beforeInteractive"
@@ -48,6 +64,11 @@ export default function RootLayout({
                       event.preventDefault();
                     }
                   });
+                  if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', function() {
+                      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function() {});
+                    });
+                  }
                 }
               })();
             `,

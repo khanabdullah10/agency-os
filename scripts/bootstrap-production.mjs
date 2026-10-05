@@ -225,6 +225,21 @@ function getOptimizedDatabaseUrl() {
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
       } catch {}
+      try {
+        await db.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS \`PushSubscription\` (
+            \`id\` VARCHAR(191) NOT NULL PRIMARY KEY,
+            \`userId\` VARCHAR(191) NOT NULL,
+            \`endpoint\` VARCHAR(500) NOT NULL UNIQUE,
+            \`p256dh\` TEXT NOT NULL,
+            \`auth\` TEXT NOT NULL,
+            \`userAgent\` TEXT NULL,
+            \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+            INDEX \`PushSubscription_userId_idx\` (\`userId\`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+      } catch {}
     } catch (sErr) {
       console.warn('Direct schema check notice:', sErr.message);
     }

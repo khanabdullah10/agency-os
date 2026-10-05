@@ -101,6 +101,7 @@ model User {
   comments     ContentComment[]
   attendances  Attendance[]
   creativeAssets CreativeAsset[]
+  pushSubscriptions PushSubscription[]
   @@index([agencyId, active])
 }
 model Session {
@@ -489,6 +490,18 @@ model NotificationDelivery {
   updatedAt DateTime @updatedAt
   @@unique([notificationId, channel])
   @@index([status, nextAttemptAt, lockedUntil])
+}
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique @db.VarChar(500)
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId])
 }
 model PublishingRecord {
   id        String @id @default(cuid())

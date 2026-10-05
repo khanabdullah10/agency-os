@@ -93,6 +93,22 @@ export class Database extends PrismaClient implements OnModuleInit, OnModuleDest
         console.log('[Agency OS] Database schema verified in MySQL.');
       }
 
+      try {
+        await this.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS \`PushSubscription\` (
+            \`id\` VARCHAR(191) NOT NULL PRIMARY KEY,
+            \`userId\` VARCHAR(191) NOT NULL,
+            \`endpoint\` VARCHAR(500) NOT NULL UNIQUE,
+            \`p256dh\` TEXT NOT NULL,
+            \`auth\` TEXT NOT NULL,
+            \`userAgent\` TEXT NULL,
+            \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+            INDEX \`PushSubscription_userId_idx\` (\`userId\`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+      } catch {}
+
       await this.ensureSuperAdmin();
     } catch (err: any) {
       console.warn('[Agency OS] Schema check notice:', err.message);
