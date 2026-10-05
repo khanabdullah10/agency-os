@@ -790,35 +790,35 @@ export function CreativeStudioView() {
 
             {/* Creative Prompt Textarea */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-stone-700 dark:text-zinc-300">
+              <div className="flex items-center justify-between gap-2 flex-nowrap">
+                <label className="text-xs font-semibold text-stone-700 dark:text-zinc-300 truncate">
                   Concept Description / Prompt
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   {originalPrompt && (
                     <button
                       type="button"
                       onClick={handleRevertPrompt}
-                      className="flex items-center gap-1 text-[11px] font-semibold text-stone-500 hover:text-stone-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 text-[11px] font-semibold text-stone-500 hover:text-stone-800 dark:hover:text-zinc-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       title="Undo Magic Enhance"
                     >
-                      <Undo2 size={12} />
-                      <span>Revert</span>
+                      <Undo2 size={12} className="shrink-0" />
+                      <span className="whitespace-nowrap">Revert</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={handleEnhancePrompt}
                     disabled={enhancing || (!prompt.trim() && !referenceImage)}
-                    className="flex items-center gap-1 text-[11px] font-bold text-pink-600 dark:text-pink-400 hover:text-pink-700 disabled:opacity-40 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 text-[11px] font-bold text-pink-600 dark:text-pink-400 hover:text-pink-700 disabled:opacity-40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                     title={
                       referenceImage
                         ? 'Inspect reference photo & ground prompt with exact character/product details'
                         : 'Enrich your prompt with photorealistic styling while keeping your subject 100% faithful'
                     }
                   >
-                    <Sparkles size={12} className={enhancing ? 'animate-spin' : ''} />
-                    <span>
+                    <Sparkles size={12} className={`shrink-0 ${enhancing ? 'animate-spin' : ''}`} />
+                    <span className="whitespace-nowrap">
                       {enhancing
                         ? (referenceImage ? 'Grounding...' : 'Enhancing...')
                         : (referenceImage ? 'Ground with Reference' : 'Magic Enhance')}
@@ -925,27 +925,27 @@ export function CreativeStudioView() {
         <div className={`lg:col-span-5 space-y-4 ${mobileTab === 'CANVAS' ? 'block' : 'hidden lg:block'}`}>
           <div className="rounded-2xl border border-stone-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-3.5 sm:p-5 shadow-xs space-y-4">
             {/* Visual Canvas Header */}
-            <div className="flex items-center justify-between border-b border-stone-100 dark:border-zinc-800/80 pb-3">
+            <div className="flex items-center justify-between border-b border-stone-100 dark:border-zinc-800/80 pb-3 gap-2 flex-nowrap">
               <div className="flex items-center gap-2 min-w-0">
                 <ImageIcon size={16} className="text-pink-500 shrink-0" />
                 <span className="font-bold text-sm text-stone-900 dark:text-zinc-100 truncate">
                   {activeAsset ? activeAsset.title : 'Creative Canvas'}
                 </span>
                 {activeAsset && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/15 text-pink-700 dark:text-pink-300 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/15 text-pink-700 dark:text-pink-300 shrink-0 whitespace-nowrap">
                     v{currentRevisionNumber}
                   </span>
                 )}
               </div>
 
               {/* View mode toggle tabs */}
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-nowrap shrink-0 overflow-x-auto no-scrollbar">
                 {activeAsset && (
                   <>
                     <button
                       type="button"
                       onClick={() => setCanvasMode('OUTPUT')}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                         canvasMode === 'OUTPUT'
                           ? 'bg-pink-600 text-white shadow-2xs'
                           : 'bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-zinc-300 hover:bg-stone-200'
@@ -959,15 +959,15 @@ export function CreativeStudioView() {
                         <button
                           type="button"
                           onClick={() => setCanvasMode('REFERENCE')}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0 ${
                             canvasMode === 'REFERENCE'
                               ? 'bg-pink-600 text-white shadow-2xs'
                               : 'bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-zinc-300 hover:bg-stone-200'
                           }`}
                           title="View original uploaded reference image"
                         >
-                          <Paperclip size={11} />
-                          <span>Reference</span>
+                          <Paperclip size={11} className="shrink-0" />
+                          <span className="whitespace-nowrap">Reference</span>
                         </button>
 
                         <button
@@ -976,15 +976,15 @@ export function CreativeStudioView() {
                             setCanvasMode(canvasMode === 'COMPARE_REFERENCE' ? 'OUTPUT' : 'COMPARE_REFERENCE');
                             setSliderPos(50);
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0 ${
                             canvasMode === 'COMPARE_REFERENCE'
                               ? 'bg-pink-600 text-white shadow-2xs'
                               : 'bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-zinc-300 hover:bg-stone-200'
                           }`}
                           title="Compare Reference Photo vs AI Visual Output"
                         >
-                          <Columns size={12} />
-                          <span>Ref vs AI</span>
+                          <Columns size={12} className="shrink-0" />
+                          <span className="whitespace-nowrap">Ref vs AI</span>
                         </button>
                       </>
                     )}
@@ -996,22 +996,22 @@ export function CreativeStudioView() {
                           setCanvasMode(canvasMode === 'COMPARE_REVISION' ? 'OUTPUT' : 'COMPARE_REVISION');
                           setSliderPos(50);
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0 ${
                           canvasMode === 'COMPARE_REVISION'
                             ? 'bg-pink-600 text-white shadow-2xs'
                             : 'bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-zinc-300 hover:bg-stone-200'
                         }`}
                         title="Compare Previous Revision vs Current Revision"
                       >
-                        <Columns size={12} />
-                        <span>v{previousRevision.revisionNumber} vs v{currentRevisionNumber}</span>
+                        <Columns size={12} className="shrink-0" />
+                        <span className="whitespace-nowrap">v{previousRevision.revisionNumber} vs v{currentRevisionNumber}</span>
                       </button>
                     )}
                   </>
                 )}
 
                 {activeAsset && (
-                  <span className="text-[11px] font-mono text-stone-400 px-2 py-0.5 bg-stone-100 dark:bg-zinc-800 rounded-md">
+                  <span className="text-[11px] font-mono text-stone-400 px-2 py-0.5 bg-stone-100 dark:bg-zinc-800 rounded-md whitespace-nowrap shrink-0">
                     {activeAsset.aspectRatio}
                   </span>
                 )}
@@ -1181,40 +1181,40 @@ export function CreativeStudioView() {
                     type="button"
                     onClick={handleRegenerate}
                     disabled={regenerating}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/40 dark:hover:bg-pink-900/50 text-pink-700 dark:text-pink-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/40 dark:hover:bg-pink-900/50 text-pink-700 dark:text-pink-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs disabled:opacity-50 whitespace-nowrap shrink-0"
                     title="Regenerate this visual concept with a fresh seed"
                   >
-                    <RefreshCw size={13} className={regenerating ? 'animate-spin' : ''} />
-                    <span>{regenerating ? 'Regenerating...' : 'Regenerate'}</span>
+                    <RefreshCw size={13} className={`shrink-0 ${regenerating ? 'animate-spin' : ''}`} />
+                    <span className="whitespace-nowrap">{regenerating ? 'Regenerating...' : 'Regenerate'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleDownload}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
                   >
-                    <Download size={13} />
-                    <span>Download Visual</span>
+                    <Download size={13} className="shrink-0" />
+                    <span className="whitespace-nowrap">Download Visual</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleCopyLink}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
                   >
-                    <Copy size={13} />
-                    <span>Copy URL</span>
+                    <Copy size={13} className="shrink-0" />
+                    <span className="whitespace-nowrap">Copy URL</span>
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
                   <button
                     type="button"
                     onClick={() => setAttachModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
                   >
-                    <Layers size={13} />
-                    <span>Attach to Content</span>
+                    <Layers size={13} className="shrink-0" />
+                    <span className="whitespace-nowrap">Attach to Content</span>
                   </button>
                 </div>
               </div>
