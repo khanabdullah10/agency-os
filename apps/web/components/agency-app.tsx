@@ -37,6 +37,9 @@ import {
   User as UserIcon,
   FileSpreadsheet,
   CalendarCheck,
+  Smartphone,
+  Share,
+  PlusSquare,
 } from 'lucide-react';
 import { api, Actor, AppContext, useApp, useResource, useMutation, csrf } from '@/lib/api';
 import { initials, label, playNotificationTone } from '@/lib/utils';
@@ -492,6 +495,44 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [search, setSearch] = useState(false);
   const router = useRouter();
   const [notices, setNotices] = useState<any[]>([]);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(true);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+
+  useEffect(() => {
+    const checkStandalone = () => {
+      const standalone =
+        typeof window !== 'undefined' &&
+        (window.matchMedia('(display-mode: standalone)').matches ||
+          (window.navigator as any).standalone === true ||
+          document.referrer.includes('android-app://'));
+      setIsStandalone(Boolean(standalone));
+    };
+    checkStandalone();
+
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsStandalone(false);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      try {
+        const choice = await deferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          setIsStandalone(true);
+          setDeferredPrompt(null);
+        }
+      } catch {}
+    } else {
+      setInstallModalOpen(true);
+    }
+  };
 
   const cleanNoticeBody = (body: string = '') => body.replace(/^CNT-\d+\s*·\s*/i, '');
 
@@ -863,6 +904,30 @@ function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           )}
 
+          {/* Install App Option in Sidebar */}
+          {!isStandalone && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobile(false);
+                handleInstallClick();
+              }}
+              className="nav-item group w-full text-left cursor-pointer transition-colors"
+              style={{ borderLeft: '3px solid transparent' }}
+            >
+              <div
+                className="flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-150 group-hover:scale-105 shrink-0"
+                style={{ backgroundColor: '#ec489918', color: '#ec4899' }}
+              >
+                <Smartphone size={15} style={{ color: '#ec4899' }} />
+              </div>
+              <span className="font-semibold text-pink-600 dark:text-pink-400">Install App</span>
+              <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-400">
+                PWA
+              </span>
+            </button>
+          )}
+
           <div className="sidebar-divider" />
 
           {/* User Profile */}
@@ -924,7 +989,7 @@ function Shell({ children }: { children: React.ReactNode }) {
               onClick={toggleTheme}
               type="button"
               title={`Switch to ${isDark ? 'Light' : 'Dark'} mode`}
-              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all duration-200 ${
+              className={`flex items-center justify-center rounded-full w-[30px] h-[30px] sm:w-auto sm:h-auto sm:px-2.5 sm:py-1 sm:gap-1.5 text-xs font-semibold transition-all duration-200 shrink-0 ${
                 isDark
                   ? 'border border-zinc-700/80 bg-zinc-900 text-zinc-200 hover:bg-zinc-800'
                   : 'border border-stone-200/80 bg-stone-50/80 text-stone-700 hover:bg-stone-100'
@@ -932,16 +997,29 @@ function Shell({ children }: { children: React.ReactNode }) {
             >
               {isDark ? (
                 <>
-                  <Sun className="h-3.5 w-3.5 text-amber-400" />
+                  <Sun className="h-3.5 w-3.5 shrink-0 text-amber-400" />
                   <span className="hidden sm:inline text-[11px]">Light</span>
                 </>
               ) : (
                 <>
-                  <Moon className="h-3.5 w-3.5 text-indigo-600" />
+                  <Moon className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
                   <span className="hidden sm:inline text-[11px]">Dark</span>
                 </>
               )}
             </button>
+
+            {/* Install App Button (Shows when app is not yet installed as standalone) */}
+            {!isStandalone && (
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                title="Install Mad O Media App"
+                className="install-btn flex items-center justify-center rounded-full w-[30px] h-[30px] sm:w-auto sm:h-auto sm:px-2.5 sm:py-1 sm:gap-1.5 text-xs font-semibold border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20 transition-all duration-200 shrink-0 cursor-pointer"
+              >
+                <Smartphone className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden sm:inline text-[11px]">Install</span>
+              </button>
+            )}
 
             <span className="header-divider" />
 
@@ -975,6 +1053,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       </div>
 
       <SearchModal open={search} onClose={() => setSearch(false)} />
+      <InstallAppModal open={installModalOpen} onClose={() => setInstallModalOpen(false)} />
     </div>
   );
 }
@@ -1023,3 +1102,146 @@ function SearchModal({ open, onClose }: { open: boolean; onClose: () => void }) 
     </Modal>
   );
 }
+
+function InstallAppModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [platform, setPlatform] = useState<'ios' | 'android'>('ios');
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      const isApple =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      setPlatform(isApple ? 'ios' : 'android');
+    }
+  }, [open]);
+
+  return (
+    <Modal
+      open={open}
+      onOpenChange={(v) => !v && onClose()}
+      title="Install Mad O Media App"
+      description="Add Mad O Media to your home screen for full-screen mode, faster speeds, and instant notifications."
+    >
+      <div className="flex flex-col gap-4 py-2">
+        {/* App Preview Card */}
+        <div className="flex items-center gap-3.5 p-3.5 rounded-xl border border-stone-200 dark:border-zinc-800 bg-stone-50/70 dark:bg-zinc-900/60">
+          <div className="w-12 h-12 rounded-xl overflow-hidden shadow-sm shrink-0 bg-zinc-950 flex items-center justify-center border border-zinc-800">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon-192.png" alt="Mad O Media" className="w-10 h-10 object-contain" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-bold text-stone-900 dark:text-zinc-100 truncate">Mad O Media</h4>
+            <p className="text-xs text-stone-500 dark:text-zinc-400">Agency Operating System</p>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 shrink-0">
+            PWA App
+          </span>
+        </div>
+
+        {/* Platform Switcher */}
+        <div className="grid grid-cols-2 p-1 rounded-lg bg-stone-100 dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setPlatform('ios')}
+            className={`py-1.5 rounded-md transition-all ${
+              platform === 'ios'
+                ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm'
+                : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
+            }`}
+          >
+            iOS (iPhone / iPad)
+          </button>
+          <button
+            type="button"
+            onClick={() => setPlatform('android')}
+            className={`py-1.5 rounded-md transition-all ${
+              platform === 'android'
+                ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm'
+                : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
+            }`}
+          >
+            Android / Desktop
+          </button>
+        </div>
+
+        {/* Steps */}
+        {platform === 'ios' ? (
+          <div className="space-y-2.5 text-xs text-stone-700 dark:text-zinc-300">
+            <div className="flex items-start gap-3 p-2.5 rounded-lg bg-stone-50 dark:bg-zinc-900/50 border border-stone-200/60 dark:border-zinc-800/60">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-500 text-[11px] font-bold text-white">
+                1
+              </span>
+              <div>
+                <p className="font-semibold text-stone-900 dark:text-zinc-100">Open in Safari</p>
+                <p className="text-[11px] text-stone-500 dark:text-zinc-400">
+                  Ensure you are opening this page directly in Apple Safari.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-2.5 rounded-lg bg-stone-50 dark:bg-zinc-900/50 border border-stone-200/60 dark:border-zinc-800/60">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-500 text-[11px] font-bold text-white">
+                2
+              </span>
+              <div>
+                <p className="font-semibold text-stone-900 dark:text-zinc-100 flex items-center gap-1.5">
+                  Tap the Share button <Share size={13} className="text-blue-500 inline shrink-0" />
+                </p>
+                <p className="text-[11px] text-stone-500 dark:text-zinc-400">
+                  Found in Safari’s bottom navigation bar (or top toolbar on iPad).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-2.5 rounded-lg bg-stone-50 dark:bg-zinc-900/50 border border-stone-200/60 dark:border-zinc-800/60">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-500 text-[11px] font-bold text-white">
+                3
+              </span>
+              <div>
+                <p className="font-semibold text-stone-900 dark:text-zinc-100 flex items-center gap-1.5">
+                  Select &quot;Add to Home Screen&quot; <PlusSquare size={13} className="text-blue-500 inline shrink-0" />
+                </p>
+                <p className="text-[11px] text-stone-500 dark:text-zinc-400">
+                  Scroll down the share sheet and tap &quot;Add to Home Screen&quot;, then tap &quot;Add&quot; at the top right.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2.5 text-xs text-stone-700 dark:text-zinc-300">
+            <div className="flex items-start gap-3 p-2.5 rounded-lg bg-stone-50 dark:bg-zinc-900/50 border border-stone-200/60 dark:border-zinc-800/60">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-500 text-[11px] font-bold text-white">
+                1
+              </span>
+              <div>
+                <p className="font-semibold text-stone-900 dark:text-zinc-100">Open Browser Menu</p>
+                <p className="text-[11px] text-stone-500 dark:text-zinc-400">
+                  In Chrome, Edge, or Samsung Internet, tap the three dots (<strong className="text-stone-700 dark:text-zinc-300">⋮</strong>) menu.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-2.5 rounded-lg bg-stone-50 dark:bg-zinc-900/50 border border-stone-200/60 dark:border-zinc-800/60">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-500 text-[11px] font-bold text-white">
+                2
+              </span>
+              <div>
+                <p className="font-semibold text-stone-900 dark:text-zinc-100">Tap &quot;Install App&quot; or &quot;Add to Home screen&quot;</p>
+                <p className="text-[11px] text-stone-500 dark:text-zinc-400">
+                  Confirm the installation prompt to add Mad O Media directly onto your device app launcher.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2 flex justify-end">
+          <Button variant="default" size="sm" onClick={onClose} className="w-full sm:w-auto">
+            Got it
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+

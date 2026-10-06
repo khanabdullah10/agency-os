@@ -4201,12 +4201,21 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   }
   .topbar-right .icon-button,
   .topbar-right .search-trigger,
-  .topbar-right #theme-toggle {
+  .topbar-right #theme-toggle,
+  .topbar-right .install-btn {
     width: 30px;
     height: 30px;
     min-width: 30px;
     min-height: 30px;
     padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .topbar-right #theme-toggle svg,
+  .topbar-right .install-btn svg {
+    margin: 0;
+    display: block;
   }
   .topbar-right .avatar.small {
     width: 24px;
@@ -4217,7 +4226,68 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
     padding: 12px 8px 24px 8px;
   }
   .overview-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 4px 0 0 0 !important;
+    margin-bottom: 16px !important;
+  }
+  .overview-stats .stat-card {
+    padding: 12px 10px !important;
+    gap: 6px !important;
+    border-radius: 14px !important;
+    min-width: 0 !important;
+  }
+  .overview-stats .stat-card-header {
+    gap: 4px !important;
+  }
+  .overview-stats .stat-card-title {
+    font-size: 10px !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1.25 !important;
+    min-height: 25px !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+  .overview-stats .stat-card-icon {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    border-radius: 8px !important;
+  }
+  .overview-stats .stat-card-icon svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+  .overview-stats .stat-card-metric {
+    margin: 1px 0 !important;
+  }
+  .overview-stats .stat-card-metric strong {
+    font-size: 22px !important;
+    line-height: 1.1 !important;
+  }
+  .overview-stats .stat-card-arrow {
+    display: none !important;
+  }
+  .overview-stats .stat-card-sub {
+    font-size: 10px !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .overview-stats .stat-card-chip {
+    margin-top: 2px !important;
+  }
+  .overview-stats .stat-card-chip small {
+    font-size: 9.5px !important;
+    padding: 2px 7px !important;
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
   .pipeline {
     grid-template-columns: 1fr;
