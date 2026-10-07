@@ -1019,19 +1019,6 @@ function Shell({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
-            {/* Install App Button (Shows when app is not yet installed as standalone) */}
-            {!isStandalone && (
-              <button
-                type="button"
-                onClick={handleInstallClick}
-                title="Install Mad O Media App"
-                className="install-btn flex items-center justify-center rounded-full w-[30px] h-[30px] sm:w-auto sm:h-auto sm:px-2.5 sm:py-1 sm:gap-1.5 text-xs font-semibold border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20 transition-all duration-200 shrink-0 cursor-pointer"
-              >
-                <Smartphone className="h-3.5 w-3.5 shrink-0" />
-                <span className="hidden sm:inline text-[11px]">Install</span>
-              </button>
-            )}
-
             <span className="header-divider" />
 
             {!actor.isClient && (

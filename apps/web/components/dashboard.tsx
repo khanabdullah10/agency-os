@@ -18,10 +18,10 @@ import { useApp, useResource } from '@/lib/api';
 import { dateLabel, timeLabel, label } from '@/lib/utils';
 import { Avatar, ClientMark, Loading, ErrorState, Empty, Panel } from './shared';
 
-const INDIGO = '#6366f1';
-const SKY = '#0284c7';
-const AMBER = '#f59e0b';
-const EMERALD = '#10b981';
+const INDIGO = '#818cf8';
+const SKY = '#38bdf8';
+const AMBER = '#fbbf24';
+const EMERALD = '#34d399';
 
 export function Dashboard() {
   const { actor, can, openForm } = useApp();
@@ -139,6 +139,7 @@ export function Dashboard() {
           sub={actor.isClient ? 'planned this month' : 'brands growing with us'}
           href={actor.isClient ? '/content' : '/clients'}
           chip={actor.isClient ? 'This month' : d.totalClients + ' total'}
+          theme="indigo"
           color={INDIGO}
         />
         <Stat
@@ -148,6 +149,7 @@ export function Dashboard() {
           sub="ideas moving into the world"
           href="/calendar"
           chip="On the calendar"
+          theme="sky"
           color={SKY}
         />
         <Stat
@@ -157,6 +159,7 @@ export function Dashboard() {
           sub={actor.isClient ? 'ready for feedback' : `${pendingInternal} internal · ${pendingClient} client`}
           href="/approvals"
           chip="Needs a look"
+          theme="amber"
           color={AMBER}
           accent
         />
@@ -167,6 +170,7 @@ export function Dashboard() {
           sub="good work, out in the wild"
           href="/publishing"
           chip="This month"
+          theme="emerald"
           color={EMERALD}
         />
       </div>
@@ -408,7 +412,8 @@ function Stat({
   sub,
   href,
   chip,
-  color = '#0284c7',
+  theme = 'indigo',
+  color = '#818cf8',
   accent,
 }: {
   label: string;
@@ -417,28 +422,18 @@ function Stat({
   sub: string;
   href: string;
   chip: string;
+  theme?: 'indigo' | 'sky' | 'amber' | 'emerald';
   color?: string;
   accent?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={`stat-card group ${accent ? 'stat-accent' : ''}`}
-      style={
-        {
-          background: `linear-gradient(150deg, ${color}18 0%, var(--card-bg, #ffffff) 65%)`,
-          borderColor: `${color}35`,
-          '--card-glow': `${color}45`,
-          '--card-hover-border': `${color}99`,
-        } as React.CSSProperties
-      }
+      className={`stat-card card-${theme} group ${accent ? 'stat-accent' : ''}`}
     >
       <div className="stat-card-header">
         <span className="stat-card-title">{title}</span>
-        <div
-          className="stat-card-icon"
-          style={{ backgroundColor: `${color}20`, color }}
-        >
+        <div className="stat-card-icon">
           <Icon size={16} />
         </div>
       </div>
@@ -448,23 +443,8 @@ function Stat({
       </div>
       <p className="stat-card-sub">{sub}</p>
       <div className="stat-card-chip">
-        <small
-          style={
-            accent
-              ? {
-                  backgroundColor: `${color}18`,
-                  color: color,
-                  borderColor: `${color}40`,
-                }
-              : undefined
-          }
-        >
-          {accent && (
-            <i
-              className="stat-card-dot"
-              style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}99` }}
-            />
-          )}
+        <small>
+          <i className="stat-card-dot" />
           {chip}
         </small>
       </div>

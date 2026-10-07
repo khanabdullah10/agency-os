@@ -754,7 +754,219 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   outline: none !important;
 }
 .stat-card.stat-accent {
-  border-color: rgba(245, 158, 11, 0.4) !important;
+  border-color: rgba(251, 191, 36, 0.5) !important;
+}
+
+/* =====================================================================
+   Filled Color Stat Cards (Full Edge-to-Edge Color, Not Just A Shade)
+   ===================================================================== */
+
+/* 1. Indigo / Purple Card (Active Clients) */
+.stat-card.card-indigo {
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.16) 0%, rgba(79, 70, 229, 0.08) 100%), #ffffff;
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 18px -3px rgba(99, 102, 241, 0.15);
+}
+.stat-card.card-indigo .stat-card-title { color: #4338ca !important; }
+.stat-card.card-indigo .stat-card-sub { color: #6366f1 !important; }
+.stat-card.card-indigo .stat-card-arrow { color: #6366f1 !important; opacity: 0.8; }
+.stat-card.card-indigo .stat-card-icon {
+  background: rgba(99, 102, 241, 0.18) !important;
+  border: 1px solid rgba(99, 102, 241, 0.35) !important;
+  color: #4f46e5 !important;
+}
+.stat-card.card-indigo .stat-card-chip small {
+  background: rgba(99, 102, 241, 0.15) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: #4338ca !important;
+}
+.stat-card.card-indigo .stat-card-dot {
+  background: #6366f1 !important;
+  box-shadow: 0 0 6px #6366f1 !important;
+}
+
+.dark .stat-card.card-indigo {
+  background: linear-gradient(145deg, rgba(129, 140, 248, 0.22) 0%, rgba(99, 102, 241, 0.12) 100%), var(--card-bg, #141416) !important;
+  border-color: rgba(129, 140, 248, 0.35) !important;
+  box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(165, 180, 252, 0.12) !important;
+}
+.dark .stat-card.card-indigo .stat-card-title { color: #c7d2fe !important; }
+.dark .stat-card.card-indigo .stat-card-sub { color: #a5b4fc !important; }
+.dark .stat-card.card-indigo .stat-card-arrow { color: #818cf8 !important; opacity: 0.9; }
+.dark .stat-card.card-indigo .stat-card-icon {
+  background: rgba(129, 140, 248, 0.18) !important;
+  border: 1px solid rgba(165, 180, 252, 0.35) !important;
+  color: #818cf8 !important;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25) !important;
+}
+.dark .stat-card.card-indigo .stat-card-chip small {
+  background: rgba(99, 102, 241, 0.18) !important;
+  border-color: rgba(129, 140, 248, 0.35) !important;
+  color: #c7d2fe !important;
+}
+.dark .stat-card.card-indigo .stat-card-dot {
+  background: #818cf8 !important;
+  box-shadow: 0 0 6px #818cf8 !important;
+}
+.stat-card.card-indigo:hover {
+  border-color: rgba(129, 140, 248, 0.7) !important;
+  box-shadow: 0 12px 30px -4px rgba(99, 102, 241, 0.35) !important;
+}
+
+/* 2. Sky / Blue Card (Content This Month) */
+.stat-card.card-sky {
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.16) 0%, rgba(2, 132, 199, 0.08) 100%), #ffffff;
+  border-color: rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 18px -3px rgba(2, 132, 199, 0.15);
+}
+.stat-card.card-sky .stat-card-title { color: #0369a1 !important; }
+.stat-card.card-sky .stat-card-sub { color: #0284c7 !important; }
+.stat-card.card-sky .stat-card-arrow { color: #0284c7 !important; opacity: 0.8; }
+.stat-card.card-sky .stat-card-icon {
+  background: rgba(56, 189, 248, 0.18) !important;
+  border: 1px solid rgba(2, 132, 199, 0.35) !important;
+  color: #0284c7 !important;
+}
+.stat-card.card-sky .stat-card-chip small {
+  background: rgba(56, 189, 248, 0.15) !important;
+  border-color: rgba(2, 132, 199, 0.35) !important;
+  color: #0369a1 !important;
+}
+.stat-card.card-sky .stat-card-dot {
+  background: #0284c7 !important;
+  box-shadow: 0 0 6px #0284c7 !important;
+}
+
+.dark .stat-card.card-sky {
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.22) 0%, rgba(14, 165, 233, 0.12) 100%), var(--card-bg, #141416) !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+  box-shadow: 0 4px 20px -2px rgba(14, 165, 233, 0.2), inset 0 1px 0 rgba(125, 211, 252, 0.12) !important;
+}
+.dark .stat-card.card-sky .stat-card-title { color: #bae6fd !important; }
+.dark .stat-card.card-sky .stat-card-sub { color: #7dd3fc !important; }
+.dark .stat-card.card-sky .stat-card-arrow { color: #38bdf8 !important; opacity: 0.9; }
+.dark .stat-card.card-sky .stat-card-icon {
+  background: rgba(56, 189, 248, 0.18) !important;
+  border: 1px solid rgba(125, 211, 252, 0.35) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25) !important;
+}
+.dark .stat-card.card-sky .stat-card-chip small {
+  background: rgba(14, 165, 233, 0.18) !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+  color: #bae6fd !important;
+}
+.dark .stat-card.card-sky .stat-card-dot {
+  background: #38bdf8 !important;
+  box-shadow: 0 0 8px #38bdf8 !important;
+}
+.stat-card.card-sky:hover {
+  border-color: rgba(56, 189, 248, 0.7) !important;
+  box-shadow: 0 12px 30px -4px rgba(14, 165, 233, 0.35) !important;
+}
+
+/* 3. Amber / Orange Card (Awaiting Approval) */
+.stat-card.card-amber {
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.16) 0%, rgba(245, 158, 11, 0.08) 100%), #ffffff;
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 4px 18px -3px rgba(245, 158, 11, 0.15);
+}
+.stat-card.card-amber .stat-card-title { color: #b45309 !important; }
+.stat-card.card-amber .stat-card-sub { color: #d97706 !important; }
+.stat-card.card-amber .stat-card-arrow { color: #d97706 !important; opacity: 0.8; }
+.stat-card.card-amber .stat-card-icon {
+  background: rgba(251, 191, 36, 0.18) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+  color: #d97706 !important;
+}
+.stat-card.card-amber .stat-card-chip small {
+  background: rgba(251, 191, 36, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #b45309 !important;
+}
+.stat-card.card-amber .stat-card-dot {
+  background: #d97706 !important;
+  box-shadow: 0 0 6px #d97706 !important;
+}
+
+.dark .stat-card.card-amber {
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.22) 0%, rgba(245, 158, 11, 0.12) 100%), var(--card-bg, #141416) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  box-shadow: 0 4px 20px -2px rgba(245, 158, 11, 0.2), inset 0 1px 0 rgba(253, 230, 138, 0.12) !important;
+}
+.dark .stat-card.card-amber .stat-card-title { color: #fde68a !important; }
+.dark .stat-card.card-amber .stat-card-sub { color: #fcd34d !important; }
+.dark .stat-card.card-amber .stat-card-arrow { color: #fbbf24 !important; opacity: 0.9; }
+.dark .stat-card.card-amber .stat-card-icon {
+  background: rgba(251, 191, 36, 0.18) !important;
+  border: 1px solid rgba(253, 230, 138, 0.35) !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25) !important;
+}
+.dark .stat-card.card-amber .stat-card-chip small {
+  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  color: #fde68a !important;
+}
+.dark .stat-card.card-amber .stat-card-dot {
+  background: #fbbf24 !important;
+  box-shadow: 0 0 6px #fbbf24 !important;
+}
+.stat-card.card-amber:hover {
+  border-color: rgba(251, 191, 36, 0.7) !important;
+  box-shadow: 0 12px 30px -4px rgba(245, 158, 11, 0.35) !important;
+}
+
+/* 4. Emerald / Green Card (Published Content) */
+.stat-card.card-emerald {
+  background: linear-gradient(145deg, rgba(52, 211, 153, 0.16) 0%, rgba(16, 185, 129, 0.08) 100%), #ffffff;
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 18px -3px rgba(16, 185, 129, 0.15);
+}
+.stat-card.card-emerald .stat-card-title { color: #047857 !important; }
+.stat-card.card-emerald .stat-card-sub { color: #059669 !important; }
+.stat-card.card-emerald .stat-card-arrow { color: #059669 !important; opacity: 0.8; }
+.stat-card.card-emerald .stat-card-icon {
+  background: rgba(52, 211, 153, 0.18) !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+  color: #059669 !important;
+}
+.stat-card.card-emerald .stat-card-chip small {
+  background: rgba(52, 211, 153, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #047857 !important;
+}
+.stat-card.card-emerald .stat-card-dot {
+  background: #059669 !important;
+  box-shadow: 0 0 6px #059669 !important;
+}
+
+.dark .stat-card.card-emerald {
+  background: linear-gradient(145deg, rgba(52, 211, 153, 0.22) 0%, rgba(16, 185, 129, 0.12) 100%), var(--card-bg, #141416) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(167, 243, 208, 0.12) !important;
+}
+.dark .stat-card.card-emerald .stat-card-title { color: #a7f3d0 !important; }
+.dark .stat-card.card-emerald .stat-card-sub { color: #6ee7b7 !important; }
+.dark .stat-card.card-emerald .stat-card-arrow { color: #34d399 !important; opacity: 0.9; }
+.dark .stat-card.card-emerald .stat-card-icon {
+  background: rgba(52, 211, 153, 0.18) !important;
+  border: 1px solid rgba(167, 243, 208, 0.35) !important;
+  color: #34d399 !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25) !important;
+}
+.dark .stat-card.card-emerald .stat-card-chip small {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  color: #a7f3d0 !important;
+}
+.dark .stat-card.card-emerald .stat-card-dot {
+  background: #34d399 !important;
+  box-shadow: 0 0 6px #34d399 !important;
+}
+.stat-card.card-emerald:hover {
+  border-color: rgba(52, 211, 153, 0.7) !important;
+  box-shadow: 0 12px 30px -4px rgba(16, 185, 129, 0.35) !important;
 }
 .stat-card-header {
   display: flex;
@@ -826,22 +1038,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   font-weight: 600;
   padding: 3px 9px;
   border-radius: 9999px;
-  background: var(--background) !important;
-  color: var(--muted) !important;
-  border: 1px solid var(--border-color) !important;
-}
-.stat-accent .stat-card-chip small {
-  background: rgba(245, 158, 11, 0.12) !important;
-  color: #f59e0b !important;
-  border-color: rgba(245, 158, 11, 0.28) !important;
+  background: var(--background);
+  color: var(--muted);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
 }
 .stat-card-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #f59e0b;
   display: inline-block;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  flex-shrink: 0;
 }
 
 /* Panels */
@@ -3993,6 +4200,7 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   .overview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .dashboard-main-grid { grid-template-columns: 1fr; }
   .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .pipeline > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   .client-grid { grid-template-columns: 1fr; }
   .team-grid { grid-template-columns: 1fr; }
   .drive-grid { grid-template-columns: 1fr; }
@@ -4307,13 +4515,61 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
     text-overflow: ellipsis !important;
   }
   .pipeline {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 12px 10px 14px !important;
+  }
+  .pipeline-stage {
+    padding: 10px 10px !important;
+    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid var(--border-color) !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    gap: 4px !important;
+    transition: all 0.2s ease !important;
+  }
+  .dark .pipeline-stage {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+  }
+  .pipeline-stage:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: var(--accent) !important;
+  }
+  .pipeline-stage:last-child:nth-child(odd) {
+    grid-column: 1 / -1 !important;
+  }
+  .pipeline-stage > strong {
+    font-size: 20px !important;
+    line-height: 1.1 !important;
+    margin-bottom: 2px !important;
+  }
+  .stage-label {
+    font-size: 10px !important;
+    margin-bottom: 8px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .pipeline-top {
+    margin-bottom: 6px !important;
+  }
+  .pipeline-top small {
+    font-size: 9.5px !important;
+  }
+  .stage-track {
+    height: 4px !important;
   }
   .client-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
   }
   .report-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
   }
   .detail-grid {
     grid-template-columns: 1fr;
