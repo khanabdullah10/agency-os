@@ -501,12 +501,23 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const checkStandalone = () => {
+      const isIOSStandalone =
+        typeof window !== 'undefined' && (window.navigator as any).standalone === true;
       const standalone =
         typeof window !== 'undefined' &&
         (window.matchMedia('(display-mode: standalone)').matches ||
-          (window.navigator as any).standalone === true ||
+          isIOSStandalone ||
           document.referrer.includes('android-app://'));
       setIsStandalone(Boolean(standalone));
+
+      if (typeof document !== 'undefined') {
+        const isApple =
+          /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (isApple && (isIOSStandalone || window.matchMedia('(display-mode: standalone)').matches)) {
+          document.documentElement.classList.add('ios-standalone');
+        }
+      }
     };
     checkStandalone();
 

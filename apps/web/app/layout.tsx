@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'Agency OS',
   },
   applicationName: 'Agency OS',
@@ -53,7 +53,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Agency OS" />
         <meta name="mobile-web-app-capable" content="yes" />
         <Script
@@ -68,6 +68,9 @@ export default function RootLayout({
                     document.documentElement.classList.add('dark');
                   } else {
                     document.documentElement.classList.remove('dark');
+                  }
+                  if (typeof window !== 'undefined' && window.navigator && window.navigator.standalone) {
+                    document.documentElement.classList.add('ios-standalone');
                   }
                 } catch (e) {}
                 if (typeof window !== 'undefined') {
