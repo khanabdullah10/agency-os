@@ -758,19 +758,20 @@ export function SpreadsheetView() {
     [selectedCell, isEditing, editValue, currentTab, commitEdit, handleUndo, handleRedo, updateCell]
   );
 
-  // Column resizing handlers
-  const handleResizeStart = (e: React.MouseEvent, col: string) => {
+  // Column resizing handlers (supporting both mouse and mobile touch)
+  const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, col: string) => {
     e.stopPropagation();
-    e.preventDefault();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     setResizingCol(col);
-    setResizeStartX(e.clientX);
+    setResizeStartX(clientX);
     setResizeStartWidth(currentTab.colWidths[col] || 120);
   };
 
   useEffect(() => {
     if (!resizingCol) return;
-    const handleMouseMove = (e: MouseEvent) => {
-      const diff = e.clientX - resizeStartX;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+      const diff = clientX - resizeStartX;
       const newWidth = Math.max(50, resizeStartWidth + diff);
       setWorkbook((prev) => ({
         ...prev,
@@ -781,15 +782,19 @@ export function SpreadsheetView() {
         ),
       }));
     };
-    const handleMouseUp = () => {
+    const handleEnd = () => {
       setResizingCol(null);
       setSaveStatus('dirty');
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
     };
   }, [resizingCol, resizeStartX, resizeStartWidth, currentTab.id]);
 
@@ -975,23 +980,23 @@ export function SpreadsheetView() {
     <div
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      className={`spreadsheet-container outline-hidden flex flex-col h-[calc(100vh-80px)] w-full overflow-hidden rounded-xl border shadow-xs transition-colors duration-200 select-none ${
+      className={`spreadsheet-container outline-hidden flex flex-col h-[calc(100dvh-78px)] sm:h-[calc(100vh-80px)] w-full max-w-full overflow-hidden rounded-xl border shadow-xs transition-colors duration-200 select-none ${
         isDark ? 'bg-[#0f1115] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
       }`}
     >
       {/* 1. TOP HEADER & WORKSPACE TOOLBAR */}
       <div
-        className={`px-4 py-2.5 flex items-center justify-between border-b shrink-0 ${
+        className={`px-2.5 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-1.5 sm:gap-3 border-b shrink-0 ${
           isDark ? 'bg-[#14171d] border-zinc-800' : 'bg-stone-50/80 border-stone-200'
         }`}
       >
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-emerald-600/15 text-emerald-500 shadow-xs">
-            <FileSpreadsheet size={20} />
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-emerald-600/15 text-emerald-500 shadow-xs shrink-0">
+            <FileSpreadsheet size={18} className="sm:w-5 sm:h-5" />
           </div>
 
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {isEditingTitle ? (
                 <input
                   type="text"
@@ -1008,7 +1013,7 @@ export function SpreadsheetView() {
                       handleSave(workbook, title);
                     }
                   }}
-                  className={`text-sm font-semibold px-2 py-0.5 rounded-md outline-hidden border ${
+                  className={`text-xs sm:text-sm font-semibold px-2 py-0.5 rounded-md outline-hidden border max-w-[130px] sm:max-w-xs ${
                     isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-white border-stone-300'
                   }`}
                 />
@@ -1016,16 +1021,16 @@ export function SpreadsheetView() {
                 <h1
                   onClick={() => setIsEditingTitle(true)}
                   title="Click to rename spreadsheet"
-                  className="text-sm font-semibold tracking-tight hover:opacity-75 cursor-pointer flex items-center gap-1.5"
+                  className="text-xs sm:text-sm font-semibold tracking-tight hover:opacity-75 cursor-pointer flex items-center gap-1 truncate max-w-[125px] xs:max-w-[160px] sm:max-w-xs"
                 >
-                  {title}
-                  <span className="text-[10px] text-zinc-400 font-normal">✎</span>
+                  <span className="truncate">{title}</span>
+                  <span className="text-[10px] text-zinc-400 font-normal shrink-0">✎</span>
                 </h1>
               )}
 
               {/* Status pill */}
               <span
-                className={`text-[11px] font-medium flex items-center gap-1 px-2 py-0.5 rounded-full ${
+                className={`text-[10px] sm:text-[11px] font-medium flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ${
                   saveStatus === 'saved'
                     ? 'text-emerald-500 bg-emerald-500/10'
                     : saveStatus === 'saving'
@@ -1033,24 +1038,24 @@ export function SpreadsheetView() {
                     : 'text-zinc-400 bg-zinc-500/10'
                 }`}
               >
-                {saveStatus === 'saved' && <Check size={11} />}
-                {saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved changes'}
+                {saveStatus === 'saved' && <Check size={10} className="sm:w-[11px] sm:h-[11px]" />}
+                <span>{saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Unsaved'}</span>
               </span>
             </div>
 
             {/* Sub-menu bar */}
-            <div className="flex items-center gap-3 text-xs text-zinc-400 mt-0.5">
-              <span>{currentTab.name}</span>
+            <div className="flex items-center gap-1.5 sm:gap-3 text-[10px] sm:text-xs text-zinc-400 mt-0.5 truncate">
+              <span className="truncate font-medium text-zinc-300 dark:text-zinc-400">{currentTab.name}</span>
               <span>•</span>
-              <span>{currentTab.rowCount} rows</span>
-              <span>•</span>
-              <span>Formula ready (=SUM, =AVERAGE)</span>
+              <span className="shrink-0">{currentTab.rowCount} rows</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline">Formula ready (=SUM, =AVERAGE)</span>
             </div>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Search Toggle */}
           <div className="relative">
             {showSearch ? (
@@ -1066,7 +1071,7 @@ export function SpreadsheetView() {
                   value={searchQuery}
                   autoFocus
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="text-xs bg-transparent outline-hidden w-28 text-foreground"
+                  className="text-xs bg-transparent outline-hidden w-24 sm:w-28 text-foreground"
                 />
                 <button onClick={() => { setSearchQuery(''); setShowSearch(false); }} className="text-zinc-400 hover:text-zinc-200">
                   <X size={12} />
@@ -1076,13 +1081,13 @@ export function SpreadsheetView() {
               <button
                 onClick={() => setShowSearch(true)}
                 title="Search records"
-                className={`p-2 rounded-lg border transition-colors ${
+                className={`p-1.5 sm:p-2 rounded-lg border transition-colors ${
                   isDark
                     ? 'border-zinc-700 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white'
                     : 'border-stone-200 bg-white hover:bg-stone-100 text-stone-600 hover:text-stone-900'
                 }`}
               >
-                <Search size={15} />
+                <Search size={14} className="sm:w-[15px] sm:h-[15px]" />
               </button>
             )}
           </div>
@@ -1091,15 +1096,16 @@ export function SpreadsheetView() {
           <div className="relative">
             <button
               onClick={() => setShowTemplates((v) => !v)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
+              title="Starter Templates"
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
                 isDark
                   ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-200'
                   : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
               }`}
             >
-              <Sparkles size={13} className="text-emerald-500" />
-              <span>Templates</span>
-              <ChevronDown size={12} />
+              <Sparkles size={13} className="text-emerald-500 shrink-0" />
+              <span className="hidden sm:inline">Templates</span>
+              <ChevronDown size={11} className="shrink-0" />
             </button>
 
             {showTemplates && (
@@ -1146,13 +1152,13 @@ export function SpreadsheetView() {
           {/* CSV Import */}
           <label
             title="Import CSV File"
-            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
+            className={`cursor-pointer flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
               isDark
                 ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-200'
                 : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
             }`}
           >
-            <Upload size={13} />
+            <Upload size={13} className="shrink-0" />
             <span className="hidden sm:inline">Import</span>
             <input type="file" accept=".csv" onChange={handleImportCsv} className="hidden" />
           </label>
@@ -1161,13 +1167,13 @@ export function SpreadsheetView() {
           <button
             onClick={handleExportCsv}
             title="Export sheet to CSV"
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all shadow-2xs ${
               isDark
                 ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-200'
                 : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
             }`}
           >
-            <Download size={13} />
+            <Download size={13} className="shrink-0" />
             <span className="hidden sm:inline">Export</span>
           </button>
 
@@ -1175,19 +1181,21 @@ export function SpreadsheetView() {
           <button
             onClick={() => handleSave()}
             disabled={saveStatus === 'saving'}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all active:scale-95"
+            title="Save spreadsheet"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all active:scale-95 shrink-0"
           >
-            <Save size={13} />
-            <span>Save</span>
+            <Save size={13} className="shrink-0" />
+            <span className="hidden xs:inline sm:inline">Save</span>
           </button>
         </div>
       </div>
 
-      {/* 2. FORMATTING TOOLBAR */}
+      {/* 2. FORMATTING TOOLBAR (HORIZONTAL SWIPEABLE RIBBON ON MOBILE) */}
       <div
-        className={`px-3 py-1.5 flex items-center gap-1 flex-wrap border-b shrink-0 text-xs ${
+        className={`px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1 overflow-x-auto whitespace-nowrap scrollbar-none border-b shrink-0 text-xs select-none ${
           isDark ? 'bg-[#181b22] border-zinc-800 text-zinc-300' : 'bg-stone-100/70 border-stone-200 text-stone-700'
         }`}
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Undo / Redo */}
         <button
@@ -1434,13 +1442,13 @@ export function SpreadsheetView() {
 
       {/* 3. GOOGLE SHEETS FORMULA BAR (`fx`) */}
       <div
-        className={`px-3 py-1.5 flex items-center gap-2 border-b shrink-0 text-xs font-mono ${
+        className={`px-2.5 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 border-b shrink-0 text-xs font-mono ${
           isDark ? 'bg-[#12141a] border-zinc-800' : 'bg-white border-stone-200'
         }`}
       >
         {/* Cell Coordinate box */}
         <div
-          className={`flex items-center justify-center font-semibold text-center w-14 py-1 rounded border shadow-2xs ${
+          className={`flex items-center justify-center font-semibold text-center w-11 sm:w-14 py-0.5 sm:py-1 rounded border shadow-2xs text-[11px] sm:text-xs shrink-0 ${
             isDark ? 'bg-zinc-800 border-zinc-700 text-emerald-400' : 'bg-stone-50 border-stone-300 text-emerald-700'
           }`}
         >
@@ -1448,7 +1456,7 @@ export function SpreadsheetView() {
         </div>
 
         {/* Function icon */}
-        <span className="text-zinc-400 font-serif font-bold text-sm italic select-none">
+        <span className="text-zinc-400 font-serif font-bold text-xs sm:text-sm italic select-none shrink-0">
           fx
         </span>
 
@@ -1465,25 +1473,41 @@ export function SpreadsheetView() {
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.currentTarget.blur();
+              setIsEditing(false);
             }
           }}
-          placeholder="Enter text, numbers, or formula (e.g. =SUM(G2:G5))"
-          className="grow bg-transparent outline-hidden px-2 py-1 font-sans text-xs text-foreground placeholder:text-zinc-500"
+          onFocus={() => {
+            setIsEditing(true);
+          }}
+          placeholder="Enter value or formula (e.g. =SUM(A1:A5))"
+          className="grow min-w-0 bg-transparent outline-hidden px-1.5 sm:px-2 py-0.5 sm:py-1 font-sans text-xs text-foreground placeholder:text-zinc-500"
         />
+
+        {/* Quick checkmark to commit edit on mobile */}
+        {isEditing && (
+          <button
+            type="button"
+            onClick={() => commitEdit(editValue)}
+            title="Done"
+            className="flex items-center justify-center h-6 w-6 rounded bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 shadow-xs active:scale-95 transition-transform"
+          >
+            <Check size={12} />
+          </button>
+        )}
       </div>
 
       {/* 4. THE SPREADSHEET GRID */}
       <div
         ref={gridContainerRef}
         className="grow overflow-auto relative select-none scrollbar-thin"
-        style={{ scrollbarGutter: 'stable' }}
+        style={{ scrollbarGutter: 'stable', WebkitOverflowScrolling: 'touch' }}
       >
         <table className="border-collapse table-fixed w-max text-xs">
           <thead>
             <tr className={`sticky top-0 z-20 ${isDark ? 'bg-[#181b22]' : 'bg-stone-100'}`}>
-              {/* Corner Header (select all) */}
+              {/* Corner Header (select all) - Anchored at top-left */}
               <th
-                className={`w-10 h-7 border text-center font-normal ${
+                className={`sticky top-0 left-0 z-30 w-10 sm:w-10 h-8 sm:h-7 border text-center font-normal select-none ${
                   isDark ? 'border-zinc-800 bg-[#16181f] text-zinc-500' : 'border-stone-300 bg-stone-200 text-stone-500'
                 }`}
               >
@@ -1501,7 +1525,7 @@ export function SpreadsheetView() {
                     key={col}
                     style={{ width, minWidth: width, maxWidth: width }}
                     onClick={() => setSelectedCell(`${col}1`)}
-                    className={`relative h-7 px-1 border text-center font-semibold text-xs tracking-wider select-none ${
+                    className={`relative h-8 sm:h-7 px-1 border text-center font-semibold text-xs tracking-wider select-none ${
                       isDark
                         ? `border-zinc-800 ${isColSelected ? 'bg-emerald-950/40 text-emerald-400' : 'bg-[#16181f] text-zinc-400'}`
                         : `border-stone-300 ${isColSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-600'}`
@@ -1509,10 +1533,11 @@ export function SpreadsheetView() {
                   >
                     {col}
 
-                    {/* Column Resizing Handle */}
+                    {/* Column Resizing Handle with Mouse & Touch */}
                     <div
                       onMouseDown={(e) => handleResizeStart(e, col)}
-                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-emerald-500 z-10"
+                      onTouchStart={(e) => handleResizeStart(e, col)}
+                      className="absolute right-0 top-0 bottom-0 w-3 sm:w-1.5 cursor-col-resize hover:bg-emerald-500 active:bg-emerald-500 z-10 touch-none"
                     />
                   </th>
                 );
@@ -1530,7 +1555,7 @@ export function SpreadsheetView() {
                   {/* Row Number Header (1, 2, 3...) */}
                   <td
                     onClick={() => setSelectedCell(`A${row}`)}
-                    className={`sticky left-0 z-10 w-10 h-6 border text-center font-mono text-[11px] select-none ${
+                    className={`sticky left-0 z-10 w-10 h-8 sm:h-6 border text-center font-mono text-[11px] select-none ${
                       isDark
                         ? `border-zinc-800 ${isRowSelected ? 'bg-emerald-950/40 text-emerald-400' : 'bg-[#16181f] text-zinc-500'}`
                         : `border-stone-300 ${isRowSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-500'}`
@@ -1555,6 +1580,10 @@ export function SpreadsheetView() {
                           if (selectedCell !== cellKey) {
                             if (isEditing) commitEdit(editValue);
                             setSelectedCell(cellKey);
+                          } else if (!isEditing) {
+                            // Touch friendly: second tap on selected cell opens editor on mobile!
+                            setIsEditing(true);
+                            setTimeout(() => cellInputRef.current?.focus(), 10);
                           }
                         }}
                         onDoubleClick={() => {
@@ -1563,7 +1592,7 @@ export function SpreadsheetView() {
                           setTimeout(() => cellInputRef.current?.focus(), 10);
                         }}
                         style={resolveCellStyles(cell, isMatch)}
-                        className={`relative h-6 px-1.5 border truncate whitespace-nowrap overflow-hidden text-xs transition-colors ${
+                        className={`relative h-8 sm:h-6 px-1.5 border truncate whitespace-nowrap overflow-hidden text-xs transition-colors ${
                           isDark ? 'border-zinc-800/80' : 'border-stone-200'
                         } ${
                           isSelected
@@ -1602,31 +1631,31 @@ export function SpreadsheetView() {
         </table>
 
         {/* Add More Rows Bottom Bar */}
-        <div className="p-4 flex items-center gap-3">
+        <div className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={() => handleAddRows(10)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
               isDark
                 ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
                 : 'bg-stone-100 hover:bg-stone-200 border-stone-300 text-stone-700'
             }`}
           >
             <Plus size={13} />
-            <span>Add +10 Rows</span>
+            <span>+10 Rows</span>
           </button>
           <button
             onClick={() => handleAddRows(50)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
               isDark
                 ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
                 : 'bg-stone-100 hover:bg-stone-200 border-stone-300 text-stone-700'
             }`}
           >
             <Plus size={13} />
-            <span>Add +50 Rows</span>
+            <span>+50 Rows</span>
           </button>
-          <span className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-            Total {currentTab.rowCount} rows in {currentTab.name}
+          <span className={`text-[11px] sm:text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+            Total {currentTab.rowCount} rows
           </span>
         </div>
       </div>
@@ -1636,8 +1665,9 @@ export function SpreadsheetView() {
         className={`px-2 py-1.5 flex items-center justify-between border-t shrink-0 ${
           isDark ? 'bg-[#14171d] border-zinc-800' : 'bg-stone-100 border-stone-300'
         }`}
+        style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* Add Sheet Tab Button */}
           <button
             onClick={handleAddTab}
