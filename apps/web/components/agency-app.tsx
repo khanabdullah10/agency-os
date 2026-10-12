@@ -40,6 +40,7 @@ import {
   Smartphone,
   Share,
   PlusSquare,
+  Users2,
 } from 'lucide-react';
 import { api, Actor, AppContext, useApp, useResource, useMutation, csrf } from '@/lib/api';
 import { initials, label, playNotificationTone } from '@/lib/utils';
@@ -54,6 +55,8 @@ import { ChatView } from './chat';
 import { SpreadsheetView } from './sheets';
 import { AttendanceView } from './attendance';
 import { CreativeStudioView } from './creative-studio';
+import { InfluencerMarketingView, isInfluencerRole } from './influencer-marketing';
+import { InfluencerPublicIntakeForm } from './influencer-intake';
 import { CreateForm } from './forms';
 import MadOMediaLogo from './MadOMediaLogo';
 import { useTheme } from './ThemeProvider';
@@ -66,6 +69,7 @@ const nav = [
   { href: '/content', name: 'Content', icon: Layers3, permission: 'content.view', group: 'Workspace', color: '#10b981' }, // Emerald
   { href: '/tasks', name: 'Tasks', icon: CheckSquare2, permission: 'task.view', group: 'Workspace', color: '#6366f1' }, // Indigo
   { href: '/records', name: 'Master Records', icon: FileSpreadsheet, permission: 'content.view', group: 'Workspace', color: '#0f9d58' }, // Sheets Green
+  { href: '/influencer-marketing', name: 'Influencer Marketing', icon: Users2, permission: 'content.view', group: 'Workspace', color: '#ec4899' }, // Magenta / Pink
   { href: '/approvals', name: 'Approvals', icon: CircleCheck, permission: 'content.view', group: 'Workspace', color: '#f43f5e' }, // Rose
   { href: '/chat', name: 'Messages', icon: MessageSquare, permission: 'chat.view', group: 'Studio', color: '#06b6d4' }, // Cyan
   { href: '/creative-studio', name: 'Creative Studio', icon: Sparkles, permission: 'content.view', group: 'Studio', color: '#ec4899' }, // Pink
@@ -120,6 +124,10 @@ export function AgencyApp() {
       </div>
     );
 
+  if (path === '/influencer-intake' || path === '/forms/influencer') {
+    return <InfluencerPublicIntakeForm />;
+  }
+
   if (!actor)
     return (
       <>
@@ -160,6 +168,8 @@ export function AgencyApp() {
               '/clients': actor.isClient ? <Dashboard /> : <ClientsView />,
               '/tasks': actor.isClient ? <Dashboard /> : <TasksView />,
               '/records': actor.isClient ? <Dashboard /> : <SpreadsheetView />,
+              '/influencer-marketing': actor.isClient ? <Dashboard /> : <InfluencerMarketingView />,
+              '/influencer-intake': <InfluencerPublicIntakeForm />,
               '/attendance': actor.isClient ? <Dashboard /> : <AttendanceView />,
               '/approvals': <ApprovalsView />,
               '/chat': actor.isClient ? <Dashboard /> : <ChatView />,
@@ -810,7 +820,8 @@ function Shell({ children }: { children: React.ReactNode }) {
                   (n) =>
                     n.group === group &&
                     can(n.permission) &&
-                    (!actor.isClient || !['/clients', '/team', '/tasks', '/publishing', '/activity', '/chat', '/attendance', '/creative-studio'].includes(n.href))
+                    (!actor.isClient || !['/clients', '/team', '/tasks', '/publishing', '/activity', '/chat', '/attendance', '/creative-studio'].includes(n.href)) &&
+                    (n.href !== '/influencer-marketing' || isInfluencerRole(actor))
                 )
                 .map((n) => {
                   const isActive = path.startsWith(n.href);
