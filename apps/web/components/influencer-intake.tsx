@@ -36,17 +36,6 @@ const GENRES = [
   'Other',
 ];
 
-const BRANDS = [
-  'Willow & Root',
-  'The Daily Grind',
-  'Forma Studio',
-  'Aether Athletics',
-  'Bloom Skincare',
-  'Northbound',
-  'General / Multiple Brands',
-  'Other',
-];
-
 export function InfluencerPublicIntakeForm() {
   const { isDark } = useTheme();
   const [submitted, setSubmitted] = useState(false);
@@ -63,8 +52,7 @@ export function InfluencerPublicIntakeForm() {
     city: '',
     address: '',
     followers: '',
-    brand: 'Willow & Root',
-    customBrand: '',
+    brand: '',
     reel: '',
     story: '',
   });
@@ -83,7 +71,6 @@ export function InfluencerPublicIntakeForm() {
 
     setSubmitting(true);
     try {
-      const selectedBrand = form.brand === 'Other' && form.customBrand ? form.customBrand : form.brand;
       const payload = {
         name: form.name.trim(),
         instaId: form.instaId.trim().startsWith('@') ? form.instaId.trim() : `@${form.instaId.trim()}`,
@@ -95,7 +82,7 @@ export function InfluencerPublicIntakeForm() {
         city: form.city.trim(),
         address: form.address.trim(),
         followers: form.followers.trim(),
-        brand: selectedBrand,
+        brand: form.brand.trim() || 'General',
         reel: form.reel.trim(),
         story: form.story.trim(),
       };
@@ -142,7 +129,7 @@ export function InfluencerPublicIntakeForm() {
             </div>
             <div className="flex justify-between">
               <span className="text-zinc-500">Brand / Campaign:</span>
-              <span className="font-semibold text-pink-500">{form.brand === 'Other' ? form.customBrand : form.brand}</span>
+              <span className="font-semibold text-pink-500">{form.brand || 'General'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-zinc-500">Followers:</span>
@@ -168,8 +155,7 @@ export function InfluencerPublicIntakeForm() {
                 city: '',
                 address: '',
                 followers: '',
-                brand: 'Willow & Root',
-                customBrand: '',
+                brand: '',
                 reel: '',
                 story: '',
               });
@@ -403,38 +389,19 @@ export function InfluencerPublicIntakeForm() {
 
           <div>
             <label className="block text-xs font-medium mb-1">Targeted Brand / Campaign</label>
-            <select
+            <input
+              type="text"
               name="brand"
+              placeholder="e.g. Zara, Nike, Willow & Root"
               value={form.brand}
               onChange={handleChange}
-              className={`w-full px-3 py-2 rounded-lg text-xs border outline-hidden font-medium ${
-                isDark ? 'bg-zinc-900/80 border-zinc-800 text-pink-400' : 'bg-stone-50 border-stone-200 text-pink-600'
+              className={`w-full px-3 py-2 rounded-lg text-xs border outline-hidden transition-all ${
+                isDark
+                  ? 'bg-zinc-900/80 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-pink-500'
+                  : 'bg-stone-50 border-stone-200 text-stone-900 placeholder:text-stone-400 focus:border-pink-500'
               }`}
-            >
-              {BRANDS.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
+            />
           </div>
-
-          {form.brand === 'Other' && (
-            <div>
-              <label className="block text-xs font-medium mb-1">Specify Brand Name</label>
-              <input
-                type="text"
-                name="customBrand"
-                required
-                placeholder="Enter brand name"
-                value={form.customBrand}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 rounded-lg text-xs border outline-hidden ${
-                  isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-stone-50 border-stone-200'
-                }`}
-              />
-            </div>
-          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
