@@ -14,13 +14,17 @@ import {
   Bold,
   Italic,
   Underline,
+  Strikethrough,
   AlignLeft,
   AlignCenter,
   AlignRight,
+  DollarSign,
+  Percent,
   Search,
   Check,
   ChevronDown,
   X,
+  Palette,
   RotateCcw,
   ExternalLink,
   Copy,
@@ -37,6 +41,10 @@ import {
   RefreshCw,
   SlidersHorizontal,
   Minus,
+  Rows,
+  Columns,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { api, useApp } from '@/lib/api';
 import { useTheme } from './ThemeProvider';
@@ -49,11 +57,82 @@ interface CellFormat {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  strike?: boolean;
   color?: string;
   bg?: string;
   align?: 'left' | 'center' | 'right';
+  format?: 'text' | 'currency' | 'percent' | 'number';
   fontSize?: number;
 }
+
+const COLOR_PALETTE = [
+  '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef', '#f3f3f3', '#ffffff',
+  '#980000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',
+  '#e6b8af', '#f4cccc', '#fce5cd', '#fff2cc', '#d9ead3', '#d0e0e3', '#c9daf8', '#cfe2f3', '#d9d2e9', '#ead1dc',
+  '#dd7e6b', '#ea9999', '#f9cb9c', '#ffe599', '#b6d7a8', '#a2c4c9', '#a4c2f4', '#9fc5e8', '#b4a7d6', '#d5a6bd',
+  '#cc4125', '#e06666', '#f6b26b', '#ffd966', '#93c47d', '#76a5af', '#6d9eeb', '#6fa8dc', '#8e7cc3', '#c27ba0',
+];
+
+const PASTEL_BG_PALETTE = [
+  { name: 'None', color: 'transparent' },
+  { name: 'Soft Gray', color: '#f1f5f9' },
+  { name: 'Soft Green', color: '#dcfce7' },
+  { name: 'Soft Amber', color: '#fef3c7' },
+  { name: 'Soft Blue', color: '#e0f2fe' },
+  { name: 'Soft Purple', color: '#ede9fe' },
+  { name: 'Soft Rose', color: '#ffe4e6' },
+  { name: 'Soft Teal', color: '#ccfbf1' },
+];
+
+const THEME_COLOR_MAP: Record<
+  string,
+  {
+    lightBg: string;
+    lightText: string;
+    darkBg: string;
+    darkText: string;
+  }
+> = {
+  // Amber / Yellow Statuses (e.g. In Progress, Pending)
+  '#fef3c7': { lightBg: '#fef3c7', lightText: '#92400e', darkBg: 'rgba(245, 158, 11, 0.22)', darkText: '#fbbf24' },
+  '#fff2cc': { lightBg: '#fff2cc', lightText: '#92400e', darkBg: 'rgba(245, 158, 11, 0.22)', darkText: '#fbbf24' },
+  '#ffe599': { lightBg: '#ffe599', lightText: '#92400e', darkBg: 'rgba(245, 158, 11, 0.25)', darkText: '#fbbf24' },
+  '#f9cb9c': { lightBg: '#f9cb9c', lightText: '#9a3412', darkBg: 'rgba(249, 115, 22, 0.22)', darkText: '#fdba74' },
+
+  // Green Statuses (e.g. Approved, Paid, Ready)
+  '#dcfce7': { lightBg: '#dcfce7', lightText: '#166534', darkBg: 'rgba(16, 185, 129, 0.22)', darkText: '#34d399' },
+  '#d9ead3': { lightBg: '#d9ead3', lightText: '#166534', darkBg: 'rgba(16, 185, 129, 0.22)', darkText: '#34d399' },
+  '#b6d7a8': { lightBg: '#b6d7a8', lightText: '#166534', darkBg: 'rgba(16, 185, 129, 0.25)', darkText: '#34d399' },
+
+  // Purple / Violet Statuses (e.g. Review, Under Admin Review)
+  '#ede9fe': { lightBg: '#ede9fe', lightText: '#5b21b6', darkBg: 'rgba(168, 85, 247, 0.22)', darkText: '#c084fc' },
+  '#d9d2e9': { lightBg: '#d9d2e9', lightText: '#5b21b6', darkBg: 'rgba(168, 85, 247, 0.22)', darkText: '#c084fc' },
+  '#b4a7d6': { lightBg: '#b4a7d6', lightText: '#5b21b6', darkBg: 'rgba(168, 85, 247, 0.25)', darkText: '#c084fc' },
+
+  // Blue / Cyan / Sky Statuses (e.g. Planned, Scheduled, Active)
+  '#e0f2fe': { lightBg: '#e0f2fe', lightText: '#075985', darkBg: 'rgba(0, 180, 255, 0.20)', darkText: '#38bdf8' },
+  '#cfe2f3': { lightBg: '#cfe2f3', lightText: '#075985', darkBg: 'rgba(0, 180, 255, 0.20)', darkText: '#38bdf8' },
+  '#c9daf8': { lightBg: '#c9daf8', lightText: '#1e40af', darkBg: 'rgba(59, 130, 246, 0.22)', darkText: '#60a5fa' },
+  '#d0e0e3': { lightBg: '#d0e0e3', lightText: '#155e75', darkBg: 'rgba(6, 182, 212, 0.20)', darkText: '#22d3ee' },
+
+  // Rose / Red / Pink Statuses (e.g. Overdue, Cancelled, Urgent, Influencer theme)
+  '#fdf2f8': { lightBg: '#fdf2f8', lightText: '#9d174d', darkBg: 'rgba(236, 72, 153, 0.18)', darkText: '#f472b6' },
+  '#fce7f3': { lightBg: '#fce7f3', lightText: '#9d174d', darkBg: 'rgba(236, 72, 153, 0.22)', darkText: '#f472b6' },
+  '#ffe4e6': { lightBg: '#ffe4e6', lightText: '#9f1239', darkBg: 'rgba(225, 29, 72, 0.22)', darkText: '#fb7185' },
+  '#f4cccc': { lightBg: '#f4cccc', lightText: '#991b1b', darkBg: 'rgba(239, 68, 68, 0.22)', darkText: '#f87171' },
+  '#ea9999': { lightBg: '#ea9999', lightText: '#991b1b', darkBg: 'rgba(239, 68, 68, 0.25)', darkText: '#f87171' },
+  '#ead1dc': { lightBg: '#ead1dc', lightText: '#831843', darkBg: 'rgba(236, 72, 153, 0.22)', darkText: '#f472b6' },
+
+  // Teal
+  '#ccfbf1': { lightBg: '#ccfbf1', lightText: '#115e59', darkBg: 'rgba(20, 184, 166, 0.22)', darkText: '#2dd4bf' },
+
+  // Neutral / Gray / Surface Headers
+  '#f1f5f9': { lightBg: '#f1f5f9', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+  '#f8fafc': { lightBg: '#f8fafc', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+  '#ffffff': { lightBg: '#ffffff', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+  '#f3f3f3': { lightBg: '#f3f3f3', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+  '#efefef': { lightBg: '#efefef', lightText: '#09090b', darkBg: '#1c2029', darkText: '#f4f4f5' },
+};
 
 export interface SheetColumn {
   key: string;
@@ -224,7 +303,10 @@ export function InfluencerMarketingView() {
   const [selectedCell, setSelectedCell] = useState<string>('A2');
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [formulaValue, setFormulaValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState<'text' | 'bg' | null>(null);
 
   // Range Filters state
   const [rangeFilterOpen, setRangeFilterOpen] = useState(false);
@@ -299,6 +381,18 @@ export function InfluencerMarketingView() {
 
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const cellInputRef = useRef<HTMLInputElement>(null);
+  const formulaInputRef = useRef<HTMLInputElement>(null);
+
+  // Exit fullscreen on Escape
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen && !isEditing) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isFullscreen, isEditing]);
 
   // Load workbook from backend
   useEffect(() => {
@@ -354,6 +448,19 @@ export function InfluencerMarketingView() {
   const masterTab = useMemo(() => {
     return workbook.tabs.find((t) => t.id === 'tab_master' || t.name.includes('Master')) || workbook.tabs[0];
   }, [workbook]);
+
+  // Active cell format
+  const activeCellFormat: CellFormat = useMemo(() => {
+    return currentTab.data[selectedCell] || {};
+  }, [currentTab, selectedCell]);
+
+  // Sync formula bar when selected cell changes
+  useEffect(() => {
+    const cell = currentTab.data[selectedCell];
+    const val = cell?.v !== undefined ? String(cell.v) : '';
+    setFormulaValue(val);
+    setEditValue(val);
+  }, [selectedCell, currentTab]);
 
   // Push state to history
   const pushState = useCallback(
@@ -527,84 +634,392 @@ export function InfluencerMarketingView() {
     [workbook, columns]
   );
 
-  // Commit cell edit
-  const commitEdit = (newVal: string) => {
-    setIsEditing(false);
-    const parsed = parseCellKey(selectedCell);
-    if (!parsed) return;
+  const colIndex = (col: string): number => {
+    let index = 0;
+    for (let i = 0; i < col.length; i++) {
+      index = index * 26 + (col.charCodeAt(i) - 64);
+    }
+    return index - 1;
+  };
 
-    const oldCell = currentTab.data[selectedCell];
-    const updatedCell: CellFormat = { ...oldCell, v: newVal };
+  // Safe Formula Evaluation engine
+  const evaluateFormula = useCallback(
+    (expr: string, visited = new Set<string>()): string | number => {
+      if (!expr.startsWith('=')) return expr;
+      const cleanExpr = expr.substring(1).trim().toUpperCase();
 
-    const newTab = {
-      ...currentTab,
-      data: {
-        ...currentTab.data,
-        [selectedCell]: updatedCell,
-      },
-    };
+      // Check for SUM: =SUM(A1:A5) or =SUM(A1, B1, 5)
+      const sumMatch = cleanExpr.match(/^SUM\(([^)]+)\)$/);
+      if (sumMatch) {
+        const range = sumMatch[1];
+        if (range.includes(':')) {
+          const [start, end] = range.split(':');
+          const pStart = parseCellKey(start.trim());
+          const pEnd = parseCellKey(end.trim());
+          if (!pStart || !pEnd) return expr;
 
-    let newWorkbook: WorkbookData;
+          let sum = 0;
+          const startCol = colIndex(pStart.col);
+          const endCol = colIndex(pEnd.col);
+          const startRow = Math.min(pStart.row, pEnd.row);
+          const endRow = Math.max(pStart.row, pEnd.row);
 
-    // If currently on Master Tab and Column K (Brand) is changed, trigger automatic brand tab sync!
-    if (currentTab.id === masterTab.id) {
-      const intermediateWb = {
-        ...workbook,
-        tabs: workbook.tabs.map((t) => (t.id === currentTab.id ? newTab : t)),
-      };
-      if (parsed.col === 'K') {
-        newWorkbook = syncBrandSheets(intermediateWb);
-      } else {
-        newWorkbook = intermediateWb;
-      }
-    } else {
-      // If currently on a Brand Tab:
-      // Sync the changed cell back to the Master tab!
-      const brandName = currentTab.name;
-      const rowInBrand = parsed.row;
-      const nameInBrand = parsed.col === 'A' ? newVal : currentTab.data[`A${rowInBrand}`]?.v;
-      const instaInBrand = parsed.col === 'B' ? newVal : currentTab.data[`B${rowInBrand}`]?.v;
-
-      const updatedMasterData = { ...masterTab.data };
-      // Locate corresponding row in Master tab
-      let foundMasterRow = -1;
-      for (let r = 2; r <= masterTab.rowCount; r++) {
-        const mName = masterTab.data[`A${r}`]?.v;
-        const mInsta = masterTab.data[`B${r}`]?.v;
-        const mBrand = masterTab.data[`K${r}`]?.v;
-        if (
-          ((nameInBrand && mName === nameInBrand) || (instaInBrand && mInsta === instaInBrand)) &&
-          mBrand === brandName
-        ) {
-          foundMasterRow = r;
-          break;
+          for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
+            const cLetter = colLetter(c);
+            for (let r = startRow; r <= endRow; r++) {
+              const key = `${cLetter}${r}`;
+              if (!visited.has(key)) {
+                visited.add(key);
+                const cell = currentTab.data[key];
+                if (cell && cell.v !== undefined) {
+                  const val =
+                    typeof cell.v === 'string' && cell.v.startsWith('=')
+                      ? Number(evaluateFormula(cell.v, visited))
+                      : Number(String(cell.v).replace(/[^0-9.-]+/g, ''));
+                  if (!isNaN(val)) sum += val;
+                }
+              }
+            }
+          }
+          return sum;
+        } else {
+          const parts = range.split(',');
+          let sum = 0;
+          for (const p of parts) {
+            const key = p.trim();
+            const cell = currentTab.data[key];
+            const num = cell?.v ? Number(String(cell.v).replace(/[^0-9.-]+/g, '')) : Number(key);
+            if (!isNaN(num)) sum += num;
+          }
+          return sum;
         }
       }
 
-      if (foundMasterRow !== -1) {
-        updatedMasterData[`${parsed.col}${foundMasterRow}`] = {
-          ...updatedMasterData[`${parsed.col}${foundMasterRow}`],
-          v: newVal,
+      // Check for AVERAGE: =AVERAGE(A1:A5)
+      const avgMatch = cleanExpr.match(/^AVERAGE\(([^)]+)\)$/);
+      if (avgMatch) {
+        const [start, end] = avgMatch[1].split(':');
+        if (start && end) {
+          const pStart = parseCellKey(start.trim());
+          const pEnd = parseCellKey(end.trim());
+          if (!pStart || !pEnd) return expr;
+
+          let sum = 0;
+          let count = 0;
+          for (let r = Math.min(pStart.row, pEnd.row); r <= Math.max(pStart.row, pEnd.row); r++) {
+            const key = `${pStart.col}${r}`;
+            const cell = currentTab.data[key];
+            if (cell?.v !== undefined) {
+              const val = Number(String(cell.v).replace(/[^0-9.-]+/g, ''));
+              if (!isNaN(val)) {
+                sum += val;
+                count++;
+              }
+            }
+          }
+          return count > 0 ? (sum / count).toFixed(2) : 0;
+        }
+      }
+
+      // Check for COUNT: =COUNT(A1:A10)
+      const countMatch = cleanExpr.match(/^COUNT\(([^)]+)\)$/);
+      if (countMatch) {
+        const [start, end] = countMatch[1].split(':');
+        if (start && end) {
+          const pStart = parseCellKey(start.trim());
+          const pEnd = parseCellKey(end.trim());
+          if (!pStart || !pEnd) return expr;
+
+          let count = 0;
+          for (let r = Math.min(pStart.row, pEnd.row); r <= Math.max(pStart.row, pEnd.row); r++) {
+            const key = `${pStart.col}${r}`;
+            if (currentTab.data[key]?.v !== undefined && currentTab.data[key]?.v !== '') {
+              count++;
+            }
+          }
+          return count;
+        }
+      }
+
+      // Simple arithmetic e.g. =A1+B1 or =L2*1.18
+      try {
+        const replaced = cleanExpr.replace(/([A-Z]+\d+)/g, (match) => {
+          const cell = currentTab.data[match];
+          if (!cell || cell.v === undefined) return '0';
+          const n = Number(String(cell.v).replace(/[^0-9.-]+/g, ''));
+          return isNaN(n) ? '0' : String(n);
+        });
+        if (/^[0-9+\-*/().\s]+$/.test(replaced)) {
+          // eslint-disable-next-line no-eval
+          const res = Function(`"use strict"; return (${replaced});`)();
+          return typeof res === 'number' ? (Number.isInteger(res) ? res : res.toFixed(2)) : res;
+        }
+      } catch {}
+
+      return expr;
+    },
+    [currentTab]
+  );
+
+  // Cell display value (evaluates formulas and formats currency/percent)
+  const getCellDisplay = useCallback(
+    (cell?: CellFormat): string => {
+      if (!cell || cell.v === undefined || cell.v === null) return '';
+      const raw = String(cell.v);
+      if (raw.startsWith('=')) {
+        const evaluated = evaluateFormula(raw);
+        if (cell.format === 'currency') return `₹${Number(evaluated).toLocaleString()}`;
+        if (cell.format === 'percent') return `${Number(evaluated)}%`;
+        return String(evaluated);
+      }
+      if (cell.format === 'currency') {
+        const n = Number(raw.replace(/[^0-9.-]+/g, ''));
+        return !isNaN(n) ? `₹${n.toLocaleString()}` : raw;
+      }
+      if (cell.format === 'percent') {
+        const n = Number(raw.replace(/[^0-9.-]+/g, ''));
+        return !isNaN(n) ? `${n}%` : raw;
+      }
+      return raw;
+    },
+    [evaluateFormula]
+  );
+
+  // Theme-aware cell style computation (resolves dark/light mode inconsistency)
+  const resolveCellStyles = useCallback(
+    (cell: CellFormat | undefined, isMatch = false) => {
+      let bg = cell?.bg;
+      let color = cell?.color;
+
+      const normBg = (bg || '').toLowerCase();
+      if (normBg && THEME_COLOR_MAP[normBg]) {
+        const mapped = THEME_COLOR_MAP[normBg];
+        if (isDark) {
+          bg = mapped.darkBg;
+          color = mapped.darkText;
+        } else {
+          bg = mapped.lightBg;
+          color = mapped.lightText;
+        }
+      } else if (bg && bg !== 'transparent') {
+        const clean = bg.replace('#', '');
+        if (clean.length === 6) {
+          const r = parseInt(clean.substring(0, 2), 16);
+          const g = parseInt(clean.substring(2, 4), 16);
+          const b = parseInt(clean.substring(4, 6), 16);
+          const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+          if (isDark) {
+            if (lum > 130) {
+              if (!color || color === '#ffffff' || color === '#f4f4f5' || color === 'white') {
+                color = '#09090b';
+              }
+            }
+          } else {
+            if (lum < 100) {
+              if (!color || color === '#000000' || color === '#09090b' || color === 'black') {
+                color = '#ffffff';
+              }
+            } else {
+              if (!color || color === '#ffffff' || color === 'white') {
+                color = '#09090b';
+              }
+            }
+          }
+        }
+      }
+
+      if (isMatch) {
+        bg = isDark ? '#713f12' : '#fef08a';
+        color = isDark ? '#fef08a' : '#854d0e';
+      }
+
+      return {
+        backgroundColor: bg || undefined,
+        color: color || undefined,
+        fontWeight: cell?.bold ? '700' : undefined,
+        fontStyle: cell?.italic ? 'italic' : undefined,
+        textDecoration: [
+          cell?.underline ? 'underline' : '',
+          cell?.strike ? 'line-through' : '',
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined,
+        textAlign: cell?.align || 'left',
+        fontSize: cell?.fontSize ? `${cell.fontSize}px` : undefined,
+      };
+    },
+    [isDark]
+  );
+
+  // Update a single cell's format/value
+  const updateCell = useCallback(
+    (cellKey: string, updates: Partial<CellFormat>) => {
+      const parsed = parseCellKey(cellKey);
+      if (!parsed) return;
+
+      const oldCell = currentTab.data[cellKey] || {};
+      const updatedCell: CellFormat = { ...oldCell, ...updates };
+
+      const newTab: SheetTab = {
+        ...currentTab,
+        data: {
+          ...currentTab.data,
+          [cellKey]: updatedCell,
+        },
+      };
+
+      let newWorkbook: WorkbookData;
+
+      // If currently on Master Tab and Column K (Brand) is changed, trigger automatic brand tab sync!
+      if (currentTab.id === masterTab.id) {
+        const intermediateWb: WorkbookData = {
+          ...workbook,
+          tabs: workbook.tabs.map((t) => (t.id === currentTab.id ? newTab : t)),
+        };
+        if (parsed.col === 'K' && updates.v !== undefined) {
+          newWorkbook = syncBrandSheets(intermediateWb);
+        } else {
+          newWorkbook = intermediateWb;
+        }
+      } else {
+        // If currently on a Brand Tab:
+        // Sync the changed cell back to the Master tab!
+        const brandName = currentTab.name;
+        const rowInBrand = parsed.row;
+        const nameInBrand =
+          parsed.col === 'A' && updates.v !== undefined
+            ? updates.v
+            : currentTab.data[`A${rowInBrand}`]?.v;
+        const instaInBrand =
+          parsed.col === 'B' && updates.v !== undefined
+            ? updates.v
+            : currentTab.data[`B${rowInBrand}`]?.v;
+
+        const updatedMasterData = { ...masterTab.data };
+        let foundMasterRow = -1;
+        for (let r = 2; r <= masterTab.rowCount; r++) {
+          const mName = masterTab.data[`A${r}`]?.v;
+          const mInsta = masterTab.data[`B${r}`]?.v;
+          const mBrand = masterTab.data[`K${r}`]?.v;
+          if (
+            ((nameInBrand && mName === nameInBrand) || (instaInBrand && mInsta === instaInBrand)) &&
+            mBrand === brandName
+          ) {
+            foundMasterRow = r;
+            break;
+          }
+        }
+
+        if (foundMasterRow !== -1) {
+          const currentMCell = updatedMasterData[`${parsed.col}${foundMasterRow}`] || {};
+          updatedMasterData[`${parsed.col}${foundMasterRow}`] = {
+            ...currentMCell,
+            ...updates,
+          };
+        }
+
+        const updatedMasterTab = {
+          ...masterTab,
+          data: updatedMasterData,
+        };
+
+        newWorkbook = {
+          ...workbook,
+          tabs: workbook.tabs.map((t) => {
+            if (t.id === currentTab.id) return newTab;
+            if (t.id === masterTab.id) return updatedMasterTab;
+            return t;
+          }),
         };
       }
 
-      const updatedMasterTab = {
-        ...masterTab,
-        data: updatedMasterData,
-      };
+      pushState(newWorkbook);
+    },
+    [workbook, currentTab, masterTab, pushState, syncBrandSheets]
+  );
 
-      newWorkbook = {
-        ...workbook,
-        tabs: workbook.tabs.map((t) => {
-          if (t.id === currentTab.id) return newTab;
-          if (t.id === masterTab.id) return updatedMasterTab;
-          return t;
-        }),
-      };
-    }
+  // Commit cell edit
+  const commitEdit = useCallback(
+    (newVal: string) => {
+      setIsEditing(false);
+      updateCell(selectedCell, { v: newVal });
+    },
+    [selectedCell, updateCell]
+  );
 
-    pushState(newWorkbook);
-  };
+  // Keyboard navigation & Shortcuts
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const parsed = parseCellKey(selectedCell);
+      if (!parsed) return;
+      const { col, row, colIdx } = parsed;
+
+      if (isEditing) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commitEdit(editValue);
+          // Move down
+          const nextRow = Math.min(row + 1, currentTab.rowCount);
+          setSelectedCell(`${col}${nextRow}`);
+        } else if (e.key === 'Tab') {
+          e.preventDefault();
+          commitEdit(editValue);
+          // Move right
+          const nextCol = colLetter(Math.min(colIdx + 1, columns.length - 1));
+          setSelectedCell(`${nextCol}${row}`);
+        } else if (e.key === 'Escape') {
+          setIsEditing(false);
+        }
+        return;
+      }
+
+      // Hotkeys when not editing
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        updateCell(selectedCell, { bold: !activeCellFormat.bold });
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        updateCell(selectedCell, { italic: !activeCellFormat.italic });
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
+        e.preventDefault();
+        updateCell(selectedCell, { underline: !activeCellFormat.underline });
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        updateCell(selectedCell, { v: '' });
+      } else if (e.key === 'Enter' || e.key === 'F2') {
+        e.preventDefault();
+        setIsEditing(true);
+        setEditValue(String(activeCellFormat.v || ''));
+        setTimeout(() => cellInputRef.current?.focus(), 10);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (row > 2) setSelectedCell(`${col}${row - 1}`);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (row < currentTab.rowCount) setSelectedCell(`${col}${row + 1}`);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (colIdx > 0) setSelectedCell(`${colLetter(colIdx - 1)}${row}`);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (colIdx < columns.length - 1) setSelectedCell(`${colLetter(colIdx + 1)}${row}`);
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (colIdx > 0) setSelectedCell(`${colLetter(colIdx - 1)}${row}`);
+        } else {
+          if (colIdx < columns.length - 1) setSelectedCell(`${colLetter(colIdx + 1)}${row}`);
+        }
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Direct typing starts edit
+        setIsEditing(true);
+        setEditValue(e.key);
+        setTimeout(() => cellInputRef.current?.focus(), 10);
+      }
+    },
+    [selectedCell, isEditing, editValue, currentTab, columns, activeCellFormat, commitEdit, updateCell]
+  );
 
   // Add row in current tab (append to end)
   const handleAddRow = () => {
@@ -1322,7 +1737,13 @@ export function InfluencerMarketingView() {
 
   return (
     <div
-      className={`flex flex-col h-[calc(100dvh-78px)] sm:h-[calc(100vh-80px)] max-w-full overflow-hidden select-none ${
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      className={`flex flex-col outline-hidden ${
+        isFullscreen
+          ? 'fixed inset-0 z-[9999] h-screen w-screen rounded-none border-0'
+          : 'h-[calc(100dvh-78px)] sm:h-[calc(100vh-80px)]'
+      } max-w-full overflow-hidden select-none ${
         isDark ? 'bg-[#0f1117] text-zinc-200' : 'bg-white text-stone-900'
       }`}
     >
@@ -1437,6 +1858,24 @@ export function InfluencerMarketingView() {
             <span className="hidden sm:inline">Export</span>
           </button>
 
+          {/* Full Screen Toggle */}
+          <button
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Enter Full Screen'}
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-2xs shrink-0 ${
+              isFullscreen
+                ? isDark
+                  ? 'bg-pink-500/20 text-pink-400 border-pink-500/40'
+                  : 'bg-pink-50 text-pink-700 border-pink-300'
+                : isDark
+                ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-200'
+                : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
+            }`}
+          >
+            {isFullscreen ? <Minimize2 size={13} className="shrink-0" /> : <Maximize2 size={13} className="shrink-0" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Full Screen'}</span>
+          </button>
+
           {/* Save Button */}
           <button
             onClick={() => handleSave()}
@@ -1455,17 +1894,18 @@ export function InfluencerMarketingView() {
         </div>
       </div>
 
-      {/* 2. SINGLE HORIZONTAL SWIPEABLE TOOLBAR */}
+      {/* 2. FORMATTING TOOLBAR & WORKFLOW CONTROLS (HORIZONTAL SWIPEABLE RIBBON) */}
       <div
-        className={`px-2 py-1.5 border-b flex items-center gap-1.5 shrink-0 overflow-x-auto whitespace-nowrap scrollbar-none ${
-          isDark ? 'bg-[#12141a] border-zinc-800' : 'bg-stone-100 border-stone-200'
+        className={`px-2 py-1.5 border-b flex items-center gap-1 shrink-0 overflow-x-auto whitespace-nowrap scrollbar-none text-xs select-none ${
+          isDark ? 'bg-[#12141a] border-zinc-800 text-zinc-300' : 'bg-stone-100 border-stone-200 text-stone-700'
         }`}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
+        {/* Undo / Redo */}
         <button
           onClick={handleUndo}
           disabled={historyIdx <= 0}
-          title="Undo"
+          title="Undo (Ctrl+Z)"
           className={`p-1.5 rounded disabled:opacity-30 shrink-0 transition-colors ${
             isDark ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-stone-200 text-stone-700'
           }`}
@@ -1475,7 +1915,7 @@ export function InfluencerMarketingView() {
         <button
           onClick={handleRedo}
           disabled={historyIdx >= history.length - 1}
-          title="Redo"
+          title="Redo (Ctrl+Y)"
           className={`p-1.5 rounded disabled:opacity-30 shrink-0 transition-colors ${
             isDark ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-stone-200 text-stone-700'
           }`}
@@ -1485,9 +1925,256 @@ export function InfluencerMarketingView() {
 
         <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
 
+        {/* Text Styles */}
+        <button
+          onClick={() => updateCell(selectedCell, { bold: !activeCellFormat.bold })}
+          title="Bold (Ctrl+B)"
+          className={`p-1.5 rounded font-bold transition-colors ${
+            activeCellFormat.bold
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400 font-extrabold'
+                : 'bg-pink-100 text-pink-700 font-extrabold'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <Bold size={13} />
+        </button>
+
+        <button
+          onClick={() => updateCell(selectedCell, { italic: !activeCellFormat.italic })}
+          title="Italic (Ctrl+I)"
+          className={`p-1.5 rounded transition-colors ${
+            activeCellFormat.italic
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400'
+                : 'bg-pink-100 text-pink-700'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <Italic size={13} />
+        </button>
+
+        <button
+          onClick={() => updateCell(selectedCell, { underline: !activeCellFormat.underline })}
+          title="Underline (Ctrl+U)"
+          className={`p-1.5 rounded transition-colors ${
+            activeCellFormat.underline
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400'
+                : 'bg-pink-100 text-pink-700'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <Underline size={13} />
+        </button>
+
+        <button
+          onClick={() => updateCell(selectedCell, { strike: !activeCellFormat.strike })}
+          title="Strikethrough"
+          className={`p-1.5 rounded transition-colors ${
+            activeCellFormat.strike
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400'
+                : 'bg-pink-100 text-pink-700'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <Strikethrough size={13} />
+        </button>
+
+        <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
+
+        {/* Text Alignment */}
+        <button
+          onClick={() => updateCell(selectedCell, { align: 'left' })}
+          title="Align Left"
+          className={`p-1.5 rounded transition-colors ${
+            activeCellFormat.align === 'left' || !activeCellFormat.align
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400'
+                : 'bg-pink-100 text-pink-700'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <AlignLeft size={13} />
+        </button>
+        <button
+          onClick={() => updateCell(selectedCell, { align: 'center' })}
+          title="Align Center"
+          className={`p-1.5 rounded transition-colors ${
+            activeCellFormat.align === 'center'
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400'
+                : 'bg-pink-100 text-pink-700'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <AlignCenter size={13} />
+        </button>
+        <button
+          onClick={() => updateCell(selectedCell, { align: 'right' })}
+          title="Align Right"
+          className={`p-1.5 rounded transition-colors ${
+            activeCellFormat.align === 'right'
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400'
+                : 'bg-pink-100 text-pink-700'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <AlignRight size={13} />
+        </button>
+
+        <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
+
+        {/* Number Formats */}
+        <button
+          onClick={() =>
+            updateCell(selectedCell, {
+              format: activeCellFormat.format === 'currency' ? 'text' : 'currency',
+            })
+          }
+          title="Format as Currency (₹ / $)"
+          className={`p-1.5 rounded flex items-center gap-0.5 transition-colors ${
+            activeCellFormat.format === 'currency'
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400 font-bold'
+                : 'bg-pink-100 text-pink-700 font-bold'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <DollarSign size={13} />
+        </button>
+
+        <button
+          onClick={() =>
+            updateCell(selectedCell, {
+              format: activeCellFormat.format === 'percent' ? 'text' : 'percent',
+            })
+          }
+          title="Format as Percent (%)"
+          className={`p-1.5 rounded flex items-center gap-0.5 transition-colors ${
+            activeCellFormat.format === 'percent'
+              ? isDark
+                ? 'bg-pink-500/20 text-pink-400 font-bold'
+                : 'bg-pink-100 text-pink-700 font-bold'
+              : isDark
+              ? 'hover:bg-zinc-800 text-zinc-300'
+              : 'hover:bg-stone-200 text-stone-700'
+          }`}
+        >
+          <Percent size={13} />
+        </button>
+
+        <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
+
+        {/* Background / Cell Fill Color */}
+        <div className="relative">
+          <button
+            onClick={() => setShowColorPicker(showColorPicker === 'bg' ? null : 'bg')}
+            title="Cell fill color"
+            className={`flex items-center gap-1 p-1.5 rounded transition-colors ${
+              showColorPicker === 'bg'
+                ? isDark
+                  ? 'bg-zinc-800'
+                  : 'bg-stone-200'
+                : isDark
+                ? 'hover:bg-zinc-800 text-zinc-300'
+                : 'hover:bg-stone-200 text-stone-700'
+            }`}
+          >
+            <div
+              className="w-3.5 h-3.5 rounded-xs border border-zinc-400"
+              style={{ backgroundColor: activeCellFormat.bg || 'transparent' }}
+            />
+            <Palette size={12} />
+          </button>
+
+          {showColorPicker === 'bg' && (
+            <div className={`absolute left-0 mt-1 p-2 rounded-xl border shadow-xl z-50 w-48 ${isDark ? 'bg-[#1a1d24] border-zinc-700' : 'bg-white border-stone-200'}`}>
+              <div className={`text-[10px] font-semibold mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Fill Color</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {PASTEL_BG_PALETTE.map((p) => (
+                  <button
+                    key={p.name}
+                    onClick={() => {
+                      updateCell(selectedCell, { bg: p.color === 'transparent' ? undefined : p.color });
+                      setShowColorPicker(null);
+                    }}
+                    title={p.name}
+                    className="h-6 w-full rounded border border-zinc-300 dark:border-zinc-600 hover:scale-105 transition-transform"
+                    style={{ backgroundColor: p.color }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Text Color */}
+        <div className="relative">
+          <button
+            onClick={() => setShowColorPicker(showColorPicker === 'text' ? null : 'text')}
+            title="Text color"
+            className={`flex items-center gap-1 p-1.5 rounded transition-colors ${
+              showColorPicker === 'text'
+                ? isDark
+                  ? 'bg-zinc-800'
+                  : 'bg-stone-200'
+                : isDark
+                ? 'hover:bg-zinc-800 text-zinc-300'
+                : 'hover:bg-stone-200 text-stone-700'
+            }`}
+          >
+            <span
+              className="text-xs font-bold underline"
+              style={{ color: activeCellFormat.color || 'currentColor' }}
+            >
+              A
+            </span>
+          </button>
+
+          {showColorPicker === 'text' && (
+            <div className={`absolute left-0 mt-1 p-2 rounded-xl border shadow-xl z-50 w-52 ${isDark ? 'bg-[#1a1d24] border-zinc-700' : 'bg-white border-stone-200'}`}>
+              <div className={`text-[10px] font-semibold mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Text Color</div>
+              <div className="grid grid-cols-10 gap-1">
+                {COLOR_PALETTE.map((c, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      updateCell(selectedCell, { color: c });
+                      setShowColorPicker(null);
+                    }}
+                    className="h-4 w-4 rounded-xs border border-zinc-400/40 hover:scale-110"
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
+
         {/* Brand Selector Pill */}
         <div className="flex items-center gap-1 shrink-0">
-          <span className={`text-[11px] font-medium ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>Sheet Tab:</span>
+          <span className={`text-[11px] font-medium ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>Tab:</span>
           <select
             value={workbook.activeTab}
             onChange={(e) => setWorkbook((p) => ({ ...p, activeTab: e.target.value }))}
@@ -1513,7 +2200,7 @@ export function InfluencerMarketingView() {
           title="Create a new brand tab"
         >
           <Plus size={11} />
-          <span>New Brand Sheet</span>
+          <span>New Brand</span>
         </button>
 
         {currentTab.id !== masterTab.id && (
@@ -1708,36 +2395,43 @@ export function InfluencerMarketingView() {
 
       {/* 3. FORMULA / CELL BAR */}
       <div
-        className={`px-2 py-1 border-b flex items-center gap-2 shrink-0 ${
+        className={`px-2 sm:px-3 py-1 sm:py-1.5 border-b flex items-center gap-2 shrink-0 ${
           isDark ? 'bg-[#14161f] border-zinc-800' : 'bg-white border-stone-200'
         }`}
       >
-        <span className={`font-mono text-xs font-bold px-2 py-0.5 rounded border ${isDark ? 'text-pink-400 bg-pink-500/10 border-pink-500/20' : 'text-pink-700 bg-pink-50 border-pink-200'}`}>
+        <span className={`font-mono text-xs font-bold px-2 py-0.5 rounded border select-none ${isDark ? 'text-pink-400 bg-pink-500/10 border-pink-500/20' : 'text-pink-700 bg-pink-50 border-pink-200'}`}>
           {selectedCell}
         </span>
+        <div className={`text-xs font-mono font-bold select-none ${isDark ? 'text-pink-400' : 'text-pink-600'}`}>fx</div>
         <input
+          ref={formulaInputRef}
           type="text"
-          value={isEditing ? editValue : String(currentTab.data[selectedCell]?.v || '')}
+          value={formulaValue}
           onChange={(e) => {
-            if (!isEditing) setIsEditing(true);
-            setEditValue(e.target.value);
+            setFormulaValue(e.target.value);
+            if (!isEditing) {
+              setIsEditing(true);
+              setEditValue(e.target.value);
+            } else {
+              setEditValue(e.target.value);
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              commitEdit(editValue);
+              commitEdit(formulaValue);
             }
           }}
           onFocus={() => {
             setIsEditing(true);
-            setEditValue(String(currentTab.data[selectedCell]?.v || ''));
+            setEditValue(formulaValue);
           }}
-          placeholder="Enter creator detail, rate, or status"
+          placeholder="Enter creator detail, rate, or formula (=SUM, =AVERAGE, =COUNT)"
           className={`grow min-w-0 bg-transparent outline-hidden text-xs ${isDark ? 'text-zinc-200 placeholder:text-zinc-500' : 'text-stone-900 placeholder:text-stone-400'}`}
         />
         {isEditing && (
           <button
-            onClick={() => commitEdit(editValue)}
-            className="flex h-6 w-6 items-center justify-center rounded bg-emerald-600 text-white shrink-0 hover:bg-emerald-500"
+            onClick={() => commitEdit(formulaValue)}
+            className="flex h-6 w-6 items-center justify-center rounded bg-pink-600 text-white shrink-0 hover:bg-pink-500"
             title="Commit Edit"
           >
             <Check size={12} />
@@ -1889,13 +2583,22 @@ export function InfluencerMarketingView() {
                     const cell = currentTab.data[cellKey];
                     const isSelected = selectedCell === cellKey;
                     const isColSelected = selectedCell.startsWith(col);
+                    const isSearchMatch = searchQuery
+                      ? String(cell?.v || '').toLowerCase().includes(searchQuery.toLowerCase())
+                      : false;
+                    const cellStyles = resolveCellStyles(cell, isSearchMatch);
 
                     const width = currentTab.colWidths[col] || field.defaultWidth;
 
                     return (
                       <td
                         key={col}
-                        style={{ width, minWidth: width, maxWidth: width }}
+                        style={{
+                          width,
+                          minWidth: width,
+                          maxWidth: width,
+                          ...cellStyles,
+                        }}
                         onClick={() => {
                           if (selectedCell !== cellKey) {
                             if (isEditing) commitEdit(editValue);
@@ -1923,7 +2626,7 @@ export function InfluencerMarketingView() {
                               ? 'bg-zinc-900/40'
                               : 'bg-stone-50/70'
                             : ''
-                        } ${cell?.align === 'center' ? 'text-center' : cell?.align === 'right' ? 'text-right' : 'text-left'}`}
+                        }`}
                       >
                         {isSelected && isEditing ? (
                           <input
@@ -1942,9 +2645,19 @@ export function InfluencerMarketingView() {
                         ) : (
                           <span
                             className={`${cell?.bold ? 'font-bold' : ''} ${
-                              col === 'B' ? (isDark ? 'text-sky-400 font-medium' : 'text-sky-700 font-semibold') : ''
-                            } ${col === 'K' ? (isDark ? 'text-pink-400 font-bold' : 'text-pink-700 font-bold') : ''} ${
-                              col === 'N'
+                              col === 'B' && !cell?.color
+                                ? isDark
+                                  ? 'text-sky-400 font-medium'
+                                  : 'text-sky-700 font-semibold'
+                                : ''
+                            } ${
+                              col === 'K' && !cell?.color
+                                ? isDark
+                                  ? 'text-pink-400 font-bold'
+                                  : 'text-pink-700 font-bold'
+                                : ''
+                            } ${
+                              col === 'N' && !cell?.bg
                                 ? cell?.v === 'Onboarded'
                                   ? isDark
                                     ? 'px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold text-[10px]'
@@ -1959,7 +2672,7 @@ export function InfluencerMarketingView() {
                                 : ''
                             }`}
                           >
-                            {cell?.v !== undefined ? String(cell.v) : ''}
+                            {getCellDisplay(cell)}
                           </span>
                         )}
                       </td>

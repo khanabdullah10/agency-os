@@ -31,6 +31,8 @@ import {
   HelpCircle,
   Copy,
   RotateCcw,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { api, useApp, useMutation } from '@/lib/api';
 import { useTheme } from './ThemeProvider';
@@ -244,6 +246,18 @@ export function SpreadsheetView() {
   const [showColorPicker, setShowColorPicker] = useState<'text' | 'bg' | null>(null);
   const [history, setHistory] = useState<WorkbookData[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Exit fullscreen on Escape
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen && !isEditing) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isFullscreen, isEditing]);
 
   // Resize state
   const [resizingCol, setResizingCol] = useState<string | null>(null);
@@ -913,7 +927,11 @@ export function SpreadsheetView() {
     <div
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      className={`spreadsheet-container outline-hidden flex flex-col h-[calc(100dvh-78px)] sm:h-[calc(100vh-80px)] w-full max-w-full overflow-hidden rounded-xl border shadow-xs transition-colors duration-200 select-none ${
+      className={`spreadsheet-container outline-hidden flex flex-col w-full max-w-full overflow-hidden shadow-xs transition-all duration-200 select-none ${
+        isFullscreen
+          ? 'fixed inset-0 z-[9999] h-screen w-screen rounded-none border-0'
+          : 'h-[calc(100dvh-78px)] sm:h-[calc(100vh-80px)] rounded-xl border'
+      } ${
         isDark ? 'bg-[#0f1115] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
       }`}
     >
@@ -1108,6 +1126,24 @@ export function SpreadsheetView() {
           >
             <Download size={13} className="shrink-0" />
             <span className="hidden sm:inline">Export</span>
+          </button>
+
+          {/* Full Screen Toggle */}
+          <button
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Enter Full Screen'}
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-2xs shrink-0 ${
+              isFullscreen
+                ? isDark
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : isDark
+                ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-200'
+                : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
+            }`}
+          >
+            {isFullscreen ? <Minimize2 size={13} className="shrink-0" /> : <Maximize2 size={13} className="shrink-0" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Full Screen'}</span>
           </button>
 
           {/* Save Button */}
