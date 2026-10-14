@@ -132,6 +132,7 @@ interface WorkbookData {
   activeTab: string;
   tabs: SheetTab[];
   columns?: SheetColumn[];
+  deletedBrands?: string[];
 }
 
 export const INFLUENCER_FIELDS = [
@@ -246,6 +247,9 @@ export function InfluencerMarketingView() {
   const [intakeSyncOpen, setIntakeSyncOpen] = useState(false);
   const [addBrandOpen, setAddBrandOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
+  const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
+  const [sheetToDelete, setSheetToDelete] = useState<SheetTab | null>(null);
+  const [clearBrandFromMaster, setClearBrandFromMaster] = useState(true);
 
   // Export options state
   const [exportScope, setExportScope] = useState<'current' | 'all'>('current');
@@ -496,11 +500,18 @@ export function InfluencerMarketingView() {
         updatedTabs.push(buildBrandTab(bTab.id, bTab.name, rowsForThisBrand));
       });
 
-      // Add newly introduced brands that don't have a tab yet
+      // Respect deleted brands so they are not resurrected automatically
+      const deletedBrandsSet = new Set(
+        (sourceWb.deletedBrands || []).map((b) => b.toLowerCase().trim())
+      );
+
+      // Add newly introduced brands that don't have a tab yet and were not deleted
       brandSet.forEach((bName) => {
-        if (!existingBrandNames.has(bName.toLowerCase().trim())) {
+        const cleanName = bName.toLowerCase().trim();
+        if (deletedBrandsSet.has(cleanName)) return;
+        if (!existingBrandNames.has(cleanName)) {
           const rowsForThisBrand = masterRows.filter(
-            (r) => (r['K'] || '').toLowerCase().trim() === bName.toLowerCase().trim()
+            (r) => (r['K'] || '').toLowerCase().trim() === cleanName
           );
           const newTabId = 'tab_brand_' + Math.random().toString(36).substring(2, 8);
           updatedTabs.push(buildBrandTab(newTabId, bName, rowsForThisBrand));
@@ -884,16 +895,76 @@ export function InfluencerMarketingView() {
       })(),
     };
 
+    // Unmark from deletedBrands if previously deleted
+    const updatedDeletedBrands = (workbook.deletedBrands || []).filter(
+      (b) => b.toLowerCase().trim() !== trimmed.toLowerCase()
+    );
+
     const nextWb = {
       ...workbook,
       activeTab: newTabId,
       tabs: [...workbook.tabs, newTab],
+      deletedBrands: updatedDeletedBrands,
     };
 
     pushState(nextWb);
     setAddBrandOpen(false);
     setNewBrandName('');
     toast.success(`Created separated sheet for ${trimmed}`);
+  };
+
+  // Delete a brand sheet tab
+  const handleDeleteSheet = (tabId: string, clearFromMaster = true) => {
+    if (tabId === masterTab.id) {
+      toast.error('Cannot delete the Master Influencers sheet');
+      return;
+    }
+
+    const targetTab = workbook.tabs.find((t) => t.id === tabId);
+    if (!targetTab) return;
+
+    const brandName = targetTab.name.trim();
+
+    // Optionally clear the Brand column (K) on Master Sheet rows for this brand
+    let updatedMasterTab = masterTab;
+    if (clearFromMaster) {
+      const updatedMasterData = { ...masterTab.data };
+      for (let r = 2; r <= masterTab.rowCount; r++) {
+        const val = String(updatedMasterData[`K${r}`]?.v || '').trim();
+        if (val.toLowerCase() === brandName.toLowerCase()) {
+          updatedMasterData[`K${r}`] = {
+            ...updatedMasterData[`K${r}`],
+            v: '',
+          };
+        }
+      }
+      updatedMasterTab = {
+        ...masterTab,
+        data: updatedMasterData,
+      };
+    }
+
+    // Add brand to deletedBrands set to prevent auto-regeneration
+    const updatedDeletedBrands = Array.from(
+      new Set([...(workbook.deletedBrands || []), brandName.toLowerCase()])
+    );
+
+    const updatedTabs = workbook.tabs
+      .filter((t) => t.id !== tabId)
+      .map((t) => (t.id === masterTab.id ? updatedMasterTab : t));
+
+    const nextWb: WorkbookData = {
+      ...workbook,
+      activeTab: workbook.activeTab === tabId ? masterTab.id : workbook.activeTab,
+      tabs: updatedTabs,
+      deletedBrands: updatedDeletedBrands,
+    };
+
+    pushState(nextWb);
+    handleSave(nextWb);
+    setDeleteSheetOpen(false);
+    setSheetToDelete(null);
+    toast.success(`Deleted sheet "${brandName}"`);
   };
 
   /**
@@ -1439,10 +1510,29 @@ export function InfluencerMarketingView() {
               ? 'border-pink-500/35 bg-pink-500/10 text-pink-300 hover:bg-pink-500/20'
               : 'border-pink-300 bg-pink-50 text-pink-700 hover:bg-pink-100'
           }`}
+          title="Create a new brand tab"
         >
           <Plus size={11} />
           <span>New Brand Sheet</span>
         </button>
+
+        {currentTab.id !== masterTab.id && (
+          <button
+            onClick={() => {
+              setSheetToDelete(currentTab);
+              setDeleteSheetOpen(true);
+            }}
+            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border shrink-0 transition-colors ${
+              isDark
+                ? 'border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'
+                : 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
+            }`}
+            title={`Delete brand sheet "${currentTab.name}"`}
+          >
+            <Trash2 size={11} />
+            <span>Delete Sheet</span>
+          </button>
+        )}
 
         <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
 
@@ -1926,10 +2016,9 @@ export function InfluencerMarketingView() {
             const isActive = tab.id === workbook.activeTab;
             const isMaster = tab.id === masterTab.id;
             return (
-              <button
+              <div
                 key={tab.id}
-                onClick={() => setWorkbook((p) => ({ ...p, activeTab: tab.id }))}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-all shrink-0 border ${
+                className={`group flex items-center rounded text-xs transition-all shrink-0 border ${
                   isActive
                     ? isDark
                       ? 'bg-zinc-900 border-pink-500 text-pink-400 shadow-xs'
@@ -1939,9 +2028,33 @@ export function InfluencerMarketingView() {
                     : 'border-transparent text-stone-600 hover:bg-stone-200'
                 }`}
               >
-                {isMaster ? <Sparkles size={12} className="text-pink-500" /> : <Building2 size={12} className={isDark ? 'text-zinc-400' : 'text-stone-500'} />}
-                <span>{tab.name}</span>
-              </button>
+                <button
+                  onClick={() => setWorkbook((p) => ({ ...p, activeTab: tab.id }))}
+                  className="flex items-center gap-1.5 px-2.5 py-1 font-medium"
+                >
+                  {isMaster ? (
+                    <Sparkles size={12} className="text-pink-500 shrink-0" />
+                  ) : (
+                    <Building2 size={12} className={`shrink-0 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`} />
+                  )}
+                  <span>{tab.name}</span>
+                </button>
+                {!isMaster && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSheetToDelete(tab);
+                      setDeleteSheetOpen(true);
+                    }}
+                    title={`Delete sheet "${tab.name}"`}
+                    className={`p-1 mr-1 rounded text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors ${
+                      isActive ? 'opacity-80 hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    }`}
+                  >
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
@@ -3088,6 +3201,91 @@ export function InfluencerMarketingView() {
                 className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-xs"
               >
                 Remove Column
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. DELETE BRAND SHEET MODAL */}
+      {deleteSheetOpen && sheetToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            className={`w-full max-w-md rounded-2xl p-5 shadow-2xl border ${
+              isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
+            }`}
+          >
+            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-zinc-800' : 'border-stone-200'}`}>
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-700'}`}>
+                  <Trash2 size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Delete Brand Sheet</h3>
+                  <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                    Remove "{sheetToDelete.name}" tab from workspace
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setDeleteSheetOpen(false);
+                  setSheetToDelete(null);
+                }}
+                className={isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-stone-400 hover:text-stone-600'}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3 text-xs">
+              <p className={`leading-relaxed ${isDark ? 'text-zinc-300' : 'text-stone-700'}`}>
+                Are you sure you want to delete the spreadsheet tab for <strong className="text-rose-500">"{sheetToDelete.name}"</strong>?
+              </p>
+
+              <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors ${
+                isDark ? 'bg-zinc-800/40 border-zinc-700/60 hover:bg-zinc-800/70' : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={clearBrandFromMaster}
+                  onChange={(e) => setClearBrandFromMaster(e.target.checked)}
+                  className="mt-0.5 rounded text-pink-600 focus:ring-pink-500"
+                />
+                <div>
+                  <span className="font-semibold block">Clear brand assignment in Master Sheet</span>
+                  <span className={`text-[11px] block mt-0.5 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                    Creators tagged with "{sheetToDelete.name}" will remain in the Master Sheet, but their brand tag will be cleared so this sheet won't be automatically regenerated.
+                  </span>
+                </div>
+              </label>
+
+              <div className={`p-2.5 rounded-lg border text-[11px] ${
+                isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}>
+                The Master Influencers sheet and all other brand tabs will remain completely unaffected.
+              </div>
+            </div>
+
+            <div className={`flex items-center justify-end gap-2 pt-3 border-t ${isDark ? 'border-zinc-800' : 'border-stone-200'}`}>
+              <button
+                onClick={() => {
+                  setDeleteSheetOpen(false);
+                  setSheetToDelete(null);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  isDark
+                    ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                    : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteSheet(sheetToDelete.id, clearBrandFromMaster)}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-xs"
+              >
+                Delete Sheet Tab
               </button>
             </div>
           </div>
