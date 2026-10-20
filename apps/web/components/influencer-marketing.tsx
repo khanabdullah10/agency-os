@@ -2949,7 +2949,7 @@ export function InfluencerMarketingView() {
                     }`}
                   >
                     <div className="relative w-full h-full flex items-center justify-center">
-                      <span className="font-mono text-xs select-none leading-none">{row}</span>
+                      <span className="font-mono text-xs select-none leading-none group-hover/row:hidden">{row}</span>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -2957,9 +2957,9 @@ export function InfluencerMarketingView() {
                           handleDeleteRow(row);
                         }}
                         title={`Delete row ${row}`}
-                        className="absolute right-0.5 opacity-0 group-hover/row:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-400 hover:bg-rose-500/20 transition-all z-10"
+                        className="hidden group-hover/row:flex items-center justify-center p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-all z-10 cursor-pointer"
                       >
-                        <Trash2 size={11} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </td>
