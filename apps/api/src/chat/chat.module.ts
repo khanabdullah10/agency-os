@@ -90,6 +90,28 @@ export class ChatService {
   const p=this.notices.pusher();if(!p)throw new ServiceUnavailableException('Realtime provider is not configured. Messages remain available through refresh.');
   return p.authorizeChannel(d.socket_id,d.channel_name);
  }
+ canDeleteThread(a:Actor):boolean {
+  if(!a)return false;
+  if(a.isSuperAdmin)return true;
+  const role=(a.roleName||'').toLowerCase().trim();
+  return role==='super admin'||role==='admin'||role==='developer'||role.includes('admin')||role.includes('developer');
+ }
+ async deleteThread(a:Actor,id:string) {
+  this.access.internal(a);
+  if(!this.canDeleteThread(a)) {
+   throw new ForbiddenException('Only Admin, Super Admin, and Developer can delete conversation threads.');
+  }
+  const t=await this.db.chatThread.findFirst({where:{id,agencyId:a.agencyId}});
+  if(!t)throw new BadRequestException('Conversation not found.');
+  return this.db.atomic(async tx=>{
+   await tx.chatMessage.updateMany({where:{threadId:id},data:{replyToId:null}});
+   await tx.chatMessage.deleteMany({where:{threadId:id}});
+   await tx.chatMember.deleteMany({where:{threadId:id}});
+   await tx.chatThread.delete({where:{id}});
+   await audit(tx,a,'chat.thread_deleted','chat',id,{clientId:t.clientId||undefined,previous:{title:t.title,kind:t.kind}});
+   return {ok:true,id};
+  });
+ }
 }
 @Controller('chat')
 class ChatController {
@@ -102,6 +124,7 @@ class ChatController {
  @Post(':id/messages') @Require('chat.view') send(@CurrentActor()a:Actor,@Param('id')id:string,@Body()d:unknown){return this.s.send(a,id,d);}
  @Patch(':id/messages/:messageId') @Require('chat.view') edit(@CurrentActor()a:Actor,@Param('id')id:string,@Param('messageId')m:string,@Body()d:unknown){return this.s.edit(a,id,m,d);}
  @Delete(':id/messages/:messageId') @Require('chat.view') remove(@CurrentActor()a:Actor,@Param('id')id:string,@Param('messageId')m:string){return this.s.edit(a,id,m);}
+ @Delete(':id') @Require('chat.view') deleteThread(@CurrentActor()a:Actor,@Param('id')id:string){return this.s.deleteThread(a,id);}
  @Post(':id/read') @Require('chat.view') read(@CurrentActor()a:Actor,@Param('id')id:string){return this.s.read(a,id);}
  @Post(':id/typing') @Require('chat.view') typing(@CurrentActor()a:Actor,@Param('id')id:string){return this.s.typing(a,id);}
 }

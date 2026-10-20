@@ -290,6 +290,12 @@ export class InfluencersController implements OnModuleInit {
       masterTab.rowCount = nextRow + 10;
     }
 
+    const isBarterSubmission =
+      item.status === 'Barter Collab' ||
+      item.status?.toLowerCase().includes('barter') ||
+      item.reel?.toLowerCase() === 'barter' ||
+      item.collaborationType === 'Barter';
+
     // Populate Master tab row
     masterTab.data[`A${nextRow}`] = { v: item.name || '' };
     masterTab.data[`B${nextRow}`] = { v: item.instaId || '', color: '#0284c7' };
@@ -305,11 +311,11 @@ export class InfluencersController implements OnModuleInit {
     masterTab.data[`L${nextRow}`] = { v: item.reel || '', align: 'right' };
     masterTab.data[`M${nextRow}`] = { v: item.story || '', align: 'right' };
     masterTab.data[`N${nextRow}`] = {
-      v: item.status || 'New Submission',
+      v: isBarterSubmission ? 'Barter Collab' : (item.status || 'New Submission'),
       align: 'center',
       bold: true,
-      bg: '#e0f2fe',
-      color: '#0369a1',
+      bg: isBarterSubmission ? '#fef3c7' : '#e0f2fe',
+      color: isBarterSubmission ? '#b45309' : '#0369a1',
     };
 
     // 2. If a brand was specified, sync into that brand's separated sheet!
@@ -376,11 +382,11 @@ export class InfluencersController implements OnModuleInit {
       brandTab.data[`L${bRow}`] = { v: item.reel || '', align: 'right' };
       brandTab.data[`M${bRow}`] = { v: item.story || '', align: 'right' };
       brandTab.data[`N${bRow}`] = {
-        v: item.status || 'New Submission',
+        v: isBarterSubmission ? 'Barter Collab' : (item.status || 'New Submission'),
         align: 'center',
         bold: true,
-        bg: '#e0f2fe',
-        color: '#0369a1',
+        bg: isBarterSubmission ? '#fef3c7' : '#e0f2fe',
+        color: isBarterSubmission ? '#b45309' : '#0369a1',
       };
     }
   }
@@ -393,6 +399,12 @@ export class InfluencersController implements OnModuleInit {
   async handleWebhook(@Body() rawBody: any, @Query('agencyId') agencyQuery?: string) {
     const agencyId = agencyQuery || rawBody?.agencyId || 'mad-o-media';
 
+    const isBarter =
+      rawBody.isBarter === true ||
+      rawBody.collaborationType === 'Barter' ||
+      rawBody['Collaboration Type'] === 'Barter' ||
+      rawBody.type === 'barter';
+
     // Normalize field names (supports multiple variations from Google Forms / Webhooks)
     const normalized: Record<string, string> = {
       name:
@@ -403,9 +415,13 @@ export class InfluencersController implements OnModuleInit {
         '',
       instaId:
         rawBody.instaId ||
+        rawBody.instaUrl ||
         rawBody.instagram ||
         rawBody['Insta Id'] ||
         rawBody['Instagram Handle'] ||
+        rawBody['Instagram Profile URL'] ||
+        rawBody['Instagram URL'] ||
+        rawBody['Profile URL'] ||
         rawBody['Instagram'] ||
         rawBody['Insta ID'] ||
         '',
@@ -468,7 +484,7 @@ export class InfluencersController implements OnModuleInit {
         rawBody['Commercials Reel'] ||
         rawBody['Reel Rate'] ||
         rawBody['Reel Commercial'] ||
-        ''
+        (isBarter ? 'Barter' : '')
       ),
       story: String(
         rawBody.story ||
@@ -477,9 +493,10 @@ export class InfluencersController implements OnModuleInit {
         rawBody['Commercials Story'] ||
         rawBody['Story Rate'] ||
         rawBody['Story Commercial'] ||
-        ''
+        (isBarter ? 'Barter' : '')
       ),
-      status: 'New Intake',
+      status: rawBody.status || (isBarter ? 'Barter Collab' : 'New Intake'),
+      collaborationType: isBarter ? 'Barter' : 'Commercial',
     };
 
     if (!normalized.name && !normalized.instaId && !normalized.email) {

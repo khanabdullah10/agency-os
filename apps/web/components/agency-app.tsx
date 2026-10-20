@@ -124,8 +124,16 @@ export function AgencyApp() {
       </div>
     );
 
+  if (
+    path === '/influencer-barter' ||
+    path === '/barter-intake' ||
+    path === '/forms/barter'
+  ) {
+    return <InfluencerPublicIntakeForm initialMode="barter" />;
+  }
+
   if (path === '/influencer-intake' || path === '/forms/influencer') {
-    return <InfluencerPublicIntakeForm />;
+    return <InfluencerPublicIntakeForm initialMode="commercial" />;
   }
 
   if (!actor)
@@ -169,7 +177,9 @@ export function AgencyApp() {
               '/tasks': actor.isClient ? <Dashboard /> : <TasksView />,
               '/records': actor.isClient ? <Dashboard /> : <SpreadsheetView />,
               '/influencer-marketing': actor.isClient ? <Dashboard /> : <InfluencerMarketingView />,
-              '/influencer-intake': <InfluencerPublicIntakeForm />,
+              '/influencer-intake': <InfluencerPublicIntakeForm initialMode="commercial" />,
+              '/influencer-barter': <InfluencerPublicIntakeForm initialMode="barter" />,
+              '/barter-intake': <InfluencerPublicIntakeForm initialMode="barter" />,
               '/attendance': actor.isClient ? <Dashboard /> : <AttendanceView />,
               '/approvals': <ApprovalsView />,
               '/chat': actor.isClient ? <Dashboard /> : <ChatView />,
@@ -786,6 +796,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const title = nav.find((n) => path.startsWith(n.href))?.name || label(path.split('/')[1] || 'Overview');
+  const isFullHeightView = path.startsWith('/records') || path.startsWith('/influencer-marketing');
 
   return (
     <div className="app">
@@ -982,7 +993,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Shell */}
-      <div className="main-shell">
+      <div className={`main-shell ${isFullHeightView ? 'main-shell-full' : ''}`}>
         <header className="topbar">
           <div className="breadcrumbs">
             <button
@@ -1051,14 +1062,16 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="main-content">{children}</main>
+        <main className={`main-content ${isFullHeightView ? 'main-content-full' : ''}`}>{children}</main>
 
-        <footer className="app-footer">
-          <span>Connected Operating System for Creative Digital Agencies.</span>
-          <span>
-            <i /> MAD O MEDIA · Agency OS
-          </span>
-        </footer>
+        {!isFullHeightView && (
+          <footer className="app-footer">
+            <span>Connected Operating System for Creative Digital Agencies.</span>
+            <span>
+              <i /> MAD O MEDIA · Agency OS
+            </span>
+          </footer>
+        )}
       </div>
 
       <SearchModal open={search} onClose={() => setSearch(false)} />

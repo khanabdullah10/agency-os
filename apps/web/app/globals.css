@@ -534,6 +534,37 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   flex: 1;
   min-width: 0;
 }
+/* Full-Height Shell & Content for Spreadsheets & Immersive Views */
+.main-shell-full {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.main-shell-full .topbar {
+  flex-shrink: 0 !important;
+}
+.main-content-full {
+  padding: 8px 12px 10px 12px !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+@media (max-width: 768px) {
+  .main-content-full {
+    padding: 6px 8px 8px 8px !important;
+  }
+}
+
 .app-footer {
   display: flex;
   justify-content: space-between;

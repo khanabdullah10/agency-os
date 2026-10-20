@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileSpreadsheet,
   Save,
@@ -33,6 +34,8 @@ import {
   RotateCcw,
   Maximize2,
   Minimize2,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { api, useApp, useMutation } from '@/lib/api';
 import { useTheme } from './ThemeProvider';
@@ -60,11 +63,13 @@ interface SheetTab {
   colCount: number;
   colWidths: Record<string, number>;
   data: Record<string, CellFormat>;
+  isLocked?: boolean;
 }
 
 interface WorkbookData {
   activeTab: string;
   tabs: SheetTab[];
+  isLocked?: boolean;
 }
 
 const TEMPLATES: Record<string, { title: string; desc: string; tabs: SheetTab[] }> = {
@@ -244,9 +249,51 @@ export function SpreadsheetView() {
   const [showSearch, setShowSearch] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState<'text' | 'bg' | null>(null);
+  const [colorPickerAnchor, setColorPickerAnchor] = useState<{ top: number; left: number } | null>(null);
   const [history, setHistory] = useState<WorkbookData[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Close color picker on outside click, window resize or scroll
+  useEffect(() => {
+    if (!showColorPicker) return;
+    const handleClose = () => {
+      setShowColorPicker(null);
+      setColorPickerAnchor(null);
+    };
+    window.addEventListener('resize', handleClose);
+    const scrollTimer = setTimeout(() => {
+      window.addEventListener('scroll', handleClose, true);
+    }, 150);
+    return () => {
+      clearTimeout(scrollTimer);
+      window.removeEventListener('resize', handleClose);
+      window.removeEventListener('scroll', handleClose, true);
+    };
+  }, [showColorPicker]);
+
+  const toggleColorPicker = (type: 'text' | 'bg', e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (showColorPicker === type) {
+      setShowColorPicker(null);
+      setColorPickerAnchor(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const popupWidth = 240;
+      const popupHeight = type === 'text' ? 240 : 290;
+      const left = typeof window !== 'undefined'
+        ? Math.max(8, Math.min(rect.left, window.innerWidth - popupWidth - 10))
+        : rect.left;
+      const top = typeof window !== 'undefined' && rect.bottom + popupHeight > window.innerHeight
+        ? Math.max(8, rect.top - popupHeight - 6)
+        : rect.bottom + 6;
+      setColorPickerAnchor({
+        top,
+        left,
+      });
+      setShowColorPicker(type);
+    }
+  };
 
   // Exit fullscreen on Escape
   useEffect(() => {
@@ -359,6 +406,28 @@ export function SpreadsheetView() {
     }, 2500);
     return () => clearTimeout(timer);
   }, [saveStatus, handleSave]);
+
+  // Lock / Unlock current sheet tab
+  const handleToggleLock = useCallback(() => {
+    const nextLocked = !currentTab.isLocked;
+    const newTabs = workbook.tabs.map((tab) =>
+      tab.id === currentTab.id ? { ...tab, isLocked: nextLocked } : tab
+    );
+    const updated = { ...workbook, tabs: newTabs };
+    pushState(updated);
+    handleSave(updated, title);
+    if (nextLocked) {
+      setIsEditing(false);
+      setShowColorPicker(null);
+      toast.success(`"${currentTab.name}" locked`, {
+        description: 'Sheet is protected against accidental edits.',
+      });
+    } else {
+      toast.success(`"${currentTab.name}" unlocked`, {
+        description: 'Editing enabled for this sheet.',
+      });
+    }
+  }, [currentTab, workbook, pushState, handleSave, title]);
 
   // Helpers to convert column letters (A, B, C...) to index (0, 1, 2...)
   const colLetter = (idx: number): string => {
@@ -603,6 +672,12 @@ export function SpreadsheetView() {
   // Update a single cell's format/value
   const updateCell = useCallback(
     (cellKey: string, updates: Partial<CellFormat>) => {
+      if (currentTab.isLocked) {
+        toast.error('Sheet is locked', {
+          description: 'Unlock this sheet tab from the top toolbar to make changes.',
+        });
+        return;
+      }
       const newTabs = workbook.tabs.map((tab) => {
         if (tab.id !== currentTab.id) return tab;
         const currentCell = tab.data[cellKey] || {};
@@ -623,14 +698,39 @@ export function SpreadsheetView() {
   const commitEdit = useCallback(
     (val: string) => {
       setIsEditing(false);
+      if (currentTab.isLocked) return;
       updateCell(selectedCell, { v: val });
     },
-    [selectedCell, updateCell]
+    [selectedCell, updateCell, currentTab.isLocked]
   );
 
   // Keyboard navigation & Shortcuts
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // 1. If focus is on ANY input, textarea, select, or modal, NEVER capture spreadsheet keys
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          target.closest('input, textarea, select, [role="dialog"], [data-modal]'))
+      ) {
+        // Only allow cell editor and formula bar through
+        if (target !== cellInputRef.current && target !== formulaInputRef.current) {
+          return;
+        }
+      }
+
+      if (showTemplates || showSearch) {
+        if (e.key === 'Escape') {
+          setShowTemplates(false);
+          setShowSearch(false);
+        }
+        return;
+      }
+
       const { col, row } = parseCellCoord(selectedCell);
       const cIdx = colIndex(col);
 
@@ -675,10 +775,18 @@ export function SpreadsheetView() {
         setSelectedCell(`${nextCol}${row}`);
       } else if (e.key === 'Enter') {
         e.preventDefault();
+        if (currentTab.isLocked) {
+          toast.error('Sheet is locked', { description: 'Unlock this sheet tab to edit cells.' });
+          return;
+        }
         setIsEditing(true);
-        setTimeout(() => cellInputRef.current?.focus(), 10);
+        setTimeout(() => cellInputRef.current?.focus({ preventScroll: true }), 10);
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
+        if (currentTab.isLocked) {
+          toast.error('Sheet is locked', { description: 'Unlock this sheet tab to delete cell contents.' });
+          return;
+        }
         updateCell(selectedCell, { v: '' });
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
@@ -695,14 +803,18 @@ export function SpreadsheetView() {
         const cell = currentTab.data[selectedCell];
         updateCell(selectedCell, { italic: !cell?.italic });
       } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (currentTab.isLocked) {
+          toast.error('Sheet is locked', { description: 'Unlock this sheet tab to edit cells.' });
+          return;
+        }
         // Typing begins editing immediately
         setIsEditing(true);
         setEditValue(e.key);
         setFormulaValue(e.key);
-        setTimeout(() => cellInputRef.current?.focus(), 10);
+        setTimeout(() => cellInputRef.current?.focus({ preventScroll: true }), 10);
       }
     },
-    [selectedCell, isEditing, editValue, currentTab, commitEdit, handleUndo, handleRedo, updateCell]
+    [selectedCell, isEditing, editValue, currentTab, commitEdit, handleUndo, handleRedo, updateCell, showTemplates, showSearch]
   );
 
   // Column resizing handlers (supporting both mouse and mobile touch)
@@ -747,6 +859,10 @@ export function SpreadsheetView() {
 
   // Insert & Delete Rows / Columns
   const handleAddRows = (count = 10) => {
+    if (currentTab.isLocked) {
+      toast.error('Sheet is locked', { description: 'Unlock this sheet tab to add rows.' });
+      return;
+    }
     const newTabs = workbook.tabs.map((tab) =>
       tab.id === currentTab.id ? { ...tab, rowCount: tab.rowCount + count } : tab
     );
@@ -755,6 +871,10 @@ export function SpreadsheetView() {
   };
 
   const handleDeleteRow = () => {
+    if (currentTab.isLocked) {
+      toast.error('Sheet is locked', { description: 'Unlock this sheet tab to delete rows.' });
+      return;
+    }
     const { row } = parseCellCoord(selectedCell);
     const newData: Record<string, CellFormat> = {};
     Object.entries(currentTab.data).forEach(([key, val]) => {
@@ -775,6 +895,10 @@ export function SpreadsheetView() {
   };
 
   const handleInsertRow = (above = true) => {
+    if (currentTab.isLocked) {
+      toast.error('Sheet is locked', { description: 'Unlock this sheet tab to insert rows.' });
+      return;
+    }
     const { row } = parseCellCoord(selectedCell);
     const targetRow = above ? row : row + 1;
     const newData: Record<string, CellFormat> = {};
@@ -821,6 +945,13 @@ export function SpreadsheetView() {
       toast.error('Spreadsheet must contain at least one sheet tab');
       return;
     }
+    const targetTab = workbook.tabs.find((t) => t.id === tabId);
+    if (targetTab?.isLocked) {
+      toast.error('Cannot delete locked sheet', {
+        description: 'Unlock this sheet tab before deleting.',
+      });
+      return;
+    }
     const filtered = workbook.tabs.filter((t) => t.id !== tabId);
     pushState({
       ...workbook,
@@ -832,6 +963,12 @@ export function SpreadsheetView() {
 
   // Load Template
   const handleLoadTemplate = (key: string) => {
+    if (currentTab.isLocked) {
+      toast.error('Sheet is locked', {
+        description: 'Unlock this sheet tab before loading a starter template.',
+      });
+      return;
+    }
     const tmpl = TEMPLATES[key];
     if (!tmpl) return;
     const newWb: WorkbookData = {
@@ -877,6 +1014,13 @@ export function SpreadsheetView() {
 
   // Import CSV
   const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (currentTab.isLocked) {
+      toast.error('Sheet is locked', {
+        description: 'Unlock this sheet tab before importing CSV.',
+      });
+      e.target.value = '';
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -930,7 +1074,7 @@ export function SpreadsheetView() {
       className={`spreadsheet-container outline-hidden flex flex-col w-full max-w-full overflow-hidden shadow-xs transition-all duration-200 select-none ${
         isFullscreen
           ? 'fixed inset-0 z-[9999] h-screen w-screen rounded-none border-0'
-          : 'h-[calc(100dvh-78px)] sm:h-[calc(100vh-80px)] rounded-xl border'
+          : 'h-full max-h-full min-h-0 flex-1 rounded-xl border'
       } ${
         isDark ? 'bg-[#0f1115] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
       }`}
@@ -997,6 +1141,12 @@ export function SpreadsheetView() {
             {/* Sub-menu bar */}
             <div className="flex items-center gap-1.5 sm:gap-3 text-[10px] sm:text-xs text-zinc-400 mt-0.5 truncate">
               <span className="truncate font-medium text-zinc-300 dark:text-zinc-400">{currentTab.name}</span>
+              {currentTab.isLocked && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  <Lock size={10} className="shrink-0" />
+                  <span>Locked</span>
+                </span>
+              )}
               <span>•</span>
               <span className="shrink-0">{currentTab.rowCount} rows</span>
               <span className="hidden sm:inline">•</span>
@@ -1060,11 +1210,13 @@ export function SpreadsheetView() {
             </button>
 
             {showTemplates && (
-              <div
-                className={`absolute right-0 mt-1 w-64 rounded-xl border shadow-xl z-50 p-1.5 ${
-                  isDark ? 'bg-[#181b22] border-zinc-700' : 'bg-white border-stone-200'
-                }`}
-              >
+              <>
+                <div className="fixed inset-0 z-40 bg-transparent cursor-default" onClick={() => setShowTemplates(false)} />
+                <div
+                  className={`absolute right-0 mt-1 w-64 rounded-xl border shadow-xl z-50 p-1.5 ${
+                    isDark ? 'bg-[#181b22] border-zinc-700' : 'bg-white border-stone-200'
+                  }`}
+                >
                 <div
                   className={`text-[11px] font-semibold uppercase tracking-wider px-2 py-1 ${
                     isDark ? 'text-zinc-400' : 'text-stone-500'
@@ -1097,6 +1249,7 @@ export function SpreadsheetView() {
                   </button>
                 ))}
               </div>
+              </>
             )}
           </div>
 
@@ -1126,6 +1279,33 @@ export function SpreadsheetView() {
           >
             <Download size={13} className="shrink-0" />
             <span className="hidden sm:inline">Export</span>
+          </button>
+
+          {/* Lock / Unlock Toggle */}
+          <button
+            onClick={handleToggleLock}
+            title={currentTab.isLocked ? "Sheet is protected (read-only). Click to unlock." : "Lock sheet to protect against edits"}
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-2xs shrink-0 ${
+              currentTab.isLocked
+                ? isDark
+                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/40 hover:bg-amber-500/25'
+                  : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                : isDark
+                ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-300'
+                : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
+            }`}
+          >
+            {currentTab.isLocked ? (
+              <>
+                <Lock size={13} className="text-amber-500 shrink-0" />
+                <span className="font-semibold text-amber-600 dark:text-amber-400">Locked</span>
+              </>
+            ) : (
+              <>
+                <Unlock size={13} className="text-zinc-400 shrink-0" />
+                <span className="hidden sm:inline">Lock</span>
+              </>
+            )}
           </button>
 
           {/* Full Screen Toggle */}
@@ -1166,11 +1346,21 @@ export function SpreadsheetView() {
         }`}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
+        {currentTab.isLocked && (
+          <>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[11px] font-semibold shrink-0">
+              <Lock size={12} className="shrink-0" />
+              <span>Read-Only</span>
+            </div>
+            <div className="h-4 w-px bg-stone-300 dark:bg-zinc-700 mx-1" />
+          </>
+        )}
+
         {/* Undo / Redo */}
         <button
           onClick={handleUndo}
           title="Undo (Ctrl+Z)"
-          disabled={historyIdx <= 0}
+          disabled={historyIdx <= 0 || currentTab.isLocked}
           className="p-1.5 rounded hover:bg-stone-200 dark:hover:bg-zinc-700/60 disabled:opacity-30"
         >
           <Undo2 size={14} />
@@ -1178,7 +1368,7 @@ export function SpreadsheetView() {
         <button
           onClick={handleRedo}
           title="Redo (Ctrl+Y)"
-          disabled={historyIdx >= history.length - 1}
+          disabled={historyIdx >= history.length - 1 || currentTab.isLocked}
           className="p-1.5 rounded hover:bg-stone-200 dark:hover:bg-zinc-700/60 disabled:opacity-30"
         >
           <Redo2 size={14} />
@@ -1312,9 +1502,15 @@ export function SpreadsheetView() {
         {/* Background / Cell Fill Color */}
         <div className="relative">
           <button
-            onClick={() => setShowColorPicker(showColorPicker === 'bg' ? null : 'bg')}
+            onClick={(e) => toggleColorPicker('bg', e)}
             title="Cell fill color"
-            className="flex items-center gap-1 p-1.5 rounded hover:bg-stone-200 dark:hover:bg-zinc-700/60"
+            className={`flex items-center gap-1 p-1.5 rounded transition-colors ${
+              showColorPicker === 'bg'
+                ? isDark
+                  ? 'bg-zinc-800'
+                  : 'bg-stone-200'
+                : 'hover:bg-stone-200 dark:hover:bg-zinc-700/60'
+            }`}
           >
             <div
               className="w-3.5 h-3.5 rounded-sm border border-zinc-400"
@@ -1322,34 +1518,20 @@ export function SpreadsheetView() {
             />
             <Palette size={12} />
           </button>
-
-          {showColorPicker === 'bg' && (
-            <div className="absolute left-0 mt-1 p-2 rounded-xl border border-stone-200 dark:border-zinc-700 bg-white dark:bg-[#1a1d24] shadow-xl z-50 w-48">
-              <div className="text-[10px] font-semibold text-zinc-400 mb-1">Fill Color</div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {PASTEL_BG_PALETTE.map((p) => (
-                  <button
-                    key={p.name}
-                    onClick={() => {
-                      updateCell(selectedCell, { bg: p.color === 'transparent' ? undefined : p.color });
-                      setShowColorPicker(null);
-                    }}
-                    title={p.name}
-                    className="h-6 w-full rounded border border-zinc-300 dark:border-zinc-600 hover:scale-105 transition-transform"
-                    style={{ backgroundColor: p.color }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Text Color */}
         <div className="relative">
           <button
-            onClick={() => setShowColorPicker(showColorPicker === 'text' ? null : 'text')}
+            onClick={(e) => toggleColorPicker('text', e)}
             title="Text color"
-            className="flex items-center gap-1 p-1.5 rounded hover:bg-stone-200 dark:hover:bg-zinc-700/60"
+            className={`flex items-center gap-1 p-1.5 rounded transition-colors ${
+              showColorPicker === 'text'
+                ? isDark
+                  ? 'bg-zinc-800'
+                  : 'bg-stone-200'
+                : 'hover:bg-stone-200 dark:hover:bg-zinc-700/60'
+            }`}
           >
             <span
               className="text-xs font-bold underline"
@@ -1358,10 +1540,121 @@ export function SpreadsheetView() {
               A
             </span>
           </button>
+        </div>
 
-          {showColorPicker === 'text' && (
-            <div className="absolute left-0 mt-1 p-2 rounded-xl border border-stone-200 dark:border-zinc-700 bg-white dark:bg-[#1a1d24] shadow-xl z-50 w-52">
-              <div className="text-[10px] font-semibold text-zinc-400 mb-1">Text Color</div>
+        {/* Floating Portal Color Pickers to avoid overflow and composited layer clipping */}
+        {typeof document !== 'undefined' && showColorPicker === 'bg' && colorPickerAnchor && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[99998] bg-transparent cursor-default"
+              onClick={() => {
+                setShowColorPicker(null);
+                setColorPickerAnchor(null);
+              }}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: `${colorPickerAnchor.top}px`,
+                left: `${colorPickerAnchor.left}px`,
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="fixed z-[99999] p-3 rounded-xl border border-stone-200 dark:border-zinc-700 bg-white dark:bg-[#1a1d24] shadow-2xl w-64 select-none"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-stone-700 dark:text-zinc-200">Fill Color</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateCell(selectedCell, { bg: undefined });
+                    setShowColorPicker(null);
+                    setColorPickerAnchor(null);
+                  }}
+                  className="text-[11px] font-medium text-stone-500 hover:text-rose-500 dark:text-zinc-400 dark:hover:text-rose-400 hover:underline cursor-pointer"
+                >
+                  Reset (No Fill)
+                </button>
+              </div>
+
+              <div className="mb-2.5">
+                <div className="text-[10px] font-medium text-stone-400 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
+                  Pastel Tints
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {PASTEL_BG_PALETTE.map((p) => (
+                    <button
+                      key={p.name}
+                      onClick={() => {
+                        updateCell(selectedCell, { bg: p.color === 'transparent' ? undefined : p.color });
+                        setShowColorPicker(null);
+                        setColorPickerAnchor(null);
+                      }}
+                      title={p.name}
+                      className="h-6 w-full rounded border border-zinc-300 dark:border-zinc-600 hover:scale-105 active:scale-95 transition-transform"
+                      style={{ backgroundColor: p.color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-stone-200 dark:bg-zinc-800 my-2" />
+
+              <div>
+                <div className="text-[10px] font-medium text-stone-400 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
+                  Standard Palette
+                </div>
+                <div className="grid grid-cols-10 gap-1">
+                  {COLOR_PALETTE.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        updateCell(selectedCell, { bg: c });
+                        setShowColorPicker(null);
+                        setColorPickerAnchor(null);
+                      }}
+                      className="h-4.5 w-4.5 rounded-xs border border-zinc-400/40 hover:scale-115 active:scale-95 transition-transform"
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+
+        {typeof document !== 'undefined' && showColorPicker === 'text' && colorPickerAnchor && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[99998] bg-transparent cursor-default"
+              onClick={() => {
+                setShowColorPicker(null);
+                setColorPickerAnchor(null);
+              }}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: `${colorPickerAnchor.top}px`,
+                left: `${colorPickerAnchor.left}px`,
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="fixed z-[99999] p-3 rounded-xl border border-stone-200 dark:border-zinc-700 bg-white dark:bg-[#1a1d24] shadow-2xl w-64 select-none"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-stone-700 dark:text-zinc-200">Text Color</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateCell(selectedCell, { color: undefined });
+                    setShowColorPicker(null);
+                    setColorPickerAnchor(null);
+                  }}
+                  className="text-[11px] font-medium text-stone-500 hover:text-rose-500 dark:text-zinc-400 dark:hover:text-rose-400 hover:underline cursor-pointer"
+                >
+                  Reset (Default)
+                </button>
+              </div>
               <div className="grid grid-cols-10 gap-1">
                 {COLOR_PALETTE.map((c, i) => (
                   <button
@@ -1369,15 +1662,17 @@ export function SpreadsheetView() {
                     onClick={() => {
                       updateCell(selectedCell, { color: c });
                       setShowColorPicker(null);
+                      setColorPickerAnchor(null);
                     }}
-                    className="h-4 w-4 rounded-xs border border-zinc-400/40 hover:scale-110"
+                    className="h-4.5 w-4.5 rounded-xs border border-zinc-400/40 hover:scale-115 active:scale-95 transition-transform"
                     style={{ backgroundColor: c }}
                   />
                 ))}
               </div>
             </div>
-          )}
-        </div>
+          </>,
+          document.body
+        )}
 
         <div className="h-4 w-px bg-stone-300 dark:bg-zinc-700 mx-1" />
 
@@ -1388,7 +1683,7 @@ export function SpreadsheetView() {
           className="p-1.5 rounded hover:bg-stone-200 dark:hover:bg-zinc-700/60 flex items-center gap-1 text-[11px]"
         >
           <Rows size={13} />
-          <span>+Row</span>
+          <span>+ Row</span>
         </button>
 
         <button
@@ -1434,7 +1729,9 @@ export function SpreadsheetView() {
           ref={formulaInputRef}
           type="text"
           value={formulaValue}
+          disabled={currentTab.isLocked}
           onChange={(e) => {
+            if (currentTab.isLocked) return;
             setFormulaValue(e.target.value);
             setEditValue(e.target.value);
             updateCell(selectedCell, { v: e.target.value });
@@ -1446,10 +1743,14 @@ export function SpreadsheetView() {
             }
           }}
           onFocus={() => {
-            setIsEditing(true);
+            if (!currentTab.isLocked) {
+              setIsEditing(true);
+            }
           }}
-          placeholder="Enter value or formula (e.g. =SUM(A1:A5))"
-          className="grow min-w-0 bg-transparent outline-hidden px-1.5 sm:px-2 py-0.5 sm:py-1 font-sans text-xs text-foreground placeholder:text-zinc-500"
+          placeholder={currentTab.isLocked ? "Sheet is locked (view-only)" : "Enter value or formula (e.g. =SUM(A1:A5))"}
+          className={`grow min-w-0 bg-transparent outline-hidden px-1.5 sm:px-2 py-0.5 sm:py-1 font-sans text-xs text-foreground placeholder:text-zinc-500 ${
+            currentTab.isLocked ? 'cursor-not-allowed opacity-60' : ''
+          }`}
         />
 
         {/* Quick checkmark to commit edit on mobile */}
@@ -1468,7 +1769,7 @@ export function SpreadsheetView() {
       {/* 4. THE SPREADSHEET GRID */}
       <div
         ref={gridContainerRef}
-        className="grow overflow-auto relative select-none scrollbar-thin"
+        className="grow min-h-0 overflow-x-auto overflow-y-auto relative select-none scrollbar-thin [contain:paint]"
         style={{ scrollbarGutter: 'stable', WebkitOverflowScrolling: 'touch' }}
       >
         <table className="border-collapse table-fixed w-max text-xs">
@@ -1476,7 +1777,8 @@ export function SpreadsheetView() {
             <tr className={`sticky top-0 z-20 ${isDark ? 'bg-[#181b22]' : 'bg-stone-100'}`}>
               {/* Corner Header (select all) - Anchored at top-left */}
               <th
-                className={`sticky top-0 left-0 z-30 w-10 sm:w-10 h-8 sm:h-7 border text-center font-normal select-none ${
+                style={{ width: 44, minWidth: 44, maxWidth: 44 }}
+                className={`sticky top-0 left-0 z-30 h-8 sm:h-7 border text-center font-normal select-none overflow-hidden ${
                   isDark ? 'border-zinc-800 bg-[#16181f] text-zinc-500' : 'border-stone-300 bg-stone-200 text-stone-500'
                 }`}
               >
@@ -1523,8 +1825,9 @@ export function SpreadsheetView() {
                 <tr key={row}>
                   {/* Row Number Header (1, 2, 3...) */}
                   <td
+                    style={{ width: 44, minWidth: 44, maxWidth: 44 }}
                     onClick={() => setSelectedCell(`A${row}`)}
-                    className={`sticky left-0 z-10 w-10 h-8 sm:h-6 border text-center font-mono text-[11px] select-none ${
+                    className={`sticky left-0 z-10 h-8 sm:h-6 border text-center font-mono text-[11px] select-none overflow-hidden ${
                       isDark
                         ? `border-zinc-800 ${isRowSelected ? 'bg-emerald-950/40 text-emerald-400' : 'bg-[#16181f] text-zinc-500'}`
                         : `border-stone-300 ${isRowSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-500'}`
@@ -1550,15 +1853,27 @@ export function SpreadsheetView() {
                             if (isEditing) commitEdit(editValue);
                             setSelectedCell(cellKey);
                           } else if (!isEditing) {
+                            if (currentTab.isLocked) {
+                              toast.error('Sheet is locked', {
+                                description: 'Unlock this sheet tab from the top toolbar to edit.',
+                              });
+                              return;
+                            }
                             // Touch friendly: second tap on selected cell opens editor on mobile!
                             setIsEditing(true);
-                            setTimeout(() => cellInputRef.current?.focus(), 10);
+                            setTimeout(() => cellInputRef.current?.focus({ preventScroll: true }), 10);
                           }
                         }}
                         onDoubleClick={() => {
                           setSelectedCell(cellKey);
+                          if (currentTab.isLocked) {
+                            toast.error('Sheet is locked', {
+                              description: 'Unlock this sheet tab from the top toolbar to edit.',
+                            });
+                            return;
+                          }
                           setIsEditing(true);
-                          setTimeout(() => cellInputRef.current?.focus(), 10);
+                          setTimeout(() => cellInputRef.current?.focus({ preventScroll: true }), 10);
                         }}
                         style={resolveCellStyles(cell, isMatch)}
                         className={`relative h-8 sm:h-6 px-1.5 border truncate whitespace-nowrap overflow-hidden text-xs transition-colors ${
@@ -1631,10 +1946,10 @@ export function SpreadsheetView() {
 
       {/* 5. MULTI-SHEET TABS BAR (AT THE BOTTOM, EXACTLY LIKE GOOGLE SHEETS) */}
       <div
-        className={`px-2 py-1.5 flex items-center justify-between border-t shrink-0 ${
+        className={`px-3 py-2 flex items-center justify-between border-t shrink-0 min-h-[42px] ${
           isDark ? 'bg-[#14171d] border-zinc-800' : 'bg-stone-100 border-stone-300'
         }`}
-        style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom, 0px))' }}
+        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}
       >
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* Add Sheet Tab Button */}
@@ -1675,6 +1990,11 @@ export function SpreadsheetView() {
                   style={{ backgroundColor: tab.color || '#0f9d58' }}
                 />
                 <span className="truncate max-w-[160px]">{tab.name}</span>
+                {tab.isLocked && (
+                  <span title="Sheet is locked" className="inline-flex items-center">
+                    <Lock size={11} className="text-amber-500 shrink-0" />
+                  </span>
+                )}
 
                 {workbook.tabs.length > 1 && (
                   <button

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Sparkles,
   Users2,
@@ -45,10 +46,15 @@ import {
   Columns,
   Maximize2,
   Minimize2,
+  Lock,
+  Unlock,
+  Gift,
+  CreditCard,
 } from 'lucide-react';
 import { api, useApp } from '@/lib/api';
 import { useTheme } from './ThemeProvider';
 import { toast } from 'sonner';
+import { COMMERCIAL_RANGES, formatInstagramUrl } from './influencer-intake';
 
 // Cell format interface
 interface CellFormat {
@@ -205,6 +211,7 @@ interface SheetTab {
   colWidths: Record<string, number>;
   data: Record<string, CellFormat>;
   columns?: SheetColumn[];
+  isLocked?: boolean;
 }
 
 interface WorkbookData {
@@ -212,6 +219,7 @@ interface WorkbookData {
   tabs: SheetTab[];
   columns?: SheetColumn[];
   deletedBrands?: string[];
+  isLocked?: boolean;
 }
 
 export const INFLUENCER_FIELDS = [
@@ -307,6 +315,48 @@ export function InfluencerMarketingView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState<'text' | 'bg' | null>(null);
+  const [colorPickerAnchor, setColorPickerAnchor] = useState<{ top: number; left: number } | null>(null);
+
+  // Close color picker on outside click, window resize or scroll
+  useEffect(() => {
+    if (!showColorPicker) return;
+    const handleClose = () => {
+      setShowColorPicker(null);
+      setColorPickerAnchor(null);
+    };
+    window.addEventListener('resize', handleClose);
+    const scrollTimer = setTimeout(() => {
+      window.addEventListener('scroll', handleClose, true);
+    }, 150);
+    return () => {
+      clearTimeout(scrollTimer);
+      window.removeEventListener('resize', handleClose);
+      window.removeEventListener('scroll', handleClose, true);
+    };
+  }, [showColorPicker]);
+
+  const toggleColorPicker = (type: 'text' | 'bg', e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (showColorPicker === type) {
+      setShowColorPicker(null);
+      setColorPickerAnchor(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const popupWidth = 260;
+      const popupHeight = type === 'text' ? 200 : 310;
+      const left = typeof window !== 'undefined'
+        ? Math.max(8, Math.min(rect.left, window.innerWidth - popupWidth - 10))
+        : rect.left;
+      const top = typeof window !== 'undefined' && rect.bottom + popupHeight > window.innerHeight
+        ? Math.max(8, rect.top - popupHeight - 6)
+        : rect.bottom + 6;
+      setColorPickerAnchor({
+        top,
+        left,
+      });
+      setShowColorPicker(type);
+    }
+  };
 
   // Range Filters state
   const [rangeFilterOpen, setRangeFilterOpen] = useState(false);
@@ -382,6 +432,19 @@ export function InfluencerMarketingView() {
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const cellInputRef = useRef<HTMLInputElement>(null);
   const formulaInputRef = useRef<HTMLInputElement>(null);
+  const brandInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus brand input and ensure background cell editing is cleared when Add Brand modal is open
+  useEffect(() => {
+    if (addBrandOpen) {
+      setIsEditing(false);
+      const timer = setTimeout(() => {
+        brandInputRef.current?.focus();
+        brandInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [addBrandOpen]);
 
   // Exit fullscreen on Escape
   useEffect(() => {
@@ -516,6 +579,28 @@ export function InfluencerMarketingView() {
     },
     [workbook]
   );
+
+  // Lock / Unlock current sheet tab
+  const handleToggleLock = useCallback(() => {
+    const nextLocked = !currentTab.isLocked;
+    const newTabs = workbook.tabs.map((tab) =>
+      tab.id === currentTab.id ? { ...tab, isLocked: nextLocked } : tab
+    );
+    const updated = { ...workbook, tabs: newTabs };
+    pushState(updated);
+    handleSave(updated);
+    if (nextLocked) {
+      setIsEditing(false);
+      setShowColorPicker(null);
+      toast.success(`"${currentTab.name}" locked`, {
+        description: 'Sheet is protected against accidental edits.',
+      });
+    } else {
+      toast.success(`"${currentTab.name}" unlocked`, {
+        description: 'Editing enabled for this sheet tab.',
+      });
+    }
+  }, [currentTab, workbook, pushState, handleSave]);
 
   /**
    * AUTOMATIC BRAND SHEET SYNCHRONIZATION ENGINE
@@ -855,6 +940,12 @@ export function InfluencerMarketingView() {
   // Update a single cell's format/value
   const updateCell = useCallback(
     (cellKey: string, updates: Partial<CellFormat>) => {
+      if (currentTab.isLocked) {
+        toast.error('Sheet is locked', {
+          description: 'Unlock this sheet tab from the top toolbar to make changes.',
+        });
+        return;
+      }
       const parsed = parseCellKey(cellKey);
       if (!parsed) return;
 
@@ -943,14 +1034,45 @@ export function InfluencerMarketingView() {
   const commitEdit = useCallback(
     (newVal: string) => {
       setIsEditing(false);
+      if (currentTab.isLocked) return;
       updateCell(selectedCell, { v: newVal });
     },
-    [selectedCell, updateCell]
+    [selectedCell, updateCell, currentTab.isLocked]
   );
 
   // Keyboard navigation & Shortcuts
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // 1. If any modal is open, completely disable spreadsheet hotkeys
+      if (
+        addBrandOpen ||
+        addColumnOpen ||
+        removeColumnOpen ||
+        exportOpen ||
+        importOpen ||
+        intakeSyncOpen ||
+        rangeFilterOpen ||
+        deleteSheetOpen
+      ) {
+        return;
+      }
+
+      // 2. If focus is on ANY input, textarea, select, or modal, NEVER capture spreadsheet keys
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          target.closest('input, textarea, select, [role="dialog"], [data-modal]'))
+      ) {
+        // Only allow cell editor and formula bar through
+        if (target !== cellInputRef.current && target !== formulaInputRef.current) {
+          return;
+        }
+      }
+
       const parsed = parseCellKey(selectedCell);
       if (!parsed) return;
       const { col, row, colIdx } = parsed;
@@ -986,12 +1108,20 @@ export function InfluencerMarketingView() {
         updateCell(selectedCell, { underline: !activeCellFormat.underline });
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
+        if (currentTab.isLocked) {
+          toast.error('Sheet is locked', { description: 'Unlock this sheet tab to delete contents.' });
+          return;
+        }
         updateCell(selectedCell, { v: '' });
       } else if (e.key === 'Enter' || e.key === 'F2') {
         e.preventDefault();
+        if (currentTab.isLocked) {
+          toast.error('Sheet is locked', { description: 'Unlock this sheet tab to edit cells.' });
+          return;
+        }
         setIsEditing(true);
         setEditValue(String(activeCellFormat.v || ''));
-        setTimeout(() => cellInputRef.current?.focus(), 10);
+        setTimeout(() => cellInputRef.current?.focus({ preventScroll: true }), 10);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (row > 2) setSelectedCell(`${col}${row - 1}`);
@@ -1012,17 +1142,42 @@ export function InfluencerMarketingView() {
           if (colIdx < columns.length - 1) setSelectedCell(`${colLetter(colIdx + 1)}${row}`);
         }
       } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (currentTab.isLocked) {
+          toast.error('Sheet is locked', { description: 'Unlock this sheet tab to edit cells.' });
+          return;
+        }
         // Direct typing starts edit
         setIsEditing(true);
         setEditValue(e.key);
-        setTimeout(() => cellInputRef.current?.focus(), 10);
+        setTimeout(() => cellInputRef.current?.focus({ preventScroll: true }), 10);
       }
     },
-    [selectedCell, isEditing, editValue, currentTab, columns, activeCellFormat, commitEdit, updateCell]
+    [
+      selectedCell,
+      isEditing,
+      editValue,
+      currentTab,
+      columns,
+      activeCellFormat,
+      commitEdit,
+      updateCell,
+      addBrandOpen,
+      addColumnOpen,
+      removeColumnOpen,
+      exportOpen,
+      importOpen,
+      intakeSyncOpen,
+      rangeFilterOpen,
+      deleteSheetOpen,
+    ]
   );
 
   // Add row in current tab (append to end)
   const handleAddRow = () => {
+    if (currentTab.isLocked) {
+      toast.error('Sheet is locked', { description: 'Unlock this sheet tab to add rows.' });
+      return;
+    }
     let nextRow = 2;
     while (currentTab.data[`A${nextRow}`]?.v || currentTab.data[`B${nextRow}`]?.v) {
       nextRow++;
@@ -1083,6 +1238,10 @@ export function InfluencerMarketingView() {
 
   // Insert row (either after target row or append)
   const handleInsertRow = (afterRow?: number) => {
+    if (currentTab.isLocked) {
+      toast.error('Sheet is locked', { description: 'Unlock this sheet tab to insert rows.' });
+      return;
+    }
     const targetRow = afterRow !== undefined ? afterRow : selectedRow;
     if (targetRow && targetRow >= 1 && targetRow < currentTab.rowCount) {
       const isBrandTab = currentTab.id !== masterTab.id;
@@ -1129,6 +1288,10 @@ export function InfluencerMarketingView() {
 
   // Delete row (shifts subsequent rows up by 1)
   const handleDeleteRow = (targetRow?: number) => {
+    if (currentTab.isLocked) {
+      toast.error('Sheet is locked', { description: 'Unlock this sheet tab to delete rows.' });
+      return;
+    }
     const rowToDelete = targetRow !== undefined ? targetRow : selectedRow;
     if (rowToDelete < 2) {
       toast.error('Cannot delete the header row');
@@ -1556,13 +1719,18 @@ export function InfluencerMarketingView() {
   const handleQuickAddCreator = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickCreator.name || !quickCreator.instaId) {
-      toast.error('Please enter Creator Name and Instagram Handle');
+      toast.error('Please enter Creator Name and Instagram Profile URL / Handle');
       return;
     }
 
+    const trimmedInsta = quickCreator.instaId.trim();
+    const finalInsta = trimmedInsta.startsWith('http') || trimmedInsta.includes('instagram.com')
+      ? formatInstagramUrl(trimmedInsta)
+      : (trimmedInsta.startsWith('@') ? trimmedInsta : `@${trimmedInsta}`);
+
     const payload = {
       name: quickCreator.name.trim(),
-      instaId: quickCreator.instaId.trim().startsWith('@') ? quickCreator.instaId.trim() : `@${quickCreator.instaId.trim()}`,
+      instaId: finalInsta,
       phone: quickCreator.phone.trim(),
       email: quickCreator.email.trim(),
       genre: quickCreator.genre,
@@ -1574,7 +1742,7 @@ export function InfluencerMarketingView() {
       brand: quickCreator.brand.trim() || (currentTab.id !== masterTab.id ? currentTab.name : 'General'),
       reel: quickCreator.reel.trim(),
       story: quickCreator.story.trim(),
-      status: 'New Intake',
+      status: quickCreator.reel === 'Barter' || quickCreator.story === 'Barter' ? 'Barter Collab' : 'New Intake',
     };
 
     try {
@@ -1742,9 +1910,9 @@ export function InfluencerMarketingView() {
       className={`flex flex-col outline-hidden ${
         isFullscreen
           ? 'fixed inset-0 z-[9999] h-screen w-screen rounded-none border-0'
-          : 'h-[calc(100dvh-78px)] sm:h-[calc(100vh-80px)]'
+          : 'h-full max-h-full min-h-0 flex-1 rounded-xl border'
       } max-w-full overflow-hidden select-none ${
-        isDark ? 'bg-[#0f1117] text-zinc-200' : 'bg-white text-stone-900'
+        isDark ? 'bg-[#0f1117] text-zinc-200 border-zinc-800' : 'bg-white text-stone-900 border-stone-200'
       }`}
     >
       {/* 1. TOP HEADER & METRICS BAR */}
@@ -1773,6 +1941,12 @@ export function InfluencerMarketingView() {
               >
                 {currentTab.name}
               </span>
+              {currentTab.isLocked && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  <Lock size={10} className="shrink-0" />
+                  <span>Locked</span>
+                </span>
+              )}
             </div>
             <p className={`text-[10px] sm:text-[11px] truncate ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
               {activeFilterCount > 0 || searchQuery
@@ -1858,6 +2032,33 @@ export function InfluencerMarketingView() {
             <span className="hidden sm:inline">Export</span>
           </button>
 
+          {/* Lock / Unlock Toggle */}
+          <button
+            onClick={handleToggleLock}
+            title={currentTab.isLocked ? "Sheet is protected (read-only). Click to unlock." : "Lock sheet to protect against edits"}
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-2xs shrink-0 ${
+              currentTab.isLocked
+                ? isDark
+                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/40 hover:bg-amber-500/25'
+                  : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                : isDark
+                ? 'bg-zinc-800 hover:bg-zinc-700/80 border-zinc-700 text-zinc-300'
+                : 'bg-white hover:bg-stone-100 border-stone-300 text-stone-700'
+            }`}
+          >
+            {currentTab.isLocked ? (
+              <>
+                <Lock size={13} className="text-amber-500 shrink-0" />
+                <span className="font-semibold text-amber-600 dark:text-amber-400">Locked</span>
+              </>
+            ) : (
+              <>
+                <Unlock size={13} className="text-zinc-400 shrink-0" />
+                <span className="hidden sm:inline">Lock</span>
+              </>
+            )}
+          </button>
+
           {/* Full Screen Toggle */}
           <button
             onClick={() => setIsFullscreen((prev) => !prev)}
@@ -1901,10 +2102,20 @@ export function InfluencerMarketingView() {
         }`}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
+        {currentTab.isLocked && (
+          <>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[11px] font-semibold shrink-0">
+              <Lock size={12} className="shrink-0" />
+              <span>Read-Only</span>
+            </div>
+            <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
+          </>
+        )}
+
         {/* Undo / Redo */}
         <button
           onClick={handleUndo}
-          disabled={historyIdx <= 0}
+          disabled={historyIdx <= 0 || currentTab.isLocked}
           title="Undo (Ctrl+Z)"
           className={`p-1.5 rounded disabled:opacity-30 shrink-0 transition-colors ${
             isDark ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-stone-200 text-stone-700'
@@ -1914,7 +2125,7 @@ export function InfluencerMarketingView() {
         </button>
         <button
           onClick={handleRedo}
-          disabled={historyIdx >= history.length - 1}
+          disabled={historyIdx >= history.length - 1 || currentTab.isLocked}
           title="Redo (Ctrl+Y)"
           className={`p-1.5 rounded disabled:opacity-30 shrink-0 transition-colors ${
             isDark ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-stone-200 text-stone-700'
@@ -2087,7 +2298,7 @@ export function InfluencerMarketingView() {
         {/* Background / Cell Fill Color */}
         <div className="relative">
           <button
-            onClick={() => setShowColorPicker(showColorPicker === 'bg' ? null : 'bg')}
+            onClick={(e) => toggleColorPicker('bg', e)}
             title="Cell fill color"
             className={`flex items-center gap-1 p-1.5 rounded transition-colors ${
               showColorPicker === 'bg'
@@ -2105,32 +2316,12 @@ export function InfluencerMarketingView() {
             />
             <Palette size={12} />
           </button>
-
-          {showColorPicker === 'bg' && (
-            <div className={`absolute left-0 mt-1 p-2 rounded-xl border shadow-xl z-50 w-48 ${isDark ? 'bg-[#1a1d24] border-zinc-700' : 'bg-white border-stone-200'}`}>
-              <div className={`text-[10px] font-semibold mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Fill Color</div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {PASTEL_BG_PALETTE.map((p) => (
-                  <button
-                    key={p.name}
-                    onClick={() => {
-                      updateCell(selectedCell, { bg: p.color === 'transparent' ? undefined : p.color });
-                      setShowColorPicker(null);
-                    }}
-                    title={p.name}
-                    className="h-6 w-full rounded border border-zinc-300 dark:border-zinc-600 hover:scale-105 transition-transform"
-                    style={{ backgroundColor: p.color }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Text Color */}
         <div className="relative">
           <button
-            onClick={() => setShowColorPicker(showColorPicker === 'text' ? null : 'text')}
+            onClick={(e) => toggleColorPicker('text', e)}
             title="Text color"
             className={`flex items-center gap-1 p-1.5 rounded transition-colors ${
               showColorPicker === 'text'
@@ -2149,10 +2340,133 @@ export function InfluencerMarketingView() {
               A
             </span>
           </button>
+        </div>
 
-          {showColorPicker === 'text' && (
-            <div className={`absolute left-0 mt-1 p-2 rounded-xl border shadow-xl z-50 w-52 ${isDark ? 'bg-[#1a1d24] border-zinc-700' : 'bg-white border-stone-200'}`}>
-              <div className={`text-[10px] font-semibold mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Text Color</div>
+        {/* Floating Portal Color Pickers to avoid overflow and composited layer clipping */}
+        {typeof document !== 'undefined' && showColorPicker === 'bg' && colorPickerAnchor && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[99998] bg-transparent cursor-default"
+              onClick={() => {
+                setShowColorPicker(null);
+                setColorPickerAnchor(null);
+              }}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: `${colorPickerAnchor.top}px`,
+                left: `${colorPickerAnchor.left}px`,
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className={`fixed z-[99999] p-3 rounded-xl border shadow-2xl w-64 select-none ${
+                isDark ? 'bg-[#1a1d24] border-zinc-700 text-white' : 'bg-white border-stone-200 text-stone-900'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-xs font-semibold ${isDark ? 'text-zinc-200' : 'text-stone-700'}`}>Fill Color</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateCell(selectedCell, { bg: undefined });
+                    setShowColorPicker(null);
+                    setColorPickerAnchor(null);
+                  }}
+                  className={`text-[11px] font-medium hover:underline cursor-pointer ${
+                    isDark ? 'text-zinc-400 hover:text-rose-400' : 'text-stone-500 hover:text-rose-500'
+                  }`}
+                >
+                  Reset (No Fill)
+                </button>
+              </div>
+
+              <div className="mb-2.5">
+                <div className={`text-[10px] font-medium mb-1.5 uppercase tracking-wider ${
+                  isDark ? 'text-zinc-400' : 'text-stone-400'
+                }`}>
+                  Pastel Tints
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {PASTEL_BG_PALETTE.map((p) => (
+                    <button
+                      key={p.name}
+                      onClick={() => {
+                        updateCell(selectedCell, { bg: p.color === 'transparent' ? undefined : p.color });
+                        setShowColorPicker(null);
+                        setColorPickerAnchor(null);
+                      }}
+                      title={p.name}
+                      className="h-6 w-full rounded border border-zinc-300 dark:border-zinc-600 hover:scale-105 active:scale-95 transition-transform"
+                      style={{ backgroundColor: p.color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className={`h-px my-2 ${isDark ? 'bg-zinc-800' : 'bg-stone-200'}`} />
+
+              <div>
+                <div className={`text-[10px] font-medium mb-1.5 uppercase tracking-wider ${
+                  isDark ? 'text-zinc-400' : 'text-stone-400'
+                }`}>
+                  Standard Palette
+                </div>
+                <div className="grid grid-cols-10 gap-1">
+                  {COLOR_PALETTE.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        updateCell(selectedCell, { bg: c });
+                        setShowColorPicker(null);
+                        setColorPickerAnchor(null);
+                      }}
+                      className="h-4.5 w-4.5 rounded-xs border border-zinc-400/40 hover:scale-115 active:scale-95 transition-transform"
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
+
+        {typeof document !== 'undefined' && showColorPicker === 'text' && colorPickerAnchor && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[99998] bg-transparent cursor-default"
+              onClick={() => {
+                setShowColorPicker(null);
+                setColorPickerAnchor(null);
+              }}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: `${colorPickerAnchor.top}px`,
+                left: `${colorPickerAnchor.left}px`,
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className={`fixed z-[99999] p-3 rounded-xl border shadow-2xl w-64 select-none ${
+                isDark ? 'bg-[#1a1d24] border-zinc-700 text-white' : 'bg-white border-stone-200 text-stone-900'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-xs font-semibold ${isDark ? 'text-zinc-200' : 'text-stone-700'}`}>Text Color</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateCell(selectedCell, { color: undefined });
+                    setShowColorPicker(null);
+                    setColorPickerAnchor(null);
+                  }}
+                  className={`text-[11px] font-medium hover:underline cursor-pointer ${
+                    isDark ? 'text-zinc-400 hover:text-rose-400' : 'text-stone-500 hover:text-rose-500'
+                  }`}
+                >
+                  Reset (Default)
+                </button>
+              </div>
               <div className="grid grid-cols-10 gap-1">
                 {COLOR_PALETTE.map((c, i) => (
                   <button
@@ -2160,15 +2474,17 @@ export function InfluencerMarketingView() {
                     onClick={() => {
                       updateCell(selectedCell, { color: c });
                       setShowColorPicker(null);
+                      setColorPickerAnchor(null);
                     }}
-                    className="h-4 w-4 rounded-xs border border-zinc-400/40 hover:scale-110"
+                    className="h-4.5 w-4.5 rounded-xs border border-zinc-400/40 hover:scale-115 active:scale-95 transition-transform"
                     style={{ backgroundColor: c }}
                   />
                 ))}
               </div>
             </div>
-          )}
-        </div>
+          </>,
+          document.body
+        )}
 
         <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
 
@@ -2407,7 +2723,9 @@ export function InfluencerMarketingView() {
           ref={formulaInputRef}
           type="text"
           value={formulaValue}
+          disabled={currentTab.isLocked}
           onChange={(e) => {
+            if (currentTab.isLocked) return;
             setFormulaValue(e.target.value);
             if (!isEditing) {
               setIsEditing(true);
@@ -2422,11 +2740,15 @@ export function InfluencerMarketingView() {
             }
           }}
           onFocus={() => {
-            setIsEditing(true);
-            setEditValue(formulaValue);
+            if (!currentTab.isLocked) {
+              setIsEditing(true);
+              setEditValue(formulaValue);
+            }
           }}
-          placeholder="Enter creator detail, rate, or formula (=SUM, =AVERAGE, =COUNT)"
-          className={`grow min-w-0 bg-transparent outline-hidden text-xs ${isDark ? 'text-zinc-200 placeholder:text-zinc-500' : 'text-stone-900 placeholder:text-stone-400'}`}
+          placeholder={currentTab.isLocked ? "Sheet is locked (view-only)" : "Enter creator detail, rate, or formula (=SUM, =AVERAGE, =COUNT)"}
+          className={`grow min-w-0 bg-transparent outline-hidden text-xs ${
+            currentTab.isLocked ? 'cursor-not-allowed opacity-60' : ''
+          } ${isDark ? 'text-zinc-200 placeholder:text-zinc-500' : 'text-stone-900 placeholder:text-stone-400'}`}
         />
         {isEditing && (
           <button
@@ -2442,7 +2764,7 @@ export function InfluencerMarketingView() {
       {/* 4. SPREADSHEET GRID */}
       <div
         ref={gridContainerRef}
-        className="grow overflow-auto relative select-none scrollbar-thin"
+        className="grow min-h-0 overflow-x-auto overflow-y-auto relative select-none scrollbar-thin [contain:paint]"
         style={{ scrollbarGutter: 'stable', WebkitOverflowScrolling: 'touch' }}
       >
         <table className="border-collapse table-fixed w-max text-xs">
@@ -2450,7 +2772,14 @@ export function InfluencerMarketingView() {
             <tr className={`sticky top-0 z-20 ${isDark ? 'bg-[#181b24]' : 'bg-stone-100'}`}>
               {/* Corner Header Anchor */}
               <th
-                className={`sticky top-0 left-0 z-30 w-10 h-8 border text-center font-normal select-none ${
+                style={{ width: 48, minWidth: 48, maxWidth: 48 }}
+                onClick={() => {
+                  setSelectedCell('A2');
+                  if (gridContainerRef.current) {
+                    gridContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                  }
+                }}
+                className={`sticky top-0 left-0 z-30 h-8 border text-center font-mono text-xs select-none overflow-hidden cursor-pointer ${
                   isDark ? 'border-zinc-800 bg-[#161822] text-zinc-500' : 'border-stone-300 bg-stone-200 text-stone-500'
                 }`}
               >
@@ -2556,20 +2885,26 @@ export function InfluencerMarketingView() {
                 <tr key={row} className="transition-colors">
                   {/* Sticky Row Number */}
                   <td
-                    onClick={() => setSelectedCell(`A${row}`)}
-                    className={`sticky left-0 z-10 w-12 h-8 border text-center font-mono text-[11px] select-none group/row ${
+                    style={{ width: 48, minWidth: 48, maxWidth: 48 }}
+                    onClick={() => {
+                      setSelectedCell(`A${row}`);
+                      if (gridContainerRef.current && gridContainerRef.current.scrollLeft > 0 && gridContainerRef.current.scrollLeft < 200) {
+                        gridContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                      }
+                    }}
+                    className={`sticky left-0 z-10 h-8 border text-center font-mono text-[11px] select-none group/row overflow-hidden ${
                       isDark ? 'border-zinc-800 bg-[#161822] text-zinc-500' : 'border-stone-300 bg-stone-200 text-stone-500'
                     }`}
                   >
-                    <div className="flex items-center justify-between px-1">
-                      <span>{row}</span>
+                    <div className="flex items-center justify-between px-1 w-full overflow-hidden">
+                      <span className="truncate">{row}</span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteRow(row);
                         }}
                         title={`Delete row ${row}`}
-                        className="opacity-0 group-hover/row:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all"
+                        className="opacity-0 group-hover/row:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all shrink-0"
                       >
                         <Trash2 size={10} />
                       </button>
@@ -2604,15 +2939,27 @@ export function InfluencerMarketingView() {
                             if (isEditing) commitEdit(editValue);
                             setSelectedCell(cellKey);
                           } else if (!isEditing) {
+                            if (currentTab.isLocked) {
+                              toast.error('Sheet is locked', {
+                                description: 'Unlock this sheet tab from the top toolbar to edit.',
+                              });
+                              return;
+                            }
                             setIsEditing(true);
                             setEditValue(String(cell?.v || ''));
-                            setTimeout(() => cellInputRef.current?.focus(), 10);
+                            setTimeout(() => cellInputRef.current?.focus({ preventScroll: true }), 10);
                           }
                         }}
                         onDoubleClick={() => {
+                          if (currentTab.isLocked) {
+                            toast.error('Sheet is locked', {
+                              description: 'Unlock this sheet tab from the top toolbar to edit.',
+                            });
+                            return;
+                          }
                           setIsEditing(true);
                           setEditValue(String(cell?.v || ''));
-                          setTimeout(() => cellInputRef.current?.focus(), 10);
+                          setTimeout(() => cellInputRef.current?.focus({ preventScroll: true }), 10);
                         }}
                         className={`relative h-8 px-2 border truncate whitespace-nowrap overflow-hidden text-xs transition-colors ${
                           isDark ? 'border-zinc-800/80' : 'border-stone-200'
@@ -2702,10 +3049,10 @@ export function InfluencerMarketingView() {
 
       {/* 5. BOTTOM TABS BAR */}
       <div
-        className={`px-2 py-1.5 flex items-center justify-between border-t shrink-0 ${
+        className={`px-3 py-2 flex items-center justify-between border-t shrink-0 min-h-[42px] ${
           isDark ? 'bg-[#141720] border-zinc-800' : 'bg-stone-100 border-stone-300'
         }`}
-        style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom, 0px))' }}
+        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}
       >
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* Add Brand Sheet Tab Button */}
@@ -2751,11 +3098,22 @@ export function InfluencerMarketingView() {
                     <Building2 size={12} className={`shrink-0 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`} />
                   )}
                   <span>{tab.name}</span>
+                  {tab.isLocked && (
+                    <span title="Sheet is locked" className="inline-flex items-center">
+                      <Lock size={10} className="text-amber-500 shrink-0" />
+                    </span>
+                  )}
                 </button>
                 {!isMaster && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (tab.isLocked) {
+                        toast.error('Sheet is locked', {
+                          description: 'Unlock this sheet tab before deleting.',
+                        });
+                        return;
+                      }
                       setSheetToDelete(tab);
                       setDeleteSheetOpen(true);
                     }}
@@ -2949,7 +3307,7 @@ export function InfluencerMarketingView() {
             </div>
 
             <div className="py-4 space-y-5 text-xs">
-              {/* Option 1: Built-in Public Intake Form */}
+              {/* Option 1: Built-in Paid Commercial Intake Form */}
               <div
                 className={`p-3.5 rounded-xl border space-y-2 ${
                   isDark ? 'border-pink-500/30 bg-pink-500/5' : 'border-pink-200 bg-pink-50/60'
@@ -2957,18 +3315,18 @@ export function InfluencerMarketingView() {
               >
                 <div className="flex items-center justify-between">
                   <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-pink-400' : 'text-pink-700'}`}>
-                    <ExternalLink size={14} /> Agency OS Branded Creator Intake Link
+                    <CreditCard size={14} /> 1. Paid Campaign Intake Form (Commercial Rate Ranges)
                   </strong>
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
                       isDark ? 'bg-pink-500/20 text-pink-300' : 'bg-pink-100 text-pink-700'
                     }`}
                   >
-                    Zero Setup Required
+                    0-5k, 5k-10k... Ranges
                   </span>
                 </div>
                 <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-                  Share this public onboarding link directly with creators via Instagram DM, WhatsApp, or Email. Submissions stream into the Master sheet and their selected brand sheet instantly.
+                  Share with creators for paid brand campaigns. Collects Instagram profile URL, reach, and commercial rate ranges (0-5k, 5k-10k, ..., 45-50k) via dropdowns.
                 </p>
                 <div className="flex items-center gap-2">
                   <input
@@ -2983,7 +3341,7 @@ export function InfluencerMarketingView() {
                     onClick={() => {
                       if (typeof window !== 'undefined') {
                         navigator.clipboard.writeText(`${window.location.origin}/influencer-intake`);
-                        toast.success('Public intake link copied to clipboard!');
+                        toast.success('Paid campaign intake link copied to clipboard!');
                       }
                     }}
                     className="px-3 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shrink-0 flex items-center gap-1"
@@ -2993,6 +3351,62 @@ export function InfluencerMarketingView() {
                   </button>
                   <button
                     onClick={() => window.open('/influencer-intake', '_blank')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs shrink-0 transition-colors ${
+                      isDark
+                        ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
+                    }`}
+                    title="Open in new tab"
+                  >
+                    <ExternalLink size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 2: Dedicated Barter Collaboration Intake Form */}
+              <div
+                className={`p-3.5 rounded-xl border space-y-2 ${
+                  isDark ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/60'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                    <Gift size={14} /> 2. Barter Collaboration Intake Form (Zero Commercials)
+                  </strong>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                      isDark ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    100% Barter / Gifting
+                  </span>
+                </div>
+                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                  Dedicated form for product gifting and barter roster. Commercials are not required or asked; gathers shipping address for dispatching brand samples.
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/influencer-barter` : '/influencer-barter'}
+                    className={`grow px-2.5 py-1.5 rounded-lg border font-mono text-[11px] ${
+                      isDark ? 'border-zinc-700 bg-zinc-900 text-amber-300' : 'border-stone-300 bg-white text-amber-700'
+                    }`}
+                  />
+                  <button
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        navigator.clipboard.writeText(`${window.location.origin}/influencer-barter`);
+                        toast.success('Barter intake link copied to clipboard!');
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0 flex items-center gap-1"
+                  >
+                    <Copy size={12} />
+                    <span>Copy</span>
+                  </button>
+                  <button
+                    onClick={() => window.open('/influencer-barter', '_blank')}
                     className={`px-2.5 py-1.5 rounded-lg text-xs shrink-0 transition-colors ${
                       isDark
                         ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
@@ -3086,7 +3500,7 @@ export function InfluencerMarketingView() {
                   <input
                     type="text"
                     required
-                    placeholder="Instagram Handle (@) *"
+                    placeholder="Instagram Profile URL / Handle *"
                     value={quickCreator.instaId}
                     onChange={(e) => setQuickCreator((p) => ({ ...p, instaId: e.target.value }))}
                     className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
@@ -3117,28 +3531,40 @@ export function InfluencerMarketingView() {
                         : 'border-stone-300 bg-white text-stone-900 placeholder:text-stone-400'
                     }`}
                   />
-                  <input
-                    type="text"
-                    placeholder="Reel Rate (e.g. ₹35,000)"
+                  <select
                     value={quickCreator.reel}
                     onChange={(e) => setQuickCreator((p) => ({ ...p, reel: e.target.value }))}
                     className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
                       isDark
-                        ? 'border-zinc-700 bg-zinc-900 text-emerald-400 placeholder:text-zinc-500'
-                        : 'border-stone-300 bg-white text-emerald-700 font-medium placeholder:text-stone-400'
+                        ? 'border-zinc-700 bg-zinc-900 text-emerald-400'
+                        : 'border-stone-300 bg-white text-emerald-700 font-medium'
                     }`}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Story Rate (e.g. ₹12,000)"
+                  >
+                    <option value="">Select Reel Rate Range</option>
+                    {COMMERCIAL_RANGES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                    <option value="Barter">Barter (No Commercials)</option>
+                  </select>
+                  <select
                     value={quickCreator.story}
                     onChange={(e) => setQuickCreator((p) => ({ ...p, story: e.target.value }))}
                     className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
                       isDark
-                        ? 'border-zinc-700 bg-zinc-900 text-emerald-400 placeholder:text-zinc-500'
-                        : 'border-stone-300 bg-white text-emerald-700 font-medium placeholder:text-stone-400'
+                        ? 'border-zinc-700 bg-zinc-900 text-emerald-400'
+                        : 'border-stone-300 bg-white text-emerald-700 font-medium'
                     }`}
-                  />
+                  >
+                    <option value="">Select Story Rate Range</option>
+                    {COMMERCIAL_RANGES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                    <option value="Barter">Barter (No Commercials)</option>
+                  </select>
                 </div>
                 <div className="text-right">
                   <button
@@ -3298,8 +3724,13 @@ export function InfluencerMarketingView() {
       {/* MODAL 4: NEW BRAND SHEET MODAL */}
       {/* ========================================================================= */}
       {addBrandOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          onClick={() => setAddBrandOpen(false)}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
           <div
+            onClick={(e) => e.stopPropagation()}
             className={`max-w-sm w-full rounded-2xl border p-5 shadow-2xl ${
               isDark ? 'bg-[#141720] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
@@ -3310,6 +3741,7 @@ export function InfluencerMarketingView() {
                 <h3 className="text-sm font-bold">Create Brand Sheet</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setAddBrandOpen(false)}
                 className={isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-stone-400 hover:text-stone-600'}
               >
@@ -3326,12 +3758,21 @@ export function InfluencerMarketingView() {
                   Brand / Client Name
                 </label>
                 <input
+                  ref={brandInputRef}
                   type="text"
                   placeholder="e.g. Willow & Root, Zara, Nike"
                   value={newBrandName}
                   onChange={(e) => setNewBrandName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateBrandSheet(newBrandName);
+                    e.stopPropagation();
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCreateBrandSheet(newBrandName);
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setAddBrandOpen(false);
+                    }
                   }}
                   autoFocus
                   className={`w-full px-3 py-2 rounded-lg border text-xs font-medium outline-hidden transition-colors ${
@@ -3345,6 +3786,7 @@ export function InfluencerMarketingView() {
 
             <div className={`flex items-center justify-end gap-2 pt-3 border-t ${isDark ? 'border-zinc-800' : 'border-stone-200'}`}>
               <button
+                type="button"
                 onClick={() => setAddBrandOpen(false)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   isDark
@@ -3355,8 +3797,9 @@ export function InfluencerMarketingView() {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => handleCreateBrandSheet(newBrandName)}
-                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-pink-600 hover:bg-pink-500"
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-pink-600 hover:bg-pink-500 cursor-pointer"
               >
                 Create Brand Tab
               </button>
@@ -3722,8 +4165,13 @@ export function InfluencerMarketingView() {
 
       {/* 6. ADD COLUMN MODAL */}
       {addColumnOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setAddColumnOpen(false)}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
           <div
+            onClick={(e) => e.stopPropagation()}
             className={`w-full max-w-md rounded-2xl p-5 shadow-2xl border ${
               isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
@@ -3741,6 +4189,7 @@ export function InfluencerMarketingView() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setAddColumnOpen(false)}
                 className={isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-stone-400 hover:text-stone-600'}
               >
@@ -3759,7 +4208,9 @@ export function InfluencerMarketingView() {
                   value={newColLabel}
                   onChange={(e) => setNewColLabel(e.target.value)}
                   onKeyDown={(e) => {
+                    e.stopPropagation();
                     if (e.key === 'Enter') handleAddColumn(newColLabel, newColWidth);
+                    if (e.key === 'Escape') setAddColumnOpen(false);
                   }}
                   autoFocus
                   className={`w-full px-3 py-2 rounded-lg border text-xs font-medium outline-hidden ${
