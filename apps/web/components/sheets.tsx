@@ -1827,10 +1827,10 @@ export function SpreadsheetView() {
                   <td
                     style={{ width: 44, minWidth: 44, maxWidth: 44 }}
                     onClick={() => setSelectedCell(`A${row}`)}
-                    className={`sticky left-0 z-10 h-8 sm:h-6 border text-center font-mono text-[11px] select-none overflow-hidden ${
+                    className={`sticky left-0 z-10 h-8 sm:h-6 border text-center font-mono text-xs select-none overflow-hidden cursor-pointer transition-colors ${
                       isDark
-                        ? `border-zinc-800 ${isRowSelected ? 'bg-emerald-950/40 text-emerald-400' : 'bg-[#16181f] text-zinc-500'}`
-                        : `border-stone-300 ${isRowSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-500'}`
+                        ? `border-zinc-800 ${isRowSelected ? 'bg-emerald-950/50 text-emerald-300 font-bold' : 'bg-[#16181f] text-zinc-300 font-medium'}`
+                        : `border-stone-300 ${isRowSelected ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-stone-100 text-stone-700 font-medium'}`
                     }`}
                   >
                     {row}

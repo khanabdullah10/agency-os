@@ -186,8 +186,8 @@ export function InfluencerPublicIntakeForm({ initialMode }: InfluencerPublicInta
   if (submitted) {
     const isBarter = collabType === 'barter';
     return (
-      <div className={`min-h-screen flex items-center justify-center p-4 ${isDark ? 'bg-[#090a0f] text-zinc-100' : 'bg-stone-50 text-stone-900'}`}>
-        <div className={`max-w-md w-full p-8 rounded-2xl border text-center shadow-2xl relative overflow-hidden ${isDark ? 'bg-[#12151d] border-zinc-800' : 'bg-white border-stone-200'}`}>
+      <div className={`min-h-screen py-10 px-4 flex flex-col items-center justify-center ${isDark ? 'bg-[#090a0f] text-zinc-100' : 'bg-stone-50 text-stone-900'}`}>
+        <div className={`max-w-md w-full p-8 rounded-2xl border text-center shadow-2xl relative overflow-hidden my-auto ${isDark ? 'bg-[#12151d] border-zinc-800' : 'bg-white border-stone-200'}`}>
           <div className="absolute -top-12 -right-12 w-40 h-40 bg-pink-500/10 rounded-full blur-2xl pointer-events-none" />
           <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -276,7 +276,7 @@ export function InfluencerPublicIntakeForm({ initialMode }: InfluencerPublicInta
   const isBarter = collabType === 'barter';
 
   return (
-    <div className={`min-h-screen py-8 px-4 sm:px-6 flex flex-col items-center justify-center ${isDark ? 'bg-[#090a0f] text-zinc-100' : 'bg-stone-50 text-stone-900'}`}>
+    <div className={`min-h-screen py-8 px-4 sm:px-6 flex flex-col items-center justify-start ${isDark ? 'bg-[#090a0f] text-zinc-100' : 'bg-stone-50 text-stone-900'}`}>
       {/* Background ambient glow */}
       <div
         className={`fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-b ${

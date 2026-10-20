@@ -377,6 +377,7 @@ export function InfluencerMarketingView() {
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [intakeSyncOpen, setIntakeSyncOpen] = useState(false);
+  const [intakeModalTab, setIntakeModalTab] = useState<'links' | 'quickAdd' | 'webhook'>('links');
   const [addBrandOpen, setAddBrandOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
@@ -2779,8 +2780,8 @@ export function InfluencerMarketingView() {
                     gridContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
                   }
                 }}
-                className={`sticky top-0 left-0 z-30 h-8 border text-center font-mono text-xs select-none overflow-hidden cursor-pointer ${
-                  isDark ? 'border-zinc-800 bg-[#161822] text-zinc-500' : 'border-stone-300 bg-stone-200 text-stone-500'
+                className={`sticky top-0 left-0 z-30 h-8 border text-center font-mono text-xs font-bold select-none overflow-hidden cursor-pointer ${
+                  isDark ? 'border-zinc-800 bg-[#161822] text-zinc-300' : 'border-stone-300 bg-stone-200 text-stone-700'
                 }`}
               >
                 #
@@ -2881,9 +2882,11 @@ export function InfluencerMarketingView() {
                 if (maxStory !== null && (storyVal === null || storyVal > maxStory)) return null;
               }
 
+              const isRowSelected = selectedCell.replace(/^[A-Z]+/, '') === String(row);
+
               return (
                 <tr key={row} className="transition-colors">
-                  {/* Sticky Row Number */}
+                  {/* Sticky Row Number / Serial */}
                   <td
                     style={{ width: 48, minWidth: 48, maxWidth: 48 }}
                     onClick={() => {
@@ -2892,21 +2895,28 @@ export function InfluencerMarketingView() {
                         gridContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
                       }
                     }}
-                    className={`sticky left-0 z-10 h-8 border text-center font-mono text-[11px] select-none group/row overflow-hidden ${
-                      isDark ? 'border-zinc-800 bg-[#161822] text-zinc-500' : 'border-stone-300 bg-stone-200 text-stone-500'
+                    className={`sticky left-0 z-10 h-8 border font-mono text-xs select-none group/row transition-colors cursor-pointer ${
+                      isDark
+                        ? isRowSelected
+                          ? 'border-pink-500/60 bg-pink-950/50 text-pink-300 font-bold'
+                          : 'border-zinc-800 bg-[#161822] text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/80 font-medium'
+                        : isRowSelected
+                        ? 'border-pink-500/60 bg-pink-100 text-pink-700 font-bold'
+                        : 'border-stone-300 bg-stone-100 text-stone-700 hover:text-stone-900 hover:bg-stone-200 font-medium'
                     }`}
                   >
-                    <div className="flex items-center justify-between px-1 w-full overflow-hidden">
-                      <span className="truncate">{row}</span>
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <span className="font-mono text-xs select-none leading-none">{row}</span>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteRow(row);
                         }}
                         title={`Delete row ${row}`}
-                        className="opacity-0 group-hover/row:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all shrink-0"
+                        className="absolute right-0.5 opacity-0 group-hover/row:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-400 hover:bg-rose-500/20 transition-all z-10"
                       >
-                        <Trash2 size={10} />
+                        <Trash2 size={11} />
                       </button>
                     </div>
                   </td>
@@ -3287,158 +3297,351 @@ export function InfluencerMarketingView() {
       {/* MODAL 2: INTAKE & GOOGLE FORM SYNC MODAL */}
       {/* ========================================================================= */}
       {intakeSyncOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div
+          className="fixed inset-0 z-50 flex justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-xs overflow-y-auto"
+          onClick={() => setIntakeSyncOpen(false)}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
           <div
-            className={`max-w-xl w-full rounded-2xl border p-5 sm:p-6 shadow-2xl ${
+            onClick={(e) => e.stopPropagation()}
+            className={`max-w-xl w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden my-auto ${
               isDark ? 'bg-[#141720] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >
-            <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-zinc-800' : 'border-stone-200'}`}>
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-pink-500" />
-                <h3 className="text-sm font-bold">Google Form & Public Intake Sync</h3>
+            {/* Header - Always Fixed & Visible */}
+            <div className={`flex items-center justify-between px-4 sm:px-5 py-3.5 border-b shrink-0 ${isDark ? 'border-zinc-800 bg-[#161924]' : 'border-stone-200 bg-stone-50'}`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-7 w-7 rounded-lg bg-pink-500/15 text-pink-500 flex items-center justify-center shrink-0">
+                  <Sparkles size={15} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold leading-tight truncate">Creator Intake & Public Forms</h3>
+                  <p className="text-[11px] text-zinc-400 truncate">Share intake links with creators or sync external forms</p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIntakeSyncOpen(false)}
-                className={isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-stone-400 hover:text-stone-600'}
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0 cursor-pointer"
+                title="Close"
               >
-                <X size={15} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="py-4 space-y-5 text-xs">
-              {/* Option 1: Built-in Paid Commercial Intake Form */}
-              <div
-                className={`p-3.5 rounded-xl border space-y-2 ${
-                  isDark ? 'border-pink-500/30 bg-pink-500/5' : 'border-pink-200 bg-pink-50/60'
+            {/* Navigation Tabs */}
+            <div className={`px-4 sm:px-5 pt-2 border-b shrink-0 flex items-center gap-2 overflow-x-auto ${isDark ? 'border-zinc-800/80 bg-[#12141c]' : 'border-stone-200 bg-stone-100/60'}`}>
+              <button
+                type="button"
+                onClick={() => setIntakeModalTab('links')}
+                className={`flex items-center gap-1.5 pb-2 px-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer shrink-0 ${
+                  intakeModalTab === 'links'
+                    ? 'border-pink-500 text-pink-400 font-bold'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-pink-400' : 'text-pink-700'}`}>
-                    <CreditCard size={14} /> 1. Paid Campaign Intake Form (Commercial Rate Ranges)
-                  </strong>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                      isDark ? 'bg-pink-500/20 text-pink-300' : 'bg-pink-100 text-pink-700'
-                    }`}
-                  >
-                    0-5k, 5k-10k... Ranges
-                  </span>
-                </div>
-                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-                  Share with creators for paid brand campaigns. Collects Instagram profile URL, reach, and commercial rate ranges (0-5k, 5k-10k, ..., 45-50k) via dropdowns.
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={typeof window !== 'undefined' ? `${window.location.origin}/influencer-intake` : '/influencer-intake'}
-                    className={`grow px-2.5 py-1.5 rounded-lg border font-mono text-[11px] ${
-                      isDark ? 'border-zinc-700 bg-zinc-900 text-pink-300' : 'border-stone-300 bg-white text-pink-700'
-                    }`}
-                  />
-                  <button
-                    onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        navigator.clipboard.writeText(`${window.location.origin}/influencer-intake`);
-                        toast.success('Paid campaign intake link copied to clipboard!');
-                      }
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shrink-0 flex items-center gap-1"
-                  >
-                    <Copy size={12} />
-                    <span>Copy</span>
-                  </button>
-                  <button
-                    onClick={() => window.open('/influencer-intake', '_blank')}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs shrink-0 transition-colors ${
-                      isDark
-                        ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
-                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
-                    }`}
-                    title="Open in new tab"
-                  >
-                    <ExternalLink size={12} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Option 2: Dedicated Barter Collaboration Intake Form */}
-              <div
-                className={`p-3.5 rounded-xl border space-y-2 ${
-                  isDark ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/60'
+                <CreditCard size={13} />
+                <span>Intake Links</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIntakeModalTab('quickAdd')}
+                className={`flex items-center gap-1.5 pb-2 px-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer shrink-0 ${
+                  intakeModalTab === 'quickAdd'
+                    ? 'border-emerald-500 text-emerald-400 font-bold'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
-                    <Gift size={14} /> 2. Barter Collaboration Intake Form (Zero Commercials)
-                  </strong>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                      isDark ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700'
-                    }`}
-                  >
-                    100% Barter / Gifting
-                  </span>
-                </div>
-                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-                  Dedicated form for product gifting and barter roster. Commercials are not required or asked; gathers shipping address for dispatching brand samples.
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={typeof window !== 'undefined' ? `${window.location.origin}/influencer-barter` : '/influencer-barter'}
-                    className={`grow px-2.5 py-1.5 rounded-lg border font-mono text-[11px] ${
-                      isDark ? 'border-zinc-700 bg-zinc-900 text-amber-300' : 'border-stone-300 bg-white text-amber-700'
-                    }`}
-                  />
-                  <button
-                    onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        navigator.clipboard.writeText(`${window.location.origin}/influencer-barter`);
-                        toast.success('Barter intake link copied to clipboard!');
-                      }
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0 flex items-center gap-1"
-                  >
-                    <Copy size={12} />
-                    <span>Copy</span>
-                  </button>
-                  <button
-                    onClick={() => window.open('/influencer-barter', '_blank')}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs shrink-0 transition-colors ${
-                      isDark
-                        ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
-                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
-                    }`}
-                    title="Open in new tab"
-                  >
-                    <ExternalLink size={12} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Option 2: Google Forms Webhook Integration */}
-              <div
-                className={`p-3.5 rounded-xl border space-y-2.5 ${
-                  isDark ? 'border-zinc-800 bg-zinc-900/60' : 'border-stone-200 bg-stone-50'
+                <Plus size={13} />
+                <span>Quick Add Creator</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIntakeModalTab('webhook')}
+                className={`flex items-center gap-1.5 pb-2 px-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer shrink-0 ${
+                  intakeModalTab === 'webhook'
+                    ? 'border-amber-500 text-amber-400 font-bold'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-zinc-100' : 'text-stone-900'}`}>
-                    <Layers size={14} className="text-amber-500" /> Google Forms Real-Time Webhook
-                  </strong>
-                  <span className={`text-[10px] font-mono ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
-                    POST /api/influencers/webhook
-                  </span>
-                </div>
-                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-                  Have an existing Google Form? Paste this 5-line Google Apps Script into your Google Form so every submission automatically pushes straight into this sheet!
-                </p>
+                <Layers size={13} />
+                <span>Google Forms Webhook</span>
+              </button>
+            </div>
 
-                <div className="bg-[#090b10] p-2.5 rounded-lg border border-zinc-800 font-mono text-[10px] text-zinc-300 overflow-x-auto max-h-32">
-                  <pre>{`function onFormSubmit(e) {
+            {/* Scrollable Modal Content */}
+            <div className="p-4 sm:p-5 overflow-y-auto grow space-y-4 text-xs scrollbar-thin">
+              {intakeModalTab === 'links' && (
+                <div className="space-y-3.5">
+                  {/* Option 1: Built-in Paid Commercial Intake Form */}
+                  <div
+                    className={`p-3.5 rounded-xl border space-y-2.5 ${
+                      isDark ? 'border-pink-500/30 bg-pink-500/5' : 'border-pink-200 bg-pink-50/60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-pink-400' : 'text-pink-700'}`}>
+                        <CreditCard size={14} /> 1. Paid Campaign Intake Form (Commercial Rate Ranges)
+                      </strong>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                          isDark ? 'bg-pink-500/20 text-pink-300' : 'bg-pink-100 text-pink-700'
+                        }`}
+                      >
+                        0-5k, 5k-10k... Ranges
+                      </span>
+                    </div>
+                    <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                      Share with creators for paid brand campaigns. Collects Instagram profile URL, reach, and commercial rate ranges (0-5k, 5k-10k, ..., 45-50k) via dropdowns.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={typeof window !== 'undefined' ? `${window.location.origin}/influencer-intake` : '/influencer-intake'}
+                        className={`grow px-2.5 py-1.5 rounded-lg border font-mono text-[11px] ${
+                          isDark ? 'border-zinc-700 bg-zinc-900 text-pink-300' : 'border-stone-300 bg-white text-pink-700'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            navigator.clipboard.writeText(`${window.location.origin}/influencer-intake`);
+                            toast.success('Paid campaign intake link copied to clipboard!');
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shrink-0 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy size={12} />
+                        <span>Copy</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open('/influencer-intake', '_blank')}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs shrink-0 transition-colors cursor-pointer ${
+                          isDark
+                            ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                            : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
+                        }`}
+                        title="Open in new tab"
+                      >
+                        <ExternalLink size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Dedicated Barter Collaboration Intake Form */}
+                  <div
+                    className={`p-3.5 rounded-xl border space-y-2.5 ${
+                      isDark ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                        <Gift size={14} /> 2. Barter Collaboration Intake Form (Zero Commercials)
+                      </strong>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                          isDark ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        100% Barter / Gifting
+                      </span>
+                    </div>
+                    <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                      Dedicated form for product gifting and barter roster. Commercials are not required or asked; gathers shipping address for dispatching brand samples.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={typeof window !== 'undefined' ? `${window.location.origin}/influencer-barter` : '/influencer-barter'}
+                        className={`grow px-2.5 py-1.5 rounded-lg border font-mono text-[11px] ${
+                          isDark ? 'border-zinc-700 bg-zinc-900 text-amber-300' : 'border-stone-300 bg-white text-amber-700'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            navigator.clipboard.writeText(`${window.location.origin}/influencer-barter`);
+                            toast.success('Barter intake link copied to clipboard!');
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy size={12} />
+                        <span>Copy</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open('/influencer-barter', '_blank')}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs shrink-0 transition-colors cursor-pointer ${
+                          isDark
+                            ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                            : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
+                        }`}
+                        title="Open in new tab"
+                      >
+                        <ExternalLink size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {intakeModalTab === 'quickAdd' && (
+                <form
+                  onSubmit={handleQuickAddCreator}
+                  className={`p-4 rounded-xl border space-y-3 ${
+                    isDark ? 'border-zinc-800 bg-zinc-900/40' : 'border-stone-200 bg-stone-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between pb-1 border-b border-zinc-800/60">
+                    <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-zinc-100' : 'text-stone-900'}`}>
+                      <Plus size={14} className="text-emerald-500" /> Direct Creator Entry
+                    </strong>
+                    <span className="text-[10px] text-zinc-400">Inserts immediately into sheet</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-medium mb-1">Creator Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Creator Name"
+                        value={quickCreator.name}
+                        onChange={(e) => setQuickCreator((p) => ({ ...p, name: e.target.value }))}
+                        className={`w-full px-2.5 py-1.5 rounded border text-xs outline-hidden ${
+                          isDark
+                            ? 'border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500'
+                            : 'border-stone-300 bg-white text-stone-900 placeholder:text-stone-400'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium mb-1">Instagram Profile URL / Handle *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="https://instagram.com/username or @handle"
+                        value={quickCreator.instaId}
+                        onChange={(e) => setQuickCreator((p) => ({ ...p, instaId: e.target.value }))}
+                        className={`w-full px-2.5 py-1.5 rounded border text-xs outline-hidden ${
+                          isDark
+                            ? 'border-zinc-700 bg-zinc-900 text-sky-400 placeholder:text-zinc-500'
+                            : 'border-stone-300 bg-white text-sky-700 font-medium placeholder:text-stone-400'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium mb-1">Target Brand</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Willow & Root"
+                        value={quickCreator.brand}
+                        onChange={(e) => setQuickCreator((p) => ({ ...p, brand: e.target.value }))}
+                        className={`w-full px-2.5 py-1.5 rounded border text-xs outline-hidden ${
+                          isDark
+                            ? 'border-zinc-700 bg-zinc-900 text-pink-400 placeholder:text-zinc-500'
+                            : 'border-stone-300 bg-white text-pink-700 font-medium placeholder:text-stone-400'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium mb-1">Followers Count</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 150K"
+                        value={quickCreator.followers}
+                        onChange={(e) => setQuickCreator((p) => ({ ...p, followers: e.target.value }))}
+                        className={`w-full px-2.5 py-1.5 rounded border text-xs outline-hidden ${
+                          isDark
+                            ? 'border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500'
+                            : 'border-stone-300 bg-white text-stone-900 placeholder:text-stone-400'
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium mb-1">Commercial: Reel Rate</label>
+                      <select
+                        value={quickCreator.reel}
+                        onChange={(e) => setQuickCreator((p) => ({ ...p, reel: e.target.value }))}
+                        className={`w-full px-2.5 py-1.5 rounded border text-xs outline-hidden ${
+                          isDark
+                            ? 'border-zinc-700 bg-zinc-900 text-emerald-400'
+                            : 'border-stone-300 bg-white text-emerald-700 font-medium'
+                        }`}
+                      >
+                        <option value="">Select Reel Rate Range</option>
+                        {COMMERCIAL_RANGES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                        <option value="Barter">Barter (No Commercials)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium mb-1">Commercial: Story Rate</label>
+                      <select
+                        value={quickCreator.story}
+                        onChange={(e) => setQuickCreator((p) => ({ ...p, story: e.target.value }))}
+                        className={`w-full px-2.5 py-1.5 rounded border text-xs outline-hidden ${
+                          isDark
+                            ? 'border-zinc-700 bg-zinc-900 text-emerald-400'
+                            : 'border-stone-300 bg-white text-emerald-700 font-medium'
+                        }`}
+                      >
+                        <option value="">Select Story Rate Range</option>
+                        {COMMERCIAL_RANGES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                        <option value="Barter">Barter (No Commercials)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="text-right pt-1">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs cursor-pointer transition-all"
+                    >
+                      Insert Creator
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {intakeModalTab === 'webhook' && (
+                <div
+                  className={`p-3.5 rounded-xl border space-y-2.5 ${
+                    isDark ? 'border-zinc-800 bg-zinc-900/60' : 'border-stone-200 bg-stone-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-zinc-100' : 'text-stone-900'}`}>
+                      <Layers size={14} className="text-amber-500" /> Google Forms Real-Time Webhook
+                    </strong>
+                    <span className={`text-[10px] font-mono ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                      POST /api/influencers/webhook
+                    </span>
+                  </div>
+                  <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                    Have an existing Google Form? Paste this 5-line Google Apps Script into your Google Form so every submission automatically pushes straight into this sheet!
+                  </p>
+
+                  <div className="bg-[#090b10] p-2.5 rounded-lg border border-zinc-800 font-mono text-[10px] text-zinc-300 overflow-x-auto max-h-32">
+                    <pre>{`function onFormSubmit(e) {
   var itemResponses = e.response.getItemResponses();
   var data = {};
   for (var i = 0; i < itemResponses.length; i++) {
@@ -3449,132 +3652,32 @@ export function InfluencerMarketingView() {
     method: 'post', contentType: 'application/json', payload: JSON.stringify(data)
   });
 }`}</pre>
-                </div>
+                  </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <span className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                    Setup takes 30 seconds via Apps Script trigger
-                  </span>
-                  <button
-                    onClick={() => {
-                      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                      const script = `function onFormSubmit(e) {\n  var itemResponses = e.response.getItemResponses();\n  var data = {};\n  for (var i = 0; i < itemResponses.length; i++) {\n    var title = itemResponses[i].getItem().getTitle().toLowerCase();\n    data[title] = itemResponses[i].getResponse();\n  }\n  UrlFetchApp.fetch('${origin}/api/influencers/webhook', {\n    method: 'post', contentType: 'application/json', payload: JSON.stringify(data)\n  });\n}`;
-                      navigator.clipboard.writeText(script);
-                      toast.success('Google Apps Script copied! Paste into Form -> Extensions -> Apps Script');
-                    }}
-                    className={`px-3 py-1.5 rounded-lg border font-semibold text-xs flex items-center gap-1 transition-colors ${
-                      isDark
-                        ? 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
-                        : 'border-stone-300 bg-white hover:bg-stone-100 text-stone-700 shadow-2xs'
-                    }`}
-                  >
-                    <Copy size={12} />
-                    <span>Copy Google Script</span>
-                  </button>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                      Setup takes 30 seconds via Apps Script trigger
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                        const script = `function onFormSubmit(e) {\n  var itemResponses = e.response.getItemResponses();\n  var data = {};\n  for (var i = 0; i < itemResponses.length; i++) {\n    var title = itemResponses[i].getItem().getTitle().toLowerCase();\n    data[title] = itemResponses[i].getResponse();\n  }\n  UrlFetchApp.fetch('${origin}/api/influencers/webhook', {\n    method: 'post', contentType: 'application/json', payload: JSON.stringify(data)\n  });\n}`;
+                        navigator.clipboard.writeText(script);
+                        toast.success('Google Apps Script copied! Paste into Form -> Extensions -> Apps Script');
+                      }}
+                      className={`px-3 py-1.5 rounded-lg border font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer ${
+                        isDark
+                          ? 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                          : 'border-stone-300 bg-white hover:bg-stone-100 text-stone-700 shadow-2xs'
+                      }`}
+                    >
+                      <Copy size={12} />
+                      <span>Copy Google Script</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Option 3: Quick Add Creator Form */}
-              <form
-                onSubmit={handleQuickAddCreator}
-                className={`p-3.5 rounded-xl border space-y-3 ${
-                  isDark ? 'border-zinc-800 bg-zinc-900/40' : 'border-stone-200 bg-stone-50'
-                }`}
-              >
-                <strong className={`text-xs flex items-center gap-1.5 font-bold ${isDark ? 'text-zinc-100' : 'text-stone-900'}`}>
-                  <Plus size={14} className="text-emerald-500" /> Quick Add Creator
-                </strong>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Creator Name *"
-                    value={quickCreator.name}
-                    onChange={(e) => setQuickCreator((p) => ({ ...p, name: e.target.value }))}
-                    className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
-                      isDark
-                        ? 'border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500'
-                        : 'border-stone-300 bg-white text-stone-900 placeholder:text-stone-400'
-                    }`}
-                  />
-                  <input
-                    type="text"
-                    required
-                    placeholder="Instagram Profile URL / Handle *"
-                    value={quickCreator.instaId}
-                    onChange={(e) => setQuickCreator((p) => ({ ...p, instaId: e.target.value }))}
-                    className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
-                      isDark
-                        ? 'border-zinc-700 bg-zinc-900 text-sky-400 placeholder:text-zinc-500'
-                        : 'border-stone-300 bg-white text-sky-700 font-medium placeholder:text-stone-400'
-                    }`}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Brand (e.g. Willow & Root)"
-                    value={quickCreator.brand}
-                    onChange={(e) => setQuickCreator((p) => ({ ...p, brand: e.target.value }))}
-                    className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
-                      isDark
-                        ? 'border-zinc-700 bg-zinc-900 text-pink-400 placeholder:text-zinc-500'
-                        : 'border-stone-300 bg-white text-pink-700 font-medium placeholder:text-stone-400'
-                    }`}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Followers (e.g. 150K)"
-                    value={quickCreator.followers}
-                    onChange={(e) => setQuickCreator((p) => ({ ...p, followers: e.target.value }))}
-                    className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
-                      isDark
-                        ? 'border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500'
-                        : 'border-stone-300 bg-white text-stone-900 placeholder:text-stone-400'
-                    }`}
-                  />
-                  <select
-                    value={quickCreator.reel}
-                    onChange={(e) => setQuickCreator((p) => ({ ...p, reel: e.target.value }))}
-                    className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
-                      isDark
-                        ? 'border-zinc-700 bg-zinc-900 text-emerald-400'
-                        : 'border-stone-300 bg-white text-emerald-700 font-medium'
-                    }`}
-                  >
-                    <option value="">Select Reel Rate Range</option>
-                    {COMMERCIAL_RANGES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                    <option value="Barter">Barter (No Commercials)</option>
-                  </select>
-                  <select
-                    value={quickCreator.story}
-                    onChange={(e) => setQuickCreator((p) => ({ ...p, story: e.target.value }))}
-                    className={`px-2.5 py-1.5 rounded border text-xs outline-hidden ${
-                      isDark
-                        ? 'border-zinc-700 bg-zinc-900 text-emerald-400'
-                        : 'border-stone-300 bg-white text-emerald-700 font-medium'
-                    }`}
-                  >
-                    <option value="">Select Story Rate Range</option>
-                    {COMMERCIAL_RANGES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                    <option value="Barter">Barter (No Commercials)</option>
-                  </select>
-                </div>
-                <div className="text-right">
-                  <button
-                    type="submit"
-                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs"
-                  >
-                    Insert Creator
-                  </button>
-                </div>
-              </form>
+              )}
             </div>
           </div>
         </div>
