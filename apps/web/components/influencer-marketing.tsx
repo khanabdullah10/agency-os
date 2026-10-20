@@ -290,7 +290,7 @@ export function InfluencerMarketingView() {
     tabs: [
       {
         id: 'tab_master',
-        name: '🌟 Master Influencers',
+        name: 'Master Influencers',
         color: '#be185d',
         rowCount: 50,
         colCount: 20,
@@ -2504,15 +2504,18 @@ export function InfluencerMarketingView() {
                 isDark ? 'text-pink-400 hover:text-pink-300' : 'text-pink-700 hover:text-pink-800'
               }`}
             >
-              {workbook.tabs.map((tab) => (
-                <option
-                  key={tab.id}
-                  value={tab.id}
-                  className={isDark ? 'bg-[#141720] text-zinc-100' : 'bg-white text-stone-900'}
-                >
-                  {tab.id === masterTab.id ? '🌟 ' : '📁 '} {tab.name}
-                </option>
-              ))}
+              {workbook.tabs.map((tab) => {
+                const cleanName = tab.name.replace(/^(?:🌟|📁)\s*/u, '');
+                return (
+                  <option
+                    key={tab.id}
+                    value={tab.id}
+                    className={isDark ? 'bg-[#141720] text-zinc-100' : 'bg-white text-stone-900'}
+                  >
+                    {tab.id === masterTab.id ? '🌟 ' : '📁 '}{cleanName}
+                  </option>
+                );
+              })}
             </select>
             <ChevronDown size={11} className="absolute right-1.5 pointer-events-none text-zinc-400 shrink-0" />
           </div>
@@ -3147,7 +3150,7 @@ export function InfluencerMarketingView() {
                   ) : (
                     <Building2 size={12} className={`shrink-0 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`} />
                   )}
-                  <span>{tab.name}</span>
+                  <span>{tab.name.replace(/^(?:🌟|📁)\s*/u, '')}</span>
                   {tab.isLocked && (
                     <span title="Sheet is locked" className="inline-flex items-center">
                       <Lock size={10} className="text-amber-500 shrink-0" />
