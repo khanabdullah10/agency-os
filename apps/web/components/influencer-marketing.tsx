@@ -2487,142 +2487,182 @@ export function InfluencerMarketingView() {
           document.body
         )}
 
-        <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
+        <div className={`h-4.5 w-px mx-1 shrink-0 ${isDark ? 'bg-zinc-800' : 'bg-stone-300'}`} />
 
-        {/* Brand Selector Pill */}
-        <div className="flex items-center gap-1 shrink-0">
-          <span className={`text-[11px] font-medium ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>Tab:</span>
-          <select
-            value={workbook.activeTab}
-            onChange={(e) => setWorkbook((p) => ({ ...p, activeTab: e.target.value }))}
-            className={`text-xs font-bold px-2 py-1 rounded border outline-hidden ${
-              isDark ? 'bg-zinc-900 border-zinc-700 text-pink-400' : 'bg-white border-stone-300 text-pink-700'
+        {/* 1. Sheet & Brand Capsule */}
+        <div
+          className={`inline-flex items-center rounded-lg border p-0.5 shrink-0 shadow-2xs ${
+            isDark ? 'bg-[#181b26] border-zinc-800/90' : 'bg-stone-100 border-stone-200'
+          }`}
+        >
+          <div className="relative flex items-center">
+            <select
+              value={workbook.activeTab}
+              onChange={(e) => setWorkbook((p) => ({ ...p, activeTab: e.target.value }))}
+              aria-label="Select active sheet"
+              className={`appearance-none text-xs font-semibold pl-2.5 pr-6 py-1 rounded-md bg-transparent cursor-pointer outline-hidden transition-colors ${
+                isDark ? 'text-pink-400 hover:text-pink-300' : 'text-pink-700 hover:text-pink-800'
+              }`}
+            >
+              {workbook.tabs.map((tab) => (
+                <option
+                  key={tab.id}
+                  value={tab.id}
+                  className={isDark ? 'bg-[#141720] text-zinc-100' : 'bg-white text-stone-900'}
+                >
+                  {tab.id === masterTab.id ? '🌟 ' : '📁 '} {tab.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={11} className="absolute right-1.5 pointer-events-none text-zinc-400 shrink-0" />
+          </div>
+
+          <div className={`h-3.5 w-px mx-0.5 ${isDark ? 'bg-zinc-800' : 'bg-stone-300'}`} />
+
+          <button
+            type="button"
+            onClick={() => setAddBrandOpen(true)}
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              isDark
+                ? 'text-zinc-300 hover:text-pink-300 hover:bg-pink-500/10'
+                : 'text-stone-700 hover:text-pink-700 hover:bg-pink-50'
             }`}
+            title="Create a new brand sheet"
           >
-            {workbook.tabs.map((tab) => (
-              <option key={tab.id} value={tab.id}>
-                {tab.name}
-              </option>
-            ))}
-          </select>
+            <Plus size={12} className="text-pink-500" />
+            <span className="hidden sm:inline">Brand</span>
+          </button>
+
+          {currentTab.id !== masterTab.id && (
+            <>
+              <div className={`h-3.5 w-px mx-0.5 ${isDark ? 'bg-zinc-800' : 'bg-stone-300'}`} />
+              <button
+                type="button"
+                onClick={() => {
+                  setSheetToDelete(currentTab);
+                  setDeleteSheetOpen(true);
+                }}
+                className={`p-1 rounded-md text-xs transition-colors cursor-pointer ${
+                  isDark
+                    ? 'text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10'
+                    : 'text-stone-500 hover:text-rose-600 hover:bg-rose-50'
+                }`}
+                title={`Delete brand sheet "${currentTab.name}"`}
+              >
+                <Trash2 size={12} />
+              </button>
+            </>
+          )}
         </div>
 
-        <button
-          onClick={() => setAddBrandOpen(true)}
-          className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border shrink-0 transition-colors ${
-            isDark
-              ? 'border-pink-500/35 bg-pink-500/10 text-pink-300 hover:bg-pink-500/20'
-              : 'border-pink-300 bg-pink-50 text-pink-700 hover:bg-pink-100'
+        {/* 2. Row Operations Capsule */}
+        <div
+          className={`inline-flex items-center rounded-lg border p-0.5 shrink-0 shadow-2xs ${
+            isDark ? 'bg-[#181b26] border-zinc-800/90' : 'bg-stone-100 border-stone-200'
           }`}
-          title="Create a new brand tab"
         >
-          <Plus size={11} />
-          <span>New Brand</span>
-        </button>
-
-        {currentTab.id !== masterTab.id && (
           <button
-            onClick={() => {
-              setSheetToDelete(currentTab);
-              setDeleteSheetOpen(true);
-            }}
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border shrink-0 transition-colors ${
-              isDark
-                ? 'border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'
-                : 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
-            }`}
-            title={`Delete brand sheet "${currentTab.name}"`}
-          >
-            <Trash2 size={11} />
-            <span>Delete Sheet</span>
-          </button>
-        )}
-
-        <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
-
-        {/* Row Operations */}
-        <div className="flex items-center gap-1 shrink-0">
-          <button
+            type="button"
             onClick={() => handleInsertRow()}
-            title="Add creator row"
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border shrink-0 transition-colors ${
+            title="Insert new creator row below"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
               isDark
-                ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
-                : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100 shadow-2xs'
+                ? 'text-zinc-200 hover:bg-zinc-800/70 hover:text-emerald-400'
+                : 'text-stone-700 hover:bg-white hover:text-emerald-600 shadow-2xs'
             }`}
           >
-            <Plus size={11} className="text-emerald-500" />
-            <span>+ Row</span>
+            <Plus size={12} className="text-emerald-400 shrink-0" />
+            <span>Row</span>
           </button>
+
+          <div className={`h-3.5 w-px mx-0.5 ${isDark ? 'bg-zinc-800' : 'bg-stone-300'}`} />
+
           <button
+            type="button"
             onClick={() => handleDeleteRow(selectedRow)}
             disabled={selectedRow < 2}
-            title={selectedRow >= 2 ? `Delete Row ${selectedRow}` : 'Select a creator row to delete'}
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            title={selectedRow >= 2 ? `Delete Row ${selectedRow}` : 'Select a creator row (row 2+) to delete'}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer ${
               selectedRow >= 2
                 ? isDark
-                  ? 'bg-zinc-900 border-zinc-700 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30'
-                  : 'bg-white border-stone-300 text-rose-600 hover:bg-rose-50 hover:border-rose-300 shadow-2xs'
+                  ? 'text-zinc-300 hover:text-rose-400 hover:bg-rose-500/10'
+                  : 'text-stone-700 hover:text-rose-600 hover:bg-rose-50'
                 : isDark
-                ? 'bg-zinc-900/50 border-zinc-800 text-zinc-500'
-                : 'bg-stone-100 border-stone-200 text-stone-400'
+                ? 'text-zinc-500'
+                : 'text-stone-400'
             }`}
           >
-            <Trash2 size={11} />
-            <span>- Row {selectedRow >= 2 ? `(${selectedRow})` : ''}</span>
+            <Trash2 size={12} className={selectedRow >= 2 ? 'text-rose-400' : ''} />
+            <span>Delete {selectedRow >= 2 ? `(${selectedRow})` : ''}</span>
           </button>
         </div>
 
-        <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
-
-        {/* Column Operations */}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* 3. Column Operations Capsule */}
+        <div
+          className={`inline-flex items-center rounded-lg border p-0.5 shrink-0 shadow-2xs ${
+            isDark ? 'bg-[#181b26] border-zinc-800/90' : 'bg-stone-100 border-stone-200'
+          }`}
+        >
           <button
+            type="button"
             onClick={() => setAddColumnOpen(true)}
             title="Add a custom column to sheet"
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border shrink-0 transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
               isDark
-                ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
-                : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100 shadow-2xs'
+                ? 'text-zinc-200 hover:bg-zinc-800/70 hover:text-pink-400'
+                : 'text-stone-700 hover:bg-white hover:text-pink-600 shadow-2xs'
             }`}
           >
-            <Plus size={11} className="text-pink-500" />
-            <span>+ Column</span>
+            <Plus size={12} className="text-pink-400 shrink-0" />
+            <span>Column</span>
           </button>
+
+          <div className={`h-3.5 w-px mx-0.5 ${isDark ? 'bg-zinc-800' : 'bg-stone-300'}`} />
+
           <button
+            type="button"
             onClick={() => {
               setColToDelete(selectedCol);
               setRemoveColumnOpen(true);
             }}
-            title="Remove a column"
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded border shrink-0 transition-colors ${
+            title="Remove a custom column"
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
               isDark
-                ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-                : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100 shadow-2xs'
+                ? 'text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-200'
+                : 'text-stone-500 hover:bg-white hover:text-stone-800 shadow-2xs'
             }`}
           >
-            <Minus size={11} className="text-zinc-400" />
-            <span>- Column</span>
+            <Minus size={12} className="shrink-0" />
+            <span>Remove</span>
           </button>
         </div>
 
-        <div className={`h-4 w-px mx-0.5 shrink-0 ${isDark ? 'bg-zinc-700/40' : 'bg-stone-300'}`} />
+        <div className={`h-4.5 w-px mx-1 shrink-0 ${isDark ? 'bg-zinc-800' : 'bg-stone-300'}`} />
 
-        {/* Search in Sheet */}
+        {/* 4. Search in Sheet */}
         <div className="relative shrink-0 flex items-center">
-          <Search size={12} className={`absolute left-2 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`} />
+          <Search size={13} className={`absolute left-2.5 pointer-events-none ${isDark ? 'text-zinc-500' : 'text-stone-400'}`} />
           <input
             type="text"
             placeholder="Search creators…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`pl-6 pr-2 py-1 text-xs rounded border outline-hidden w-28 sm:w-36 ${
-              isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-200 placeholder:text-zinc-500' : 'bg-white border-stone-300 text-stone-800 placeholder:text-stone-400'
+            className={`pl-8 pr-6 py-1 text-xs rounded-lg border outline-hidden transition-all w-32 sm:w-44 focus:w-48 ${
+              isDark
+                ? 'bg-[#181b26] border-zinc-800/90 text-zinc-100 placeholder:text-zinc-500 focus:border-pink-500/60 focus:ring-1 focus:ring-pink-500/20'
+                : 'bg-stone-100 border-stone-200 text-stone-900 placeholder:text-stone-400 focus:bg-white focus:border-pink-500/60'
             }`}
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className={`absolute right-1 ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-400 hover:text-stone-600'}`}>
-              <X size={11} />
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className={`absolute right-1.5 p-0.5 rounded text-xs cursor-pointer ${
+                isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-400 hover:text-stone-600'
+              }`}
+              title="Clear search"
+            >
+              <X size={12} />
             </button>
           )}
         </div>
