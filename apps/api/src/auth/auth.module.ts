@@ -9,7 +9,15 @@ import { Actor } from '../core/types';
 import { loginDto } from '../core/schemas';
 import { hashPassword, verifyPassword } from './password';
 import { audit } from '../core/audit';
-const cookieOptions=()=>({httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'strict' as const,path:'/',maxAge:8*3600000});
+const SESSION_DAYS = Number(process.env.SESSION_MAX_AGE_DAYS || 90);
+const SESSION_MS = SESSION_DAYS * 24 * 3600 * 1000;
+const cookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: SESSION_MS
+});
 @Controller('auth')
 export class AuthController {
  constructor(private db:Database){}
@@ -71,9 +79,16 @@ export class AuthController {
   const fallback='scrypt$00000000000000000000000000000000$'+'00'.repeat(64);
   const valid=await verifyPassword(data.password,u?.passwordHash||fallback);
   if(!u||!valid||!u.active||u.deletedAt) throw new UnauthorizedException('The email or password is incorrect.');
-  const sid=randomUUID(),csrf=randomBytes(32).toString('hex');
-  await this.db.session.create({data:{id:sid,userId:u.id,csrfHash:digest(csrf),expiresAt:new Date(Date.now()+8*3600000)}});
-  const token=sign({sid},process.env.JWT_SECRET!,{subject:u.id,expiresIn:'8h',issuer:'agency-os',audience:'agency-os-web',algorithm:'HS256'});
+  const sid = randomUUID(), csrf = randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + SESSION_MS);
+  await this.db.session.create({ data: { id: sid, userId: u.id, csrfHash: digest(csrf), expiresAt } });
+  const token = sign({ sid }, process.env.JWT_SECRET!, {
+    subject: u.id,
+    expiresIn: `${SESSION_DAYS}d`,
+    issuer: 'agency-os',
+    audience: 'agency-os-web',
+    algorithm: 'HS256'
+  });
   res.cookie('agency_session',token,cookieOptions());
   res.cookie('agency_csrf',csrf,{...cookieOptions(),httpOnly:false});
   return {ok:true,mustChangePassword:u.mustChangePassword};

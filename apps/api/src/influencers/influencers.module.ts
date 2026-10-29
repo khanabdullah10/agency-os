@@ -256,16 +256,43 @@ export class InfluencersController implements OnModuleInit {
     return { ok: true, updatedAt: new Date().toISOString() };
   }
 
+  @Public()
   @Get('brands')
-  async getBrands(@CurrentActor() a: Actor) {
-    this.checkAccess(a);
+  async getBrands(@Query('agencyId') agencyQuery?: string, @CurrentActor() a?: Actor) {
+    const agencyId = agencyQuery || a?.agencyId || 'mad-o-media';
     try {
-      const clients = await this.db.client.findMany({
-        where: { agencyId: a.agencyId, active: true },
-        select: { id: true, name: true, color: true },
-        orderBy: { name: 'asc' },
-      });
-      return clients;
+      const brandSet = new Set<string>();
+
+      // 1. Fetch created brand sheet tabs from the Influencer spreadsheet
+      try {
+        const { data: wb } = await this.loadWorkbook(agencyId, 'Public Intake');
+        if (wb && Array.isArray(wb.tabs)) {
+          wb.tabs.forEach((t: any) => {
+            const name = (t.name || '').trim();
+            if (
+              t.id !== 'tab_master' &&
+              !name.toLowerCase().includes('master') &&
+              name.length > 0
+            ) {
+              brandSet.add(name);
+            }
+          });
+        }
+      } catch {}
+
+      // 2. Also fetch active agency clients
+      try {
+        const clients = await this.db.client.findMany({
+          where: { agencyId, active: true },
+          select: { name: true },
+          orderBy: { name: 'asc' },
+        });
+        clients.forEach((c) => {
+          if (c.name?.trim()) brandSet.add(c.name.trim());
+        });
+      } catch {}
+
+      return Array.from(brandSet).sort((a, b) => a.localeCompare(b));
     } catch {
       return [];
     }

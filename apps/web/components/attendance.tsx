@@ -20,6 +20,7 @@ import {
   Check,
   Loader2,
   RotateCcw,
+  BellRing,
 } from 'lucide-react';
 import { api, useApp, useResource } from '@/lib/api';
 import { Avatar, Loading, Empty, Modal } from './shared';
@@ -65,6 +66,20 @@ export function AttendanceView() {
   const [showOlderOnly, setShowOlderOnly] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
+
+  const handleSendReminder = async () => {
+    setSendingReminder(true);
+    try {
+      const res: any = await api('/attendance/remind', { method: 'POST' });
+      toast.success('Attendance Reminder', { description: res.message });
+      refresh();
+    } catch (err: any) {
+      toast.error('Failed to dispatch reminder', { description: err.message || 'Network error' });
+    } finally {
+      setSendingReminder(false);
+    }
+  };
   const [flushing, setFlushing] = useState(false);
   const [showFlushModal, setShowFlushModal] = useState(false);
   const [hasDownloaded, setHasDownloaded] = useState(false);
@@ -232,8 +247,21 @@ export function AttendanceView() {
           </p>
         </div>
 
-        {/* Excel Export Quick Trigger */}
+        {/* Actions Bar */}
         <div className="flex items-center flex-wrap gap-2">
+          {isAdminOrSuperAdmin && (
+            <button
+              type="button"
+              disabled={sendingReminder}
+              onClick={handleSendReminder}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              title="Dispatch sarcastic attendance reminder notification to employees who haven't marked attendance yet"
+            >
+              <BellRing size={15} />
+              <span>{sendingReminder ? 'Sending...' : 'Send Attendance Reminder'}</span>
+            </button>
+          )}
+
           <button
             onClick={() => handleExportExcel('all')}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"

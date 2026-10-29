@@ -3585,7 +3585,8 @@ export function InfluencerMarketingView() {
                       <label className="block text-[11px] font-medium mb-1">Target Brand</label>
                       <input
                         type="text"
-                        placeholder="e.g. Willow & Root"
+                        list="quick-brand-sheets"
+                        placeholder="e.g. Willow & Root (select or type)"
                         value={quickCreator.brand}
                         onChange={(e) => setQuickCreator((p) => ({ ...p, brand: e.target.value }))}
                         className={`w-full px-2.5 py-1.5 rounded border text-xs outline-hidden ${
@@ -3594,6 +3595,13 @@ export function InfluencerMarketingView() {
                             : 'border-stone-300 bg-white text-pink-700 font-medium placeholder:text-stone-400'
                         }`}
                       />
+                      <datalist id="quick-brand-sheets">
+                        {workbook.tabs
+                          .filter((t) => t.id !== masterTab.id && !t.name.toLowerCase().includes('master'))
+                          .map((t) => (
+                            <option key={t.id} value={t.name} />
+                          ))}
+                      </datalist>
                     </div>
 
                     <div>

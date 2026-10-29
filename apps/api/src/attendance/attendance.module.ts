@@ -6,6 +6,7 @@ import { Access, CurrentActor } from '../core/security';
 import { Actor, has, safeUser } from '../core/types';
 import { checkInDto, checkOutDto } from '../core/schemas';
 import { audit } from '../core/audit';
+import { JobsService, JobsModule } from '../jobs/jobs.module';
 
 function isAdminOrSuperAdmin(a: Actor): boolean {
   return a.isSuperAdmin || a.roleName === 'Super Admin' || a.roleName === 'Admin';
@@ -116,7 +117,11 @@ function calculateWorkingHours(start?: Date | null, end?: Date | null): string {
 
 @Controller('attendance')
 export class AttendanceController implements OnModuleInit {
-  constructor(private db: Database, private access: Access) {}
+  constructor(
+    private db: Database,
+    private access: Access,
+    private jobsService: JobsService
+  ) {}
 
   async onModuleInit() {
     await this.ensureTable();
@@ -385,6 +390,22 @@ export class AttendanceController implements OnModuleInit {
     };
   }
 
+  @Post('remind')
+  async sendReminder(@CurrentActor() a: Actor) {
+    this.access.internal(a);
+    if (!isAdminOrSuperAdmin(a)) {
+      throw new ForbiddenException('Only Admins or Super Admins can dispatch attendance reminders.');
+    }
+    const count = await this.jobsService.checkDailyAttendanceReminders(true);
+    return {
+      ok: true,
+      notifiedCount: count,
+      message: count > 0
+        ? `Sarcastic attendance reminder dispatched to ${count} employee(s) who haven't marked attendance yet.`
+        : 'All non-exempt employees have already marked attendance today!'
+    };
+  }
+
   @Post('flush-archive')
   async flushArchive(@CurrentActor() a: Actor) {
     this.access.internal(a);
@@ -583,6 +604,7 @@ export class AttendanceController implements OnModuleInit {
 }
 
 @Module({
+  imports: [JobsModule],
   controllers: [AttendanceController],
   exports: [],
 })

@@ -76,6 +76,43 @@ export function InfluencerPublicIntakeForm({ initialMode }: InfluencerPublicInta
   const [submitting, setSubmitting] = useState(false);
 
   const [collabType, setCollabType] = useState<'commercial' | 'barter'>('commercial');
+  const [brandSheets, setBrandSheets] = useState<string[]>([]);
+  const [loadingBrands, setLoadingBrands] = useState(true);
+  const [isCustomBrand, setIsCustomBrand] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadBrandSheets() {
+      try {
+        setLoadingBrands(true);
+        const res = await fetch('/api/influencers/brands');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && Array.isArray(data)) {
+            setBrandSheets(data);
+            if (typeof window !== 'undefined') {
+              const search = new URLSearchParams(window.location.search);
+              const brandParam = search.get('brand');
+              if (brandParam) {
+                setForm((prev) => ({ ...prev, brand: brandParam }));
+                if (!data.includes(brandParam)) {
+                  setIsCustomBrand(true);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load brand sheets', err);
+      } finally {
+        if (isMounted) setLoadingBrands(false);
+      }
+    }
+    loadBrandSheets();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (initialMode) {
@@ -559,19 +596,71 @@ export function InfluencerPublicIntakeForm({ initialMode }: InfluencerPublicInta
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1">Targeted Brand / Campaign</label>
-            <input
-              type="text"
-              name="brand"
-              placeholder="e.g. Zara, Nike, Willow & Root (or leave blank for General)"
-              value={form.brand}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 rounded-lg text-xs border outline-hidden transition-all ${
-                isDark
-                  ? `bg-zinc-900/80 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 ${isBarter ? 'focus:border-amber-500' : 'focus:border-pink-500'}`
-                  : `bg-stone-50 border-stone-200 text-stone-900 placeholder:text-stone-400 ${isBarter ? 'focus:border-amber-500' : 'focus:border-pink-500'}`
-              }`}
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium">Targeted Brand / Campaign</label>
+              {brandSheets.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsCustomBrand(!isCustomBrand)}
+                  className={`text-[11px] font-semibold transition-colors cursor-pointer ${
+                    isBarter ? 'text-amber-500 hover:text-amber-400' : 'text-pink-500 hover:text-pink-400'
+                  }`}
+                >
+                  {isCustomBrand ? '← Select from created brand sheets' : '+ Other / Enter brand manually'}
+                </button>
+              )}
+            </div>
+
+            {!isCustomBrand && brandSheets.length > 0 ? (
+              <select
+                name="brand"
+                value={form.brand}
+                onChange={(e) => {
+                  if (e.target.value === '__CUSTOM__') {
+                    setIsCustomBrand(true);
+                    setForm((prev) => ({ ...prev, brand: '' }));
+                  } else {
+                    handleChange(e);
+                  }
+                }}
+                className={`w-full px-3 py-2 rounded-lg text-xs border outline-hidden font-medium transition-all ${
+                  isDark
+                    ? `bg-zinc-900/80 border-zinc-800 text-zinc-100 ${isBarter ? 'focus:border-amber-500' : 'focus:border-pink-500'}`
+                    : `bg-stone-50 border-stone-200 text-stone-900 ${isBarter ? 'focus:border-amber-500' : 'focus:border-pink-500'}`
+                }`}
+              >
+                <option value="">General / Open for any campaign (or select brand sheet below)</option>
+                <optgroup label="Created Brand Sheets">
+                  {brandSheets.map((bName) => (
+                    <option key={bName} value={bName}>
+                      {bName}
+                    </option>
+                  ))}
+                </optgroup>
+                <option value="__CUSTOM__">+ Other / Enter brand manually...</option>
+              </select>
+            ) : (
+              <div className="space-y-1">
+                <input
+                  type="text"
+                  name="brand"
+                  placeholder="e.g. Zara, Nike, Willow & Root (or leave blank for General)"
+                  value={form.brand}
+                  onChange={handleChange}
+                  autoFocus={isCustomBrand}
+                  className={`w-full px-3 py-2 rounded-lg text-xs border outline-hidden transition-all ${
+                    isDark
+                      ? `bg-zinc-900/80 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 ${isBarter ? 'focus:border-amber-500' : 'focus:border-pink-500'}`
+                      : `bg-stone-50 border-stone-200 text-stone-900 placeholder:text-stone-400 ${isBarter ? 'focus:border-amber-500' : 'focus:border-pink-500'}`
+                  }`}
+                />
+                {brandSheets.length > 0 && isCustomBrand && (
+                  <p className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                    Entering a new brand will automatically generate a dedicated brand sheet tab upon submission.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Conditional Section: Commercial Rates (Only for Paid Campaigns) vs Barter Agreement */}

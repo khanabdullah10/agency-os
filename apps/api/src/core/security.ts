@@ -90,6 +90,18 @@ export class AuthGuard implements CanActivate {
    throw new UnauthorizedException('Your session could not be verified. Please sign in again.');
   });
   if(!session||session.expiresAt<new Date()||session.userId!==token.sub||!session.user.active||session.user.deletedAt) throw new UnauthorizedException('Your session has expired.');
+
+  // Slide session expiration so active users are never logged out
+  const now = Date.now();
+  const sessionDays = Number(process.env.SESSION_MAX_AGE_DAYS || 90);
+  const sessionMs = sessionDays * 24 * 3600 * 1000;
+  if (session.expiresAt.getTime() - now < sessionMs / 2) {
+    this.db.session.update({
+      where: { id: session.id },
+      data: { expiresAt: new Date(now + sessionMs) }
+    }).catch(() => {});
+  }
+
   const u=session.user;
   const permissions=new Set<string>(u.role.permissions.map((p: { permissionKey: string })=>p.permissionKey));
   u.permissions.forEach((p: { allowed: boolean; permissionKey: string })=>p.allowed?permissions.add(p.permissionKey):permissions.delete(p.permissionKey));
