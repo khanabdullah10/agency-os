@@ -35,7 +35,7 @@ export class NotificationsService {
         id: payload.id,
         event: payload.event,
         icon: '/icon-192.png',
-        badge: '/icon-192.png',
+        badge: '/badge.png',
         tag: payload.id || 'agency-os'
       });
 

@@ -4247,6 +4247,7 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   min-height: 100vh;
   gap: 28px;
   background: var(--background);
+  animation: fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .loading {
   display: flex;

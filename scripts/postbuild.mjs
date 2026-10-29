@@ -19,7 +19,7 @@ if (fs.existsSync(webNext)) {
   console.warn('[Postbuild] Warning: apps/web/.next does not exist');
 }
 
-if (fs.existsSync(webPublic) && !fs.existsSync(rootPublic)) {
+if (fs.existsSync(webPublic)) {
   fs.cpSync(webPublic, rootPublic, { recursive: true });
   console.log('[Postbuild] Synced apps/web/public -> public');
 }

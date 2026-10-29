@@ -43,7 +43,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: payload.body || 'You have a new update in Agency OS',
     icon: payload.icon || '/icon-192.png',
-    badge: payload.badge || '/icon-192.png',
+    badge: payload.badge || '/badge.png',
     tag: payload.tag || payload.key || payload.id || 'agency-os-notification',
     data: {
       url: payload.url || payload.href || '/'

@@ -54,8 +54,7 @@ export default function MadOMediaLogo({
     return (
       <div className={`inline-flex items-center ${className}`}>
         <img
-          src="/mad-o-media-mark.png"
-          srcSet="/mad-o-media-mark.png 1x, /mad-o-media-mark@4x.png 2x"
+          src="/mad-o-media-mark.svg"
           alt="MAD O MEDIA Icon"
           className={`${iconHeights[size]} w-auto object-contain drop-shadow-xs transition-transform duration-200 hover:scale-105`}
         />
@@ -67,8 +66,7 @@ export default function MadOMediaLogo({
     <div className={`inline-flex items-center gap-2 sm:gap-2.5 select-none ${className}`}>
       {/* Crisp Brand Mark Icon */}
       <img
-        src="/mad-o-media-mark.png"
-        srcSet="/mad-o-media-mark.png 1x, /mad-o-media-mark@4x.png 2x"
+        src="/mad-o-media-mark.svg"
         alt="MAD O MEDIA"
         className={`${iconHeights[size]} w-auto object-contain shrink-0 transition-transform duration-200 hover:scale-105`}
       />
