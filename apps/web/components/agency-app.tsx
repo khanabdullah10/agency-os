@@ -27,6 +27,9 @@ import {
   LogOut,
   Menu as MenuIcon,
   X,
+  PanelLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   ArrowRight,
   Sparkles,
   LockKeyhole,
@@ -513,6 +516,37 @@ function Shell({ children }: { children: React.ReactNode }) {
   const { toggleTheme, isDark } = useTheme();
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('agency_sidebar_collapsed');
+      if (saved === 'true') {
+        setSidebarCollapsed(true);
+      }
+    } catch {}
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('agency_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [toggleSidebar]);
   const router = useRouter();
   const [notices, setNotices] = useState<any[]>([]);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -799,7 +833,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const isFullHeightView = path.startsWith('/records') || path.startsWith('/influencer-marketing');
 
   return (
-    <div className="app">
+    <div className={`app ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       {/* Mobile backdrop */}
       <button
         className={'sidebar-backdrop ' + (mobile ? 'visible' : '')}
@@ -808,10 +842,42 @@ function Shell({ children }: { children: React.ReactNode }) {
       />
 
       {/* Sleek Sidebar with Colored Icons */}
-      <aside className={'sidebar ' + (mobile ? 'open' : '')}>
-        <Link href="/dashboard" onClick={() => setMobile(false)} className="sidebar-brand">
-          <MadOMediaLogo size="sm" theme={isDark ? 'dark' : 'light'} badgeText="OS" />
-        </Link>
+      <aside className={'sidebar ' + (mobile ? 'open' : '') + (sidebarCollapsed ? ' collapsed' : '')}>
+        <div className={`sidebar-brand-row flex items-center ${sidebarCollapsed ? 'justify-center py-4 px-2' : 'justify-between pr-3'}`}>
+          <Link
+            href="/dashboard"
+            onClick={() => setMobile(false)}
+            className={`sidebar-brand ${sidebarCollapsed ? 'p-0 flex items-center justify-center' : 'grow'}`}
+            title="MAD O MEDIA Agency OS"
+          >
+            <MadOMediaLogo
+              size="sm"
+              theme={isDark ? 'dark' : 'light'}
+              variant={sidebarCollapsed ? 'icon' : 'full'}
+              badgeText="OS"
+            />
+          </Link>
+          {!sidebarCollapsed && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Collapse sidebar (Ctrl+B)"
+              aria-label="Collapse sidebar"
+              className="hidden md:flex items-center justify-center h-7 w-7 rounded-lg text-stone-400 hover:text-stone-700 dark:text-zinc-500 dark:hover:text-zinc-200 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              <PanelLeftClose size={16} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMobile(false)}
+            title="Close navigation"
+            aria-label="Close navigation"
+            className="md:hidden flex items-center justify-center h-7 w-7 rounded-lg text-stone-400 hover:text-stone-700 dark:text-zinc-500 dark:hover:text-zinc-200 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         <div className="workspace-name">
           <span className="workspace-avatar">M</span>
@@ -845,6 +911,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                       key={n.href}
                       href={n.href}
                       onClick={() => setMobile(false)}
+                      title={n.href === '/tasks' && !can('task.view_team') ? 'My tasks' : n.name}
                       className={
                         'nav-item group ' +
                         (isActive ? 'active' : '') +
@@ -963,10 +1030,22 @@ function Shell({ children }: { children: React.ReactNode }) {
 
           <div className="sidebar-divider" />
 
+          {sidebarCollapsed && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Expand sidebar (Ctrl+B)"
+              aria-label="Expand sidebar"
+              className="hidden md:flex items-center justify-center w-full h-8 mb-2 rounded-lg text-stone-400 hover:text-stone-700 dark:text-zinc-500 dark:hover:text-zinc-200 hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+          )}
+
           {/* User Profile */}
           <Menu.Root>
             <Menu.Trigger asChild>
-              <button className="profile">
+              <button className="profile" title={`${actor.name} (${actor.roleName})`}>
                 <Avatar name={actor.name} color={actor.avatarColor || '#0284c7'} src={actor.avatarUrl} />
                 <span>
                   <strong>{actor.name}</strong>
@@ -995,13 +1074,22 @@ function Shell({ children }: { children: React.ReactNode }) {
       {/* Main Shell */}
       <div className={`main-shell ${isFullHeightView ? 'main-shell-full' : ''}`}>
         <header className="topbar">
-          <div className="breadcrumbs">
+          <div className="breadcrumbs flex items-center">
             <button
               className="icon-button mobile-toggle"
               aria-label="Open navigation"
               onClick={() => setMobile(true)}
             >
               <MenuIcon size={20} />
+            </button>
+            <button
+              type="button"
+              className="hidden md:flex icon-button mr-1.5 text-stone-500 hover:text-stone-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+              aria-label={sidebarCollapsed ? 'Open sidebar (Ctrl+B)' : 'Close sidebar (Ctrl+B)'}
+              title={sidebarCollapsed ? 'Open sidebar (Ctrl+B)' : 'Close sidebar (Ctrl+B)'}
+              onClick={toggleSidebar}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeft size={18} />}
             </button>
             <span className="breadcrumb-home text-xs text-stone-400 dark:text-zinc-500">Workspace</span>
             <ChevronRight size={13} className="text-stone-300 dark:text-zinc-700" />

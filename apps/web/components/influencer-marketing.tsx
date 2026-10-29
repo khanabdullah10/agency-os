@@ -3193,9 +3193,9 @@ export function InfluencerMarketingView() {
       {/* MODAL 1: EXPORT MODAL WITH COLUMN CHECKBOXES */}
       {/* ========================================================================= */}
       {exportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs mac-modal-backdrop">
           <div
-            className={`max-w-md w-full rounded-2xl border p-5 shadow-2xl ${
+            className={`max-w-md w-full rounded-2xl border p-5 shadow-2xl mac-modal-window ${
               isDark ? 'bg-[#141720] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >
@@ -3738,9 +3738,9 @@ export function InfluencerMarketingView() {
       {/* MODAL 3: IMPORT MODAL */}
       {/* ========================================================================= */}
       {importOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs mac-modal-backdrop">
           <div
-            className={`max-w-lg w-full rounded-2xl border p-5 shadow-2xl ${
+            className={`max-w-lg w-full rounded-2xl border p-5 shadow-2xl mac-modal-window ${
               isDark ? 'bg-[#141720] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >
@@ -3879,13 +3879,13 @@ export function InfluencerMarketingView() {
       {/* ========================================================================= */}
       {addBrandOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs mac-modal-backdrop"
           onClick={() => setAddBrandOpen(false)}
           onKeyDown={(e) => e.stopPropagation()}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`max-w-sm w-full rounded-2xl border p-5 shadow-2xl ${
+            className={`max-w-sm w-full rounded-2xl border p-5 shadow-2xl mac-modal-window ${
               isDark ? 'bg-[#141720] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >
@@ -3964,9 +3964,9 @@ export function InfluencerMarketingView() {
 
       {/* 5. NUMERIC RANGE FILTERS MODAL */}
       {rangeFilterOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 mac-modal-backdrop">
           <div
-            className={`w-full max-w-lg rounded-2xl p-5 shadow-2xl border max-h-[90vh] overflow-y-auto ${
+            className={`w-full max-w-lg rounded-2xl p-5 shadow-2xl border mac-modal-window max-h-[90vh] overflow-y-auto ${
               isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >
@@ -4320,13 +4320,13 @@ export function InfluencerMarketingView() {
       {/* 6. ADD COLUMN MODAL */}
       {addColumnOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 mac-modal-backdrop"
           onClick={() => setAddColumnOpen(false)}
           onKeyDown={(e) => e.stopPropagation()}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-md rounded-2xl p-5 shadow-2xl border ${
+            className={`w-full max-w-md rounded-2xl p-5 shadow-2xl border mac-modal-window ${
               isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >
@@ -4444,9 +4444,9 @@ export function InfluencerMarketingView() {
 
       {/* 7. REMOVE COLUMN MODAL */}
       {removeColumnOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 mac-modal-backdrop">
           <div
-            className={`w-full max-w-md rounded-2xl p-5 shadow-2xl border ${
+            className={`w-full max-w-md rounded-2xl p-5 shadow-2xl border mac-modal-window ${
               isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >
@@ -4527,9 +4527,9 @@ export function InfluencerMarketingView() {
 
       {/* 8. DELETE BRAND SHEET MODAL */}
       {deleteSheetOpen && sheetToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 mac-modal-backdrop">
           <div
-            className={`w-full max-w-md rounded-2xl p-5 shadow-2xl border ${
+            className={`w-full max-w-md rounded-2xl p-5 shadow-2xl border mac-modal-window ${
               isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
             }`}
           >

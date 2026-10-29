@@ -205,6 +205,7 @@ export function Modal({
   description,
   children,
   wide = false,
+  className = '',
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -212,10 +213,12 @@ export function Modal({
   description?: string;
   children: ReactNode;
   wide?: boolean;
+  className?: string;
 }) {
+  const contentClass = [wide ? 'wide' : '', className].filter(Boolean).join(' ');
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={wide ? 'wide' : ''}>
+      <DialogContent className={contentClass}>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description || 'Keep every detail connected to your workflow.'}</DialogDescription>
         {children}

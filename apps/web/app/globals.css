@@ -309,7 +309,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   z-index: 40;
   display: flex;
   flex-direction: column;
-  transition: transform 0.2s ease, background 0.2s;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s ease, background 0.2s;
 }
 .sidebar-brand {
   padding: 24px 20px 18px;
@@ -443,6 +443,95 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.22s cubic-bezier(0.16, 1, 0.3, 1), width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Sidebar Mini Rail (Icon-Only Mode on Desktop) */
+@media (min-width: 769px) {
+  .sidebar {
+    width: var(--sidebar);
+    transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s;
+    overflow-x: hidden;
+  }
+  .main-shell {
+    margin-left: var(--sidebar);
+    transition: margin-left 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* When Collapsed: Slim Icon Rail (68px) */
+  .app.sidebar-collapsed .sidebar {
+    width: 68px !important;
+    overflow-x: hidden !important;
+  }
+  .app.sidebar-collapsed .main-shell {
+    margin-left: 68px !important;
+    width: calc(100% - 68px) !important;
+  }
+
+  /* Hide labels, text, and chevrons in icon-only mode */
+  .app.sidebar-collapsed .sidebar .workspace-name > div,
+  .app.sidebar-collapsed .sidebar .workspace-dot,
+  .app.sidebar-collapsed .sidebar .nav-label,
+  .app.sidebar-collapsed .sidebar .nav-item > span:not(.nav-approval-badge):not(.nav-count),
+  .app.sidebar-collapsed .sidebar .profile > span,
+  .app.sidebar-collapsed .sidebar .profile > svg {
+    display: none !important;
+  }
+
+  /* Center compact workspace avatar */
+  .app.sidebar-collapsed .workspace-name {
+    margin: 0 10px 12px !important;
+    padding: 7px 0 !important;
+    justify-content: center !important;
+  }
+
+  /* Compact navigation items */
+  .app.sidebar-collapsed .sidebar nav {
+    padding: 0 8px !important;
+  }
+  .app.sidebar-collapsed .nav-group {
+    margin-bottom: 8px !important;
+  }
+  .app.sidebar-collapsed .nav-item {
+    padding: 6px 0 !important;
+    justify-content: center !important;
+    position: relative !important;
+    border-left: 3px solid transparent !important;
+    border-radius: 10px !important;
+  }
+  .app.sidebar-collapsed .nav-item.active {
+    border-left-color: transparent !important;
+  }
+
+  /* Corner badge overlay for icon mode */
+  .app.sidebar-collapsed .nav-approval-badge,
+  .app.sidebar-collapsed .nav-count {
+    position: absolute !important;
+    top: 2px !important;
+    right: 4px !important;
+    margin-left: 0 !important;
+    padding: 0 4px !important;
+    font-size: 9px !important;
+    height: 15px !important;
+    min-width: 15px !important;
+    border-radius: 9999px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+  }
+  .app.sidebar-collapsed .nav-approval-pulse {
+    display: none !important;
+  }
+
+  /* Compact bottom container & profile */
+  .app.sidebar-collapsed .sidebar-bottom {
+    padding: 10px 8px 14px !important;
+  }
+  .app.sidebar-collapsed .profile {
+    padding: 6px 0 !important;
+    justify-content: center !important;
+  }
 }
 .topbar {
   --topbar-height: 64px;
@@ -3164,21 +3253,108 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   border-radius: 6px;
 }
 
-/* Modals & Dialogs */
+/* ========================================================================= */
+/* Modals & Dialogs - macOS Native Spring Transitions & Glassmorphism        */
+/* ========================================================================= */
+
+@keyframes mac-dialog-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, -46%, 0) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+}
+
+@keyframes mac-dialog-exit {
+  0% {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, -48%, 0) scale(0.97);
+  }
+}
+
+@keyframes mac-overlay-enter {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes mac-overlay-exit {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes mac-window-float-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mac-popover-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes mac-popover-exit {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+  }
+}
+
 .dialog-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 70;
-  animation: fade-in 0.2s ease-out;
+  will-change: opacity;
+  animation: mac-overlay-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+.dialog-overlay[data-state="open"] {
+  animation: mac-overlay-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.dialog-overlay[data-state="closed"] {
+  animation: mac-overlay-exit 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .dialog-content {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate3d(-50%, -50%, 0);
+  transform-origin: center center;
   width: 560px;
   max-width: calc(100vw - 32px);
   max-height: 88vh;
@@ -3189,10 +3365,32 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   border-radius: 20px;
   padding: 28px;
   z-index: 71;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.45);
-  animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 28px 75px -12px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+  animation: mac-dialog-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+.dialog-content[data-state="open"] {
+  animation: mac-dialog-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.dialog-content[data-state="closed"] {
+  animation: mac-dialog-exit 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.dark .dialog-content {
+  box-shadow: 0 32px 85px -15px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.09);
+}
+
+:root:not(.dark) .dialog-content {
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
 .dialog-content.wide { width: 840px; }
+
 .dialog-title {
   font-size: 20px;
   font-weight: 700;
@@ -3201,6 +3399,7 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   color: var(--foreground) !important;
   padding-right: 25px;
 }
+
 .dialog-description {
   font-size: 12px;
   color: var(--muted) !important;
@@ -3208,6 +3407,7 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   margin-bottom: 20px;
   line-height: 1.5;
 }
+
 .dialog-close {
   position: absolute;
   right: 18px;
@@ -3218,8 +3418,18 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   height: 30px;
   border-radius: 8px;
   color: var(--muted);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.dialog-close:hover { background: var(--background); color: var(--foreground); }
+
+.dialog-close:hover {
+  background: var(--background);
+  color: var(--foreground);
+  transform: scale(1.08);
+}
+
+.dialog-close:active {
+  transform: scale(0.95);
+}
 
 /* Dialog Form Headings */
 .dialog-content form h3 {
@@ -3228,6 +3438,109 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   color: var(--foreground);
   margin: 6px 0 16px 0;
   letter-spacing: -0.01em;
+}
+
+/* Quick Search / Spotlight Modal Styling */
+.dialog-content .search-field {
+  width: 100%;
+  background: var(--background);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 14px;
+  min-height: 44px;
+  gap: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dialog-content .search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.dialog-content .search-field > input {
+  font-size: 13.5px;
+  font-weight: 500;
+  width: 100%;
+}
+
+.search-results {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.search-results > p {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 18px 8px;
+  text-align: center;
+  margin: 0;
+}
+
+.search-results > a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+}
+
+.search-results > a:hover {
+  background: var(--background);
+  border-color: var(--border-color);
+  transform: translateX(2px);
+}
+
+.search-results > a > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-results > a small {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.search-results > a strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.search-results > a svg {
+  color: var(--muted);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.search-results > a:hover svg {
+  color: var(--foreground);
+  transform: translateX(3px);
+}
+
+/* Generic macOS modal transitions for standalone flex modals */
+.mac-modal-backdrop {
+  animation: mac-overlay-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity;
+}
+
+.mac-modal-window {
+  animation: mac-window-float-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 /* Wizard Stepper */
@@ -3968,7 +4281,7 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
 .empty h3 { font-size: 13.5px; font-weight: 600; color: var(--foreground); }
 .empty p { font-size: 11px; max-width: 320px; line-height: 1.6; color: var(--muted); }
 
-/* Dropdown Menu */
+/* Dropdown Menu - macOS popover physics */
 .dropdown-menu {
   z-index: 80;
   min-width: 200px;
@@ -3976,7 +4289,15 @@ td small { font-size: 9.5px; color: var(--muted); display: block; margin-top: 3p
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin, top left);
+  animation: mac-popover-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.dropdown-menu[data-state="closed"] {
+  animation: mac-popover-exit 0.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .dropdown-menu [role=menuitem] {
   display: flex;
