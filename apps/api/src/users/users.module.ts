@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Module, Param, Patch, Post, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Module, OnModuleInit, Param, Patch, Post, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
 import { Database } from '../core/database';
 import { Access, CurrentActor, Require } from '../core/security';
@@ -7,15 +7,52 @@ import { userDto, updateUserDto } from '../core/schemas';
 import { audit } from '../core/audit';
 import { hashPassword } from '../auth/password';
 @Controller('users')
-class UsersController {
+class UsersController implements OnModuleInit {
  constructor(private db:Database,private access:Access){}
- private async resolveRole(a: Actor, roleIds: string[]) {
+  async onModuleInit() {
+  await this.cleanupDuplicateRoleNames();
+ }
+
+ private async cleanupDuplicateRoleNames() {
+  try {
+   const allRoles = await this.db.role.findMany();
+   for (const role of allRoles) {
+    if (!role.name || !role.name.includes(',')) continue;
+    const parts = role.name.split(',').map(s => s.trim()).filter(Boolean);
+    const unique = [...new Set(parts)].sort();
+    const cleanName = unique.join(', ');
+    if (cleanName !== role.name) {
+     const existing = await this.db.role.findFirst({
+      where: { agencyId: role.agencyId, name: cleanName, id: { not: role.id } }
+     });
+     if (existing) {
+      await this.db.user.updateMany({
+       where: { roleId: role.id },
+       data: { roleId: existing.id }
+      });
+      await this.db.role.delete({ where: { id: role.id } }).catch(() => {});
+     } else {
+      await this.db.role.update({
+       where: { id: role.id },
+       data: { name: cleanName }
+      });
+     }
+    }
+   }
+  } catch (e: any) {
+   console.warn('[Users] Cleanup role names notice:', e.message);
+  }
+ }
+
+ private async resolveRole(a: Actor, rawRoleIds: string[]) {
+  const roleIds = [...new Set(rawRoleIds.filter(Boolean))];
+  if (!roleIds.length) throw new BadRequestException('Role not found.');
+
   const selectedRoles = await this.db.role.findMany({
    where: { id: { in: roleIds }, agencyId: a.agencyId },
    include: { permissions: true }
   });
   if (!selectedRoles.length) throw new BadRequestException('Role not found.');
-  if (selectedRoles.length !== roleIds.length) throw new BadRequestException('One or more selected roles are invalid.');
   if (selectedRoles.some(r => r.isSuperAdmin) && !a.isSuperAdmin) {
    throw new ForbiddenException('Only a Super Admin can grant Super Admin access.');
   }
@@ -25,13 +62,32 @@ class UsersController {
     throw new ForbiddenException('You cannot grant permissions you do not have.');
    }
   }
-  if (selectedRoles.length === 1) return selectedRoles[0];
 
   if (selectedRoles.some(r => r.isClient) && selectedRoles.some(r => !r.isClient)) {
    throw new BadRequestException('Client accounts cannot be combined with internal agency roles.');
   }
 
-  const combinedName = selectedRoles.map(r => r.name).sort().join(', ');
+  // 1. Unpack all role names (handling any previous combined or duplicated names) and deduplicate
+  const individualRoleNames = [
+   ...new Set(
+    selectedRoles
+     .flatMap(r => r.name.split(',').map((s: string) => s.trim()))
+     .filter(Boolean)
+   )
+  ].sort();
+
+  // 2. If after deduplication only 1 role remains, find and return its base role
+  if (individualRoleNames.length === 1) {
+   const singleName = individualRoleNames[0];
+   const baseRole = await this.db.role.findFirst({
+    where: { agencyId: a.agencyId, name: singleName },
+    include: { permissions: true }
+   });
+   if (baseRole) return baseRole;
+  }
+
+  // 3. For multiple distinct roles, generate clean combined name
+  const combinedName = individualRoleNames.join(', ');
   const isSuperAdmin = selectedRoles.some(r => r.isSuperAdmin);
   const isClient = selectedRoles.some(r => r.isClient);
   const allPermissionKeys = [...new Set(selectedRoles.flatMap(r => r.permissions.map(p => p.permissionKey)))];

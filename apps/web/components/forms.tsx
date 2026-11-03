@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { useMutation, useResource, useApp } from '@/lib/api';
@@ -179,25 +179,50 @@ function DriveForm({initial,onDone}:{initial?:any;onDone:()=>void}){
 function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  const {actor}=useApp(),{mutate,pending}=useMutation(),{data:roles}=useResource<any[]>('/roles'),{data:clients}=useResource<any[]>('/clients'),{data:permissions}=useResource<any[]>(actor.isSuperAdmin?'/roles/permissions':null);
 
- const baseRoles = (roles || []).filter((r: any) => !r.name.includes(', ') || r.systemKey);
+ // Base roles are single-discipline roles (deduplicated by name so no duplicate role checkbox ever appears)
+ const baseRoles = useMemo(() => {
+  const map = new Map<string, any>();
+  (roles || []).forEach((r: any) => {
+   if (r.systemKey || !r.name.includes(',')) {
+    if (!map.has(r.name)) {
+     map.set(r.name, r);
+    }
+   }
+  });
+  return Array.from(map.values());
+ }, [roles]);
 
- const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(() => {
-  if (initial?.role?.name && roles?.length) {
-   const names = initial.role.name.split(',').map((s: string) => s.trim());
-   const matched = roles.filter((r: any) => names.includes(r.name)).map((r: any) => r.id);
-   if (matched.length > 0) return matched;
-  }
-  return initial?.roleId ? [initial.roleId] : [];
- });
+ const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+ const [rolesInitialized, setRolesInitialized] = useState(false);
 
  useEffect(() => {
-  if (roles?.length && initial?.role?.name && selectedRoleIds.length === 0) {
-   const names = initial.role.name.split(',').map((s: string) => s.trim());
-   const matched = roles.filter((r: any) => names.includes(r.name)).map((r: any) => r.id);
-   if (matched.length > 0) setSelectedRoleIds(matched);
-   else if (initial.roleId) setSelectedRoleIds([initial.roleId]);
+  if (roles?.length && !rolesInitialized) {
+   const rawName = initial?.role?.name || '';
+   if (rawName) {
+    const names = new Set(rawName.split(',').map((s: string) => s.trim()).filter(Boolean));
+    const matched = baseRoles.filter((r: any) => names.has(r.name)).map((r: any) => r.id);
+    if (matched.length > 0) {
+     setSelectedRoleIds([...new Set(matched)] as string[]);
+     setRolesInitialized(true);
+     return;
+    }
+   }
+   if (initial?.roleId) {
+    const foundRole = (roles || []).find((x: any) => x.id === initial.roleId);
+    if (foundRole?.name) {
+     const names = new Set(foundRole.name.split(',').map((s: string) => s.trim()).filter(Boolean));
+     const matched = baseRoles.filter((r: any) => names.has(r.name)).map((r: any) => r.id);
+     if (matched.length > 0) {
+      setSelectedRoleIds([...new Set(matched)] as string[]);
+      setRolesInitialized(true);
+      return;
+     }
+    }
+    setSelectedRoleIds([initial.roleId]);
+   }
+   setRolesInitialized(true);
   }
- }, [roles, initial]);
+ }, [roles, initial, rolesInitialized, baseRoles]);
 
  const [avatarUrl,setAvatarUrl]=useState<string|null>(initial?.avatarUrl||null);
  const [customEnabled,setCustomEnabled]=useState(Boolean(initial?.permissions?.length));
@@ -307,11 +332,15 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
          if (r.isClient) {
           setSelectedRoleIds(e.target.checked ? [r.id] : []);
          } else {
+          // Keep only selected base non-client role IDs, excluding r.id
+          const currentBaseIds = selectedRoleIds.filter(id => {
+           const found = baseRoles.find((x: any) => x.id === id);
+           return found && !found.isClient && found.id !== r.id;
+          });
           if (e.target.checked) {
-           const nonClient = selectedRoleIds.filter(id => !roles?.find((x: any) => x.id === id)?.isClient);
-           setSelectedRoleIds([...nonClient, r.id]);
+           setSelectedRoleIds([...currentBaseIds, r.id]);
           } else {
-           setSelectedRoleIds(prev => prev.filter(id => id !== r.id));
+           setSelectedRoleIds(currentBaseIds);
           }
          }
          if (!initial?.id) setCustomPerms({});

@@ -128,15 +128,24 @@ export class InfluencersController implements OnModuleInit {
     if (!a) throw new UnauthorizedException('Authentication required');
     if (a.isSuperAdmin) return;
     const role = (a.roleName || '').toLowerCase().trim();
+    const roleParts = role.split(',').map((r: string) => r.trim());
     const isPermitted =
-      role === 'super admin' ||
-      role === 'admin' ||
-      role === 'developer' ||
-      role === 'smm' ||
-      role === 'social media manager' ||
+      roleParts.some((r: string) =>
+        r === 'super admin' ||
+        r === 'admin' ||
+        r === 'developer' ||
+        r === 'smm' ||
+        r === 'social media manager' ||
+        r.includes('admin') ||
+        r.includes('developer') ||
+        r.includes('smm') ||
+        r.includes('social media')
+      ) ||
+      role.includes('social media manager') ||
+      role.includes('social media') ||
+      role.includes('smm') ||
       role.includes('admin') ||
-      role.includes('developer') ||
-      role.includes('smm');
+      role.includes('developer');
 
     if (!isPermitted) {
       throw new UnauthorizedException('Access restricted: Influencer Marketing is accessible only to Admin, Developer, and SMM.');

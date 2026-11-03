@@ -265,15 +265,24 @@ export function isInfluencerRole(actor: any): boolean {
   if (!actor) return false;
   if (actor.isSuperAdmin) return true;
   const role = (actor.roleName || '').toLowerCase().trim();
+  const roleParts = role.split(',').map((r: string) => r.trim());
   return (
-    role === 'super admin' ||
-    role === 'admin' ||
-    role === 'developer' ||
-    role === 'smm' ||
-    role === 'social media manager' ||
+    roleParts.some((r: string) =>
+      r === 'super admin' ||
+      r === 'admin' ||
+      r === 'developer' ||
+      r === 'smm' ||
+      r === 'social media manager' ||
+      r.includes('admin') ||
+      r.includes('developer') ||
+      r.includes('smm') ||
+      r.includes('social media')
+    ) ||
+    role.includes('social media manager') ||
+    role.includes('social media') ||
+    role.includes('smm') ||
     role.includes('admin') ||
-    role.includes('developer') ||
-    role.includes('smm')
+    role.includes('developer')
   );
 }
 

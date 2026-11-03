@@ -1049,7 +1049,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                 <Avatar name={actor.name} color={actor.avatarColor || '#0284c7'} src={actor.avatarUrl} />
                 <span>
                   <strong>{actor.name}</strong>
-                  <small>{actor.roleName}</small>
+                  <small>{[...new Set((actor.roleName || '').split(',').map((s: string) => s.trim()).filter(Boolean))].join(', ')}</small>
                 </span>
                 <ChevronDown size={14} className="text-stone-400 dark:text-zinc-500" />
               </button>
