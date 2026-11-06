@@ -36,7 +36,7 @@ export class NotificationsService {
         event: payload.event,
         icon: '/notification-icon.png',
         badge: '/badge.png',
-        tag: payload.id || 'agency-os'
+        tag: payload.id ? `notice-${payload.id}-${Date.now()}` : `agency-os-${Date.now()}-${Math.floor(Math.random() * 10000)}`
       });
 
       for (const sub of subs) {

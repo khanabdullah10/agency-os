@@ -9,6 +9,31 @@ export const Require=(...permissions:string[])=>SetMetadata('permissions',permis
 export const CurrentActor=createParamDecorator((_data,ctx:ExecutionContext):Actor=>ctx.switchToHttp().getRequest().actor);
 export const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
 export function secureEqual(a:string,b:string) { const x=Buffer.from(a); const y=Buffer.from(b); return x.length===y.length&&timingSafeEqual(x,y); }
+
+export function isContentDeleteAuthorized(a?: Actor | null): boolean {
+  if (!a) return false;
+  if (a.isSuperAdmin) return true;
+  if (a.isClient) return false;
+  const role = (a.roleName || '').toLowerCase().trim();
+  const parts = role.split(',').map((s) => s.trim()).filter(Boolean);
+  return (
+    parts.some((r) =>
+      r === 'super admin' ||
+      r === 'admin' ||
+      r === 'developer' ||
+      r === 'smm' ||
+      r === 'social media manager' ||
+      r.includes('admin') ||
+      r.includes('developer') ||
+      r.includes('social media') ||
+      r.includes('smm')
+    ) ||
+    role.includes('admin') ||
+    role.includes('developer') ||
+    role.includes('social media') ||
+    role.includes('smm')
+  );
+}
 @Injectable()
 export class Access {
  constructor(private db:Database){}

@@ -2,8 +2,9 @@
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Search, CalendarDays, ChevronLeft, ChevronRight, List, Columns3, LayoutGrid, Filter, ArrowUpRight } from 'lucide-react';
-import { useApp, useResource } from '@/lib/api';
+import { Plus, Search, CalendarDays, ChevronLeft, ChevronRight, List, Columns3, LayoutGrid, Filter, ArrowUpRight, Trash2 } from 'lucide-react';
+import { useApp, useResource, useMutation, isContentDeleteAuthorized } from '@/lib/api';
+import { Modal } from './shared';
 import { label, dateLabel, timeLabel, code } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Badge, ClientMark, Empty, ErrorState, Loading, PageHeader } from './shared';
@@ -15,7 +16,21 @@ export function ContentList({fixedClient}:{fixedClient?:string}){
  const filtered=data?.filter(c=>(!status||c.status===status)&&(!client||c.clientId===client)&&(!platform||c.platform?.includes(platform))&&(!q||[c.title,c.code,c.client.name].some((s:string)=>s.toLowerCase().includes(q.toLowerCase()))))||[];
  return <><PageHeader eyebrow="IDEAS, IN MOTION" title="Content" description="One place for every story you’re bringing to life." actions={can('content.create')&&<Button onClick={()=>openForm('content',fixedClient?{clientId:fixedClient}:undefined)}><Plus size={16}/> Create content</Button>}/><div className="filter-bar"><div className="search-field"><Search size={16}/><input placeholder="Find content, a client, or an ID…" value={q} onChange={e=>setQ(e.target.value)}/></div>{!fixedClient&&!actor.isClient&&<select aria-label="Filter by client" value={client} onChange={e=>setClient(e.target.value)}><option value="">All clients</option>{clients?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>}<select aria-label="Filter by status" value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option>{[...new Set([...(actor.isClient?data?.map(c=>c.status)||[]:allStatuses),status])].filter(Boolean).map(s=><option key={s} value={s}>{label(s)}</option>)}</select><select aria-label="Filter by platform" value={platform} onChange={e=>setPlatform(e.target.value)}><option value="">All platforms</option>{['Instagram','Facebook','YouTube','LinkedIn','Google Business Profile','TikTok','X / Twitter','Other'].map(p=><option key={p}>{p}</option>)}</select></div>{loading?<Loading/>:error?<ErrorState message={error}/>:<ContentTable items={filtered}/>}</>;
 }
-export function ContentTable({items}:{items:any[]}){return <div className="table-panel"><div className="table-caption"><strong>{items.length} content items</strong><span>Every detail stays connected.</span></div>{!items.length?<Empty title="Room for a new story" body="Create a content item, or adjust your filters to see more work."/>:<div className="table-scroll"><table><thead><tr><th>Content</th><th>Client</th><th>Format</th><th>Publish date</th><th>Status</th><th/></tr></thead><tbody>{items.map(c=><tr key={c.id}><td><Link className="content-title-cell" href={'/content/'+c.id}><small>{c.code||code(c.id)}</small><strong>{c.title}</strong></Link></td><td><span className="inline-client"><ClientMark name={c.client.name} color={c.client.color} size="tiny"/>{c.client.name}</span></td><td><span>{c.type}</span><small>{c.platform}</small></td><td>{dateLabel(c.publishAt)}<small>{timeLabel(c.publishAt)}</small></td><td><Badge status={c.status}/>{c.overdue&&<span className="overdue-text">Deadline needs attention</span>}</td><td><Link aria-label={'Open '+c.title} className="icon-button" href={'/content/'+c.id}><ArrowUpRight size={17}/></Link></td></tr>)}</tbody></table></div>}</div>;}
+export function ContentTable({items}:{items:any[]}){
+ const {actor}=useApp(),{mutate,pending}=useMutation();
+ const [deletingItem,setDeletingItem]=useState<any>(null);
+ const canDelete=isContentDeleteAuthorized(actor);
+ return <><div className="table-panel"><div className="table-caption"><strong>{items.length} content items</strong><span>Every detail stays connected.</span></div>{!items.length?<Empty title="Room for a new story" body="Create a content item, or adjust your filters to see more work."/>:<div className="table-scroll"><table><thead><tr><th>Content</th><th>Client</th><th>Format</th><th>Publish date</th><th>Status</th><th/></tr></thead><tbody>{items.map(c=><tr key={c.id}><td><Link className="content-title-cell" href={'/content/'+c.id}><small>{c.code||code(c.id)}</small><strong>{c.title}</strong></Link></td><td><span className="inline-client"><ClientMark name={c.client.name} color={c.client.color} size="tiny"/>{c.client.name}</span></td><td><span>{c.type}</span><small>{c.platform}</small></td><td>{dateLabel(c.publishAt)}<small>{timeLabel(c.publishAt)}</small></td><td><Badge status={c.status}/>{c.overdue&&<span className="overdue-text">Deadline needs attention</span>}</td><td><div style={{display:'flex',alignItems:'center',gap:'6px',justifyContent:'flex-end'}}>{canDelete&&<button type="button" title="Delete content" aria-label="Delete content" className="icon-button" style={{color:'#ef4444'}} onClick={(e)=>{e.preventDefault();e.stopPropagation();setDeletingItem(c);}}><Trash2 size={15}/></button>}<Link aria-label={'Open '+c.title} className="icon-button" href={'/content/'+c.id}><ArrowUpRight size={17}/></Link></div></td></tr>)}</tbody></table></div>}</div>
+ {deletingItem && (
+  <Modal open={!!deletingItem} onOpenChange={()=>setDeletingItem(null)} title="Delete this content item?" description={'Permanently delete "' + deletingItem.title + '"? This will remove the deliverable and cancel linked tasks.'}>
+   <div className="form-footer">
+    <Button variant="outline" onClick={()=>setDeletingItem(null)}>Cancel</Button>
+    <Button disabled={pending} style={{background:'#dc2626',color:'#fff'}} onClick={async()=>{try{await mutate('/content/'+deletingItem.id,undefined,'DELETE','Content deleted');setDeletingItem(null);}catch{}}}>{pending?'Deleting…':'Delete content'}</Button>
+   </div>
+  </Modal>
+ )}
+ </>;
+}
 export function CalendarView(){
  const {can,openForm,actor}=useApp(),{data,loading,error}=useResource<any[]>('/content'),{data:clients}=useResource<any[]>('/clients'),{data:users}=useResource<any[]>(can('employee.view')?'/users':null);
  const [view,setView]=useState('Month'),[anchor,setAnchor]=useState(new Date()),[client,setClient]=useState(''),[status,setStatus]=useState(''),[assignee,setAssignee]=useState(''),[platform,setPlatform]=useState(''),[more,setMore]=useState(false),[type,setType]=useState(''),[overdue,setOverdue]=useState(false),[publishFilter,setPublishFilter]=useState(''),[dateFrom,setDateFrom]=useState(''),[dateTo,setDateTo]=useState(''),[role,setRole]=useState('');

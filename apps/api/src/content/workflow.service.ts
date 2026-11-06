@@ -9,6 +9,26 @@ import { TasksService } from '../tasks/tasks.module';
 import { NotificationsService } from '../notifications/notifications.module';
 @Injectable()
 export class WorkflowService {
+ private async getAdminsAndDevs(tx: any, agencyId: string): Promise<string[]> {
+  const users = await tx.user.findMany({
+   where: {
+    agencyId,
+    active: true,
+    deletedAt: null,
+    role: {
+     OR: [
+      { isSuperAdmin: true },
+      { name: { contains: 'Admin' } },
+      { name: { contains: 'Developer' } },
+      { systemKey: { in: ['SUPER_ADMIN', 'ADMIN', 'DEVELOPER'] } }
+     ]
+    }
+   },
+   select: { id: true }
+  });
+  return users.map((u: any) => u.id);
+ }
+
  constructor(private db:Database,private access:Access,private tasks:TasksService,private notifications:NotificationsService){}
  authorize(a:Actor,c:any,action:string) {
   const team=c.assignees as TeamAssignments;
@@ -53,7 +73,11 @@ export class WorkflowService {
     await audit(tx,a,event,'content',String(id),{...base,previous:{status},next:{status:next},clientVisible});
     status=next;
    };
-   const notice=async(recipients:(string|undefined)[],event:string,title:string)=>this.notifications.emit(tx,recipients.filter(Boolean) as string[],{event,title,body:c.title?(a.name?`${c.title}/${a.name}`:c.title):code,href:'/content/'+id,key:'content:'+id+':'+(c.revision+1)+':'+event+':'+(stage||'')},a.agencyId,a.id);
+   const notice=async(recipients:(string|undefined)[],event:string,title:string)=>{
+     const admins = await this.getAdminsAndDevs(tx, a.agencyId);
+     const allRecipients = [...new Set([...recipients.filter(Boolean) as string[], ...admins])];
+     return this.notifications.emit(tx, allRecipients, {event, title, body: c.title ? (a.name ? `${c.title} · ${a.name}` : c.title) : code, href: '/content/' + id, key: 'content:' + id + ':' + (c.revision + 1) + ':' + event + ':' + (stage || '') + ':' + Date.now()}, a.agencyId, a.id);
+    };
    const clients=c.client.users.map(x=>x.userId);
    const production=async()=>{
     if(c.requiresShoot){if(!team.videographer)throw new BadRequestException('Assign a videographer before approving the production plan.');await update('READY_FOR_SHOOT','shoot.assigned');await this.tasks.system(tx,a,c,'SHOOT',team.videographer,deadlines.shoot);}

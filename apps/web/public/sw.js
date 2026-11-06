@@ -44,7 +44,7 @@ self.addEventListener('push', (event) => {
     body: payload.body || 'You have a new update in Agency OS',
     icon: payload.icon || '/notification-icon.png',
     badge: payload.badge || '/badge.png',
-    tag: payload.tag || payload.key || payload.id || 'agency-os-notification',
+    tag: payload.tag || payload.key || (payload.id ? `notice-${payload.id}` : `agency-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
     data: {
       url: payload.url || payload.href || '/'
     },

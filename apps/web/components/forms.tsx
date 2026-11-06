@@ -1,11 +1,11 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
-import { useMutation, useResource, useApp } from '@/lib/api';
+import { Check, ChevronLeft, ChevronRight, CalendarDays, Trash2 } from 'lucide-react';
+import { useMutation, useResource, useApp, isContentDeleteAuthorized } from '@/lib/api';
 import { inputDate, label, code } from '@/lib/utils';
 import { Button } from './ui/button';
-import { Field, FormFooter, Loading, ErrorState, ImageUploadField, ColorPickerField } from './shared';
+import { Field, FormFooter, Loading, ErrorState, ImageUploadField, ColorPickerField, Modal } from './shared';
 const offsets={script:8,shoot:5,edit:3,internal:3,clientFinal:2,ready:1};
 const deadlines=(at:string,values:any=offsets)=>Object.fromEntries(Object.entries(values).map(([key,days])=>[key,new Date(new Date(at).getTime()-Number(days)*86400000).toISOString()]));
 const emptyBrand={colors:'',fonts:'',logoUrl:'',assetsUrl:'',audience:'',competitors:'',pillars:'',tone:'',dos:'',donts:''};
@@ -20,7 +20,9 @@ export function CreateForm({kind,initial,onDone}:{kind:string;initial?:any;onDon
  return <ContentForm initial={initial} onDone={onDone}/>;
 }
 export function ContentForm({initial,onDone}:{initial?:any;onDone:()=>void}){
- const {mutate,pending}=useMutation(),router=useRouter();
+ const {actor}=useApp(),{mutate,pending}=useMutation(),router=useRouter();
+ const [deleteConfirm,setDeleteConfirm]=useState(false);
+ const canDelete=isContentDeleteAuthorized(actor);
  const {data:clients,loading,error}=useResource<any[]>('/clients');
  const [d,setD]=useState<any>({clientId:'',title:'',platform:'Instagram',type:'Instagram Reel',pillar:'',publishAt:new Date(Date.now()+8*86400000).toISOString(),requiresShoot:false,assignees:{},notes:'',sharedCaption:'',sharedHashtags:'',...initial});
  const {data:client}=useResource(d.clientId?'/clients/'+d.clientId:null);
@@ -147,7 +149,27 @@ export function ContentForm({initial,onDone}:{initial?:any;onDone:()=>void}){
   </div>
  )}
 
- <Field label="Internal brief & notes"><textarea value={d.notes||''} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="What should the team know?"/></Field><FormFooter pending={pending} onCancel={onDone} submit={initial?.id?'Save content plan':'Create content'}/></form>;
+ <Field label="Internal brief & notes"><textarea value={d.notes||''} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="What should the team know?"/></Field>
+  <div style={{display:'flex',alignItems:'center',justifyContent:initial?.id&&canDelete?'space-between':'flex-end',gap:'10px',marginTop:'18px'}}>
+   {initial?.id && canDelete && (
+    <Button type="button" variant="outline" style={{color:'#ef4444',borderColor:'rgba(239,68,68,0.35)'}} onClick={()=>setDeleteConfirm(true)}>
+     <Trash2 size={13}/> Delete deliverable
+    </Button>
+   )}
+   <div style={{display:'flex',gap:'8px'}}>
+    <Button variant="outline" type="button" onClick={onDone}>Cancel</Button>
+    <Button disabled={pending} type="submit">{pending?'Saving…':initial?.id?'Save content plan':'Create content'}</Button>
+   </div>
+  </div>
+  {deleteConfirm && (
+   <Modal open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Delete this content item?" description="Are you sure you want to permanently delete this content deliverable?">
+    <div className="form-footer">
+     <Button variant="outline" type="button" onClick={()=>setDeleteConfirm(false)}>Cancel</Button>
+     <Button disabled={pending} type="button" style={{background:'#dc2626',color:'#fff'}} onClick={async()=>{try{await mutate('/content/'+initial.id,undefined,'DELETE','Content deleted');setDeleteConfirm(false);onDone();router.push('/content');}catch{}}}>{pending?'Deleting…':'Delete content'}</Button>
+    </div>
+   </Modal>
+  )}
+ </form>;
 }
 function ClientForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  const {mutate,pending}=useMutation(),{data:users}=useResource<any[]>('/users'),router=useRouter();

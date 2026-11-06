@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Module, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Module, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { CurrentActor, Require } from '../core/security';
 import { Actor } from '../core/types';
 import { ContentService } from './content.service';

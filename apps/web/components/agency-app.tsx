@@ -717,6 +717,41 @@ function Shell({ children }: { children: React.ReactNode }) {
     };
   }, [fetchNotices]);
 
+  // Auto-sync Web Push Subscription & Mobile Notifications
+  const [showPushBanner, setShowPushBanner] = useState(false);
+
+  useEffect(() => {
+    if (!actor || typeof window === 'undefined') return;
+    if ('Notification' in window && 'serviceWorker' in navigator) {
+      if (Notification.permission === 'granted') {
+        import('@/lib/push-notifications').then(({ subscribeToPush }) => {
+          subscribeToPush().catch(() => {});
+        });
+      } else if (Notification.permission === 'default') {
+        const timer = setTimeout(() => {
+          const dismissed = sessionStorage.getItem('push_banner_dismissed');
+          if (!dismissed) setShowPushBanner(true);
+        }, 2500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [actor?.id]);
+
+  const handleEnablePush = async () => {
+    try {
+      const { subscribeToPush } = await import('@/lib/push-notifications');
+      const res = await subscribeToPush();
+      if (res.success) {
+        toast.success('Mobile push notifications active for your device!');
+        setShowPushBanner(false);
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Could not enable push notifications.');
+    }
+  };
+
   // Pusher realtime notification channel binding
   useEffect(() => {
     if (!actor?.id) return;
@@ -1163,6 +1198,49 @@ function Shell({ children }: { children: React.ReactNode }) {
       </div>
 
       <SearchModal open={search} onClose={() => setSearch(false)} />
+      {showPushBanner && (
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm p-4 rounded-xl shadow-2xl border border-pink-500/30 bg-stone-900/95 text-stone-100 backdrop-blur-md flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 text-pink-400 font-semibold text-sm">
+              <Bell size={16} />
+              <span>Mobile Notifications</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem('push_banner_dismissed', '1');
+                setShowPushBanner(false);
+              }}
+              className="text-stone-400 hover:text-stone-200 p-1"
+              aria-label="Dismiss"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <p className="text-xs text-stone-300 leading-relaxed">
+            Get instant alerts on your notification bar (iOS & Android) for every activity, comment, task, and script review.
+          </p>
+          <div className="flex items-center gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                sessionStorage.setItem('push_banner_dismissed', '1');
+                setShowPushBanner(false);
+              }}
+            >
+              Later
+            </Button>
+            <Button
+              size="sm"
+              className="bg-pink-600 hover:bg-pink-500 text-white"
+              onClick={handleEnablePush}
+            >
+              Enable Notifications
+            </Button>
+          </div>
+        </div>
+      )}
       <InstallAppModal open={installModalOpen} onClose={() => setInstallModalOpen(false)} />
     </div>
   );

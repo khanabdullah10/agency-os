@@ -26,3 +26,29 @@ export function useMutation(){
  },[refresh]);
  return {mutate,pending};
 }
+
+
+export function isContentDeleteAuthorized(actor?: Actor | null): boolean {
+  if (!actor) return false;
+  if (actor.isSuperAdmin) return true;
+  if (actor.isClient) return false;
+  const role = (actor.roleName || '').toLowerCase().trim();
+  const parts = role.split(',').map((s) => s.trim()).filter(Boolean);
+  return (
+    parts.some((r) =>
+      r === 'super admin' ||
+      r === 'admin' ||
+      r === 'developer' ||
+      r === 'smm' ||
+      r === 'social media manager' ||
+      r.includes('admin') ||
+      r.includes('developer') ||
+      r.includes('social media') ||
+      r.includes('smm')
+    ) ||
+    role.includes('admin') ||
+    role.includes('developer') ||
+    role.includes('social media') ||
+    role.includes('smm')
+  );
+}

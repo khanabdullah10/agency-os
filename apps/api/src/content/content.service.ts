@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, ForbiddenException } from '@nestjs/common';
 import { Database } from '../core/database';
-import { Access } from '../core/security';
+import { Access, isContentDeleteAuthorized } from '../core/security';
 import { Actor, TeamAssignments, has, safeUser, contentCode } from '../core/types';
 import { contentDto, contentUpdateDto, scriptDto, aiAssistDto, shootDto, versionDto, commentDto } from '../core/schemas';
 import { suggestDeadlines, clientStatus, assertAssignment } from '../core/workflow';
@@ -9,6 +9,37 @@ import { TasksService } from '../tasks/tasks.module';
 import { NotificationsService } from '../notifications/notifications.module';
 @Injectable()
 export class ContentService {
+ async getStakeholders(tx: any, agencyId: string, c: any, extraUserIds: (string | undefined)[] = [], includeClient = false): Promise<string[]> {
+  const management = await tx.user.findMany({
+   where: {
+    agencyId,
+    active: true,
+    deletedAt: null,
+    role: {
+     OR: [
+      { isSuperAdmin: true },
+      { name: { contains: 'Admin' } },
+      { name: { contains: 'Developer' } },
+      { systemKey: { in: ['SUPER_ADMIN', 'ADMIN', 'DEVELOPER'] } }
+     ]
+    }
+   },
+   select: { id: true }
+  });
+  const assignees = c?.assignees && typeof c.assignees === 'object' ? Object.values(c.assignees as Record<string, string>) : [];
+  let clientUsers: string[] = [];
+  if (includeClient && c?.clientId) {
+   const cu = await tx.clientUser.findMany({ where: { clientId: c.clientId }, select: { userId: true } });
+   clientUsers = cu.map((u: any) => u.userId);
+  }
+  return [...new Set([
+   ...management.map((m: any) => m.id),
+   ...assignees.filter(Boolean),
+   ...(extraUserIds.filter(Boolean) as string[]),
+   ...clientUsers
+  ])];
+ }
+
  constructor(private db:Database,private access:Access,private tasks:TasksService,private notices:NotificationsService){}
  async assignments(a:Actor,clientId:string,assignments:TeamAssignments) {
   for(const userId of [...new Set(Object.values(assignments).filter(Boolean))] as string[]) {
@@ -16,6 +47,44 @@ export class ContentService {
    try{assertAssignment(a,user.role);}catch(e:any){throw new ForbiddenException(e.message);}
   }
  }
+ 
+ async delete(a: Actor, id: number) {
+  if (!isContentDeleteAuthorized(a)) {
+   throw new ForbiddenException('Only Admin, Super Admin, Developer, and SMM are authorized to delete content.');
+  }
+  const c = await this.access.content(a, id);
+  return this.db.atomic(async tx => {
+   await tx.contentItem.update({
+    where: { id },
+    data: { deletedAt: new Date() }
+   });
+   await tx.task.updateMany({
+    where: { contentId: id, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+    data: { status: 'CANCELLED' }
+   });
+   await audit(tx, a, 'content.deleted', 'content', String(id), {
+    clientId: c.clientId,
+    contentId: id,
+    previous: { title: c.title, status: c.status }
+   });
+   const stakeholders = await this.getStakeholders(tx, a.agencyId, c);
+   await this.notices.emit(
+    tx,
+    stakeholders,
+    {
+     event: 'content.deleted',
+     title: 'Content Deleted',
+     body: contentCode(id) + ' · ' + c.title + ' was deleted by ' + a.name,
+     href: '/content',
+     key: 'content:deleted:' + id + ':' + Date.now()
+    },
+    a.agencyId,
+    a.id
+   );
+   return { ok: true, id };
+  });
+ }
+
  async list(a:Actor,q:Record<string,string>) {
   const filters:any={deletedAt:null,client:this.access.clientWhere(a)};
   if(q.clientId)filters.clientId=q.clientId;
@@ -84,7 +153,8 @@ export class ContentService {
    const code = contentCode(c.id);
    await tx.chatMessage.create({ data: { threadId: defaultThread.id, authorId: a.id, body: '🎬 New content planned: **' + code + ' · ' + c.title + '** (' + c.platform + ' · ' + c.type + ') · View at /content/' + c.id } });
    await tx.chatThread.update({ where: { id: defaultThread.id }, data: { updatedAt: new Date() } });
-   await this.notices.emit(tx, [d.requiresShoot ? d.assignees.writer : undefined, d.assignees.smm].filter(Boolean) as string[], { event: 'content.created', title: 'Content Created', body: code + ' · ' + c.title + ' for ' + client.name, href: '/content/' + c.id, key: 'content:created:' + c.id }, a.agencyId, a.id);
+   const stakeholders = await this.getStakeholders(tx, a.agencyId, c, [d.assignees?.smm, d.assignees?.writer, d.assignees?.videographer, d.assignees?.editor, d.assignees?.designer]);
+    await this.notices.emit(tx, stakeholders, { event: 'content.created', title: 'Content Created', body: code + ' · ' + c.title + ' for ' + client.name, href: '/content/' + c.id, key: 'content:created:' + c.id + ':' + Date.now() }, a.agencyId, a.id);
    await tx.contentStatusHistory.create({data:{contentId:c.id,actorId:a.id,previous:'',next:c.status,event:'content.created'}});
    await audit(tx,a,'content.created','content',String(c.id),{clientId:c.clientId,contentId:c.id,next:{title:c.title,status:c.status}});
    return {id:c.id};
@@ -105,6 +175,8 @@ export class ContentService {
    if(!updated.count)throw new ConflictException('This content changed. Refresh before saving.');
    if(d.deadlines){for(const t of await tx.task.findMany({where:{contentId:id,status:{notIn:['COMPLETED','CANCELLED']}}})){const key:{[key:string]:string}={SCRIPT:'script',SHOOT:'shoot',EDIT:'edit',DESIGN:'edit',SMM_REVIEW:'internal',PUBLISH:'ready'};if(d.deadlines[key[t.kind]])await tx.task.update({where:{id:t.id},data:{dueAt:new Date(d.deadlines[key[t.kind]])}});}}
    await audit(tx,a,'content.updated','content',String(id),{clientId:c.clientId,contentId:id,next:{changedFields:Object.keys(data)}});
+    const stakeholders = await this.getStakeholders(tx, a.agencyId, c);
+    await this.notices.emit(tx, stakeholders, { event: 'content.updated', title: 'Content Plan Updated', body: contentCode(id) + ' · ' + (d.title || c.title) + ' was updated by ' + a.name, href: '/content/' + id, key: 'content:updated:' + id + ':' + Date.now() }, a.agencyId, a.id);
    return {ok:true};
   });
  }
@@ -123,6 +195,8 @@ export class ContentService {
    const old=await tx.script.findUnique({where:{contentId:id}});
    await tx.script.upsert({where:{contentId:id},create:{contentId:id,...data,updatedBy:a.id},update:{...data,updatedBy:a.id}});
    await audit(tx,a,'script.draft_saved','content',String(id),{clientId:c.clientId,contentId:id,previous:old?{hook:old.hook,body:old.body,cta:old.cta,caption:old.caption,hashtags:old.hashtags}:undefined,next:{hook:data.hook,body:data.body,cta:data.cta,caption:data.caption,hashtags:data.hashtags}});
+    const stakeholders = await this.getStakeholders(tx, a.agencyId, c, [(c.assignees as any)?.smm]);
+    await this.notices.emit(tx, stakeholders, { event: 'script.saved', title: 'Script Draft Saved', body: a.name + ' updated the script for ' + c.title, href: '/content/' + id, key: 'script:saved:' + id + ':' + Date.now() }, a.agencyId, a.id);
    return {ok:true};
   });
  }
@@ -344,14 +418,20 @@ Return JSON matching:
    if(!(await tx.contentItem.updateMany({where:{id,revision:d.revision},data:{revision:{increment:1}}})).count)throw new ConflictException('This content changed. Refresh before adding another version.');
    const latest=await tx.contentVersion.aggregate({where:{contentId:id},_max:{number:true}});
    const version=await tx.contentVersion.create({data:{contentId:id,number:(latest._max.number||0)+1,driveUrl:d.url,notes:d.notes,addedById:a.id}});
-   await audit(tx,a,'edit.version_added','version',version.id,{clientId:c.clientId,contentId:id,next:{number:version.number,url:d.url}});return version;
+   await audit(tx,a,'edit.version_added','version',version.id,{clientId:c.clientId,contentId:id,next:{number:version.number,url:d.url}});
+   const stakeholders = await this.getStakeholders(tx, a.agencyId, c, [(c.assignees as any)?.smm]);
+   await this.notices.emit(tx, stakeholders, { event: 'edit.version_added', title: 'New Cut Uploaded', body: 'Version V' + version.number + ' uploaded for ' + c.title + ' by ' + a.name, href: '/content/' + id, key: 'version:added:' + id + ':' + version.number + ':' + Date.now() }, a.agencyId, a.id);
+   return version;
   });
  }
  async comment(a:Actor,id:number,raw:unknown) {
   const c=await this.access.content(a,id);const d=commentDto.parse(raw);
   return this.db.atomic(async tx=>{
    const comment=await tx.contentComment.create({data:{...d,contentId:id,authorId:a.id,clientVisible:a.isClient||d.clientVisible}});
-   await audit(tx,a,'content.commented','comment',comment.id,{clientId:c.clientId,contentId:id,clientVisible:a.isClient||d.clientVisible});return comment;
+   await audit(tx,a,'content.commented','comment',comment.id,{clientId:c.clientId,contentId:id,clientVisible:a.isClient||d.clientVisible});
+   const stakeholders = await this.getStakeholders(tx, a.agencyId, c, undefined, a.isClient || d.clientVisible);
+   await this.notices.emit(tx, stakeholders, { event: 'content.commented', title: 'New Comment on ' + c.title, body: a.name + ': ' + d.body.slice(0, 100), href: '/content/' + id, key: 'content:comment:' + id + ':' + comment.id + ':' + Date.now() }, a.agencyId, a.id);
+   return comment;
   });
  }
 }
