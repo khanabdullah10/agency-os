@@ -4,6 +4,7 @@ import { Actor } from '../core/types';
 import { ContentService } from './content.service';
 import { WorkflowService } from './workflow.service';
 import { TasksModule } from '../tasks/tasks.module';
+
 @Controller('content')
 class ContentController {
  constructor(private service:ContentService,private workflow:WorkflowService){}
@@ -11,6 +12,7 @@ class ContentController {
  @Get(':id') @Require('content.view') get(@CurrentActor()a:Actor,@Param('id',ParseIntPipe)id:number){return this.service.detail(a,id);}
  @Post() @Require('content.create') create(@CurrentActor()a:Actor,@Body()d:unknown){return this.service.create(a,d);}
  @Patch(':id') @Require('content.edit') update(@CurrentActor()a:Actor,@Param('id',ParseIntPipe)id:number,@Body()d:unknown){return this.service.update(a,id,d);}
+ @Delete(':id') @Require('content.view') delete(@CurrentActor()a:Actor,@Param('id',ParseIntPipe)id:number){return this.service.delete(a,id);}
  @Post(':id/script') @Require('script.write') script(@CurrentActor()a:Actor,@Param('id',ParseIntPipe)id:number,@Body()d:unknown){return this.service.saveScript(a,id,d);}
  @Post(':id/script/ai-assist') @Require('script.write') aiAssist(@CurrentActor()a:Actor,@Param('id',ParseIntPipe)id:number,@Body()d:unknown){return this.service.aiAssist(a,id,d);}
  @Post(':id/shoot') @Require('shoot.manage') shoot(@CurrentActor()a:Actor,@Param('id',ParseIntPipe)id:number,@Body()d:unknown){return this.service.saveShoot(a,id,d);}
@@ -19,4 +21,3 @@ class ContentController {
  @Post(':id/comments') @Require('content.view') comment(@CurrentActor()a:Actor,@Param('id',ParseIntPipe)id:number,@Body()d:unknown){return this.service.comment(a,id,d);}
 }
 @Module({imports:[TasksModule],providers:[ContentService,WorkflowService],controllers:[ContentController],exports:[ContentService]}) export class ContentModule {}
-
