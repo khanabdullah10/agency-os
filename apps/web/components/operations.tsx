@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Search, ArrowUpRight, Check, FolderOpen, Bell, Mail, MessageCircle, Radio, Shield, Clock3, Download, ExternalLink, BarChart3, Settings2, Send, Users, CircleCheck, Pencil, Trash2, Smartphone, BellRing } from 'lucide-react';
+import { Plus, Search, ArrowUpRight, Check, FolderOpen, Bell, Mail, MessageCircle, Radio, Shield, Clock3, Download, ExternalLink, BarChart3, Settings2, Send, Users, CircleCheck, Pencil, Trash2, Smartphone, BellRing, AlertTriangle } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { toast } from 'sonner';
 import { useApp, useMutation, useResource } from '@/lib/api';
@@ -127,8 +127,10 @@ export function PublishingView(){
              <small>{timeLabel(c.publishAt)}</small>
             </td>
             <td>
-             <Badge status={c.status}/>
-             {c.overdue&&<span className="overdue-text">Deadline needs attention</span>}
+             <div className="status-cell">
+              <Badge status={c.status}/>
+              {c.overdue&&<span className="overdue-text"><AlertTriangle size={11} className="shrink-0"/>Deadline needs attention</span>}
+             </div>
             </td>
             <td style={{textAlign:'right'}}>
              <div className="flex items-center justify-end gap-2">
