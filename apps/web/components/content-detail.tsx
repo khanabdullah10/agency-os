@@ -301,7 +301,8 @@ function AiScriptModal({
 
 function ScriptTab({c}:{c:any}){
  const {actor,can}=useApp(),{mutate,pending}=useMutation();
- const editable=!actor.isClient&&can('script.write')&&(can('content.edit_all')||c.assignees?.writer===actor.id)&&['PLANNING','SCRIPT_WRITING'].includes(c.status);
+ const isWriterOrManager = !actor.isClient && (can('content.edit_all') || can('script.write') || can('content.edit') || c.assignees?.writer === actor.id || c.assignees?.smm === actor.id);
+ const editable = isWriterOrManager && !['PUBLISHED', 'ANALYTICS', 'REPORTING'].includes(c.status);
  const s=c.script||{};
 
  const [hook,setHook]=useState(s.hook||'');

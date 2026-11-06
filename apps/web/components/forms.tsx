@@ -215,36 +215,72 @@ function UserForm({initial,onDone}:{initial?:any;onDone:()=>void}){
  }, [roles]);
 
  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
- const [rolesInitialized, setRolesInitialized] = useState(false);
+ const [initializedUserId, setInitializedUserId] = useState<string | null>(null);
+
+ // Comprehensive canonical role key mapping for foolproof matching
+ const ROLE_CANONICAL_KEYS: Record<string, string> = {
+  'smm': 'SMM',
+  'social media manager': 'SMM',
+  'social media': 'SMM',
+  'writer': 'WRITER',
+  'script writer': 'WRITER',
+  'script': 'WRITER',
+  'videographer': 'VIDEOGRAPHER',
+  'video': 'VIDEOGRAPHER',
+  'designer': 'DESIGNER',
+  'graphic designer': 'DESIGNER',
+  'graphics': 'DESIGNER',
+  'editor': 'EDITOR',
+  'video editor': 'EDITOR',
+  'developer': 'DEVELOPER',
+  'dev': 'DEVELOPER',
+  'employee': 'EMPLOYEE',
+  'admin': 'ADMIN',
+  'super admin': 'SUPER_ADMIN',
+  'super_admin': 'SUPER_ADMIN',
+  'client': 'CLIENT'
+ };
 
  useEffect(() => {
-  if (roles?.length && !rolesInitialized) {
-   const rawName = initial?.role?.name || '';
-   if (rawName) {
-    const names = new Set(rawName.split(',').map((s: string) => s.trim()).filter(Boolean));
-    const matched = baseRoles.filter((r: any) => names.has(r.name)).map((r: any) => r.id);
+  if (!roles?.length) return;
+  const currentKey = initial?.id ? String(initial.id) + '-' + String(initial.roleId || '') : 'new';
+  if (initializedUserId !== currentKey) {
+   if (!initial?.id && !initial?.roleId) {
+    const defaultRole = baseRoles.find((r: any) => r.name === 'Employee' || r.systemKey === 'EMPLOYEE') || baseRoles[0];
+    setSelectedRoleIds(defaultRole ? [defaultRole.id] : []);
+   } else {
+    // Collect all tokens from the user's role names / keys
+    const tokens: string[] = [];
+    if (initial?.role?.name) tokens.push(...initial.role.name.split(',').map((s: string) => s.trim().toLowerCase()));
+    if (initial?.role?.systemKey) tokens.push(initial.role.systemKey.trim().toLowerCase());
+    if (initial?.roleName) tokens.push(...initial.roleName.split(',').map((s: string) => s.trim().toLowerCase()));
+    if (initial?.roleId) {
+     const foundRole = (roles || []).find((x: any) => x.id === initial.roleId);
+     if (foundRole?.name) tokens.push(...foundRole.name.split(',').map((s: string) => s.trim().toLowerCase()));
+     if (foundRole?.systemKey) tokens.push(foundRole.systemKey.trim().toLowerCase());
+    }
+    const userRoleTokens = [...new Set(tokens.filter(Boolean))];
+    const userCanonicalKeys = new Set(userRoleTokens.map(t => ROLE_CANONICAL_KEYS[t] || t.toUpperCase()));
+
+    // Match against baseRoles
+    const matched = baseRoles.filter((r: any) => {
+     if (r.id === initial?.roleId) return true;
+     const rCanonical = ROLE_CANONICAL_KEYS[r.name.toLowerCase().trim()] || (r.systemKey ? r.systemKey.toUpperCase() : r.name.toUpperCase());
+     if (userCanonicalKeys.has(rCanonical)) return true;
+     if (userRoleTokens.includes(r.name.toLowerCase().trim())) return true;
+     if (r.systemKey && userRoleTokens.includes(r.systemKey.toLowerCase().trim())) return true;
+     return false;
+    }).map((r: any) => r.id);
+
     if (matched.length > 0) {
      setSelectedRoleIds([...new Set(matched)] as string[]);
-     setRolesInitialized(true);
-     return;
+    } else if (initial?.roleId) {
+     setSelectedRoleIds([initial.roleId]);
     }
    }
-   if (initial?.roleId) {
-    const foundRole = (roles || []).find((x: any) => x.id === initial.roleId);
-    if (foundRole?.name) {
-     const names = new Set(foundRole.name.split(',').map((s: string) => s.trim()).filter(Boolean));
-     const matched = baseRoles.filter((r: any) => names.has(r.name)).map((r: any) => r.id);
-     if (matched.length > 0) {
-      setSelectedRoleIds([...new Set(matched)] as string[]);
-      setRolesInitialized(true);
-      return;
-     }
-    }
-    setSelectedRoleIds([initial.roleId]);
-   }
-   setRolesInitialized(true);
+   setInitializedUserId(currentKey);
   }
- }, [roles, initial, rolesInitialized, baseRoles]);
+ }, [roles, initial?.id, initial?.roleId, baseRoles, initializedUserId]);
 
  const [avatarUrl,setAvatarUrl]=useState<string|null>(initial?.avatarUrl||null);
  const [customEnabled,setCustomEnabled]=useState(Boolean(initial?.permissions?.length));

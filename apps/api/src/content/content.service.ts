@@ -164,14 +164,34 @@ export class ContentService {
   this.access.internal(a);const c=await this.access.content(a,id),d=contentUpdateDto.parse(raw);
   if(['PUBLISHED','ANALYTICS','REPORTING'].includes(c.status))throw new BadRequestException('Published content is immutable. Create new content for another post.');
   if(!has(a,'content.edit_all')&&(c.assignees as any).smm!==a.id)throw new ForbiddenException('Only the assigned SMM can change this plan.');
-  if(d.assignees) {
-   if(!['IDEA','PLANNING','SCRIPT_WRITING'].includes(c.status))throw new BadRequestException('Team assignments are locked after script submission.');
-   await this.assignments(a,c.clientId,d.assignees);
+    if (d.assignees) {
+   await this.assignments(a, c.clientId, d.assignees);
   }
-  if(d.requiresShoot!==undefined&&!['IDEA','PLANNING','SCRIPT_WRITING'].includes(c.status))throw new BadRequestException('The production route is locked after script submission.');
-  const {revision,...data}=d;
-  return this.db.atomic(async tx=>{
-   const updated=await tx.contentItem.updateMany({where:{id,revision},data:{...data,...(d.publishAt?{publishAt:new Date(d.publishAt)}:{}),revision:{increment:1}}});
+  const { revision, ...data } = d as any;
+  return this.db.atomic(async tx => {
+   // When transitioning requiresShoot to true, unlock the scripting and shooting phase
+   if (d.requiresShoot && !c.requiresShoot) {
+    const writerId = (d.assignees as any)?.writer || (c.assignees as any)?.writer;
+    // Set status to SCRIPT_WRITING if writer assigned, else PLANNING
+    data.status = writerId ? 'SCRIPT_WRITING' : 'PLANNING';
+    if (writerId) {
+     const deadlines = (c.deadlines as any) || {};
+     await this.tasks.system(tx, a, c, 'SCRIPT', writerId, deadlines.script || new Date(Date.now() + 86400000 * 3).toISOString());
+    }
+    // Cancel any premature edit/design tasks created when it had no shoot
+    await tx.task.updateMany({
+     where: { contentId: id, kind: { in: ['EDIT', 'DESIGN'] }, status: { notIn: ['COMPLETED'] } },
+     data: { status: 'CANCELLED' }
+    });
+   }
+   const updated = await tx.contentItem.updateMany({
+    where: { id, revision },
+    data: {
+     ...data,
+     ...(d.publishAt ? { publishAt: new Date(d.publishAt) } : {}),
+     revision: { increment: 1 }
+    }
+   });
    if(!updated.count)throw new ConflictException('This content changed. Refresh before saving.');
    if(d.deadlines){for(const t of await tx.task.findMany({where:{contentId:id,status:{notIn:['COMPLETED','CANCELLED']}}})){const key:{[key:string]:string}={SCRIPT:'script',SHOOT:'shoot',EDIT:'edit',DESIGN:'edit',SMM_REVIEW:'internal',PUBLISH:'ready'};if(d.deadlines[key[t.kind]])await tx.task.update({where:{id:t.id},data:{dueAt:new Date(d.deadlines[key[t.kind]])}});}}
    await audit(tx,a,'content.updated','content',String(id),{clientId:c.clientId,contentId:id,next:{changedFields:Object.keys(data)}});
